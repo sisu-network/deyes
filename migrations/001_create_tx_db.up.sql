@@ -1,0 +1,1 @@
+CREATE TABLE transactions(chain VARCHAR(64), tx_hash VARCHAR(256), tx_bytes LONGBLOB);
