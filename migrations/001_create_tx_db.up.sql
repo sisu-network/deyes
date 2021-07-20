@@ -1,1 +1,1 @@
-CREATE TABLE transactions(chain VARCHAR(64), tx_hash VARCHAR(256), tx_bytes LONGBLOB);
+CREATE TABLE transactions(chain VARCHAR(64), tx_hash VARCHAR(256), block_height BIGINT, tx_bytes LONGBLOB, PRIMARY KEY (chain, tx_hash, block_height));

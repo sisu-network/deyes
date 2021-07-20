@@ -90,5 +90,15 @@ func (d *Database) DoMigration() error {
 	return nil
 }
 
-func (db *Database) SaveTx(bytes []byte) {
+func (d *Database) SaveTx(chain string, hash string, blockHeight int64, bytes []byte) error {
+	if len(hash) > 256 {
+		hash = hash[:256]
+	}
+
+	_, err := d.db.Exec("INSERT INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)", chain, hash, blockHeight, bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

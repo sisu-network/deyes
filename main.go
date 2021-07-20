@@ -12,17 +12,19 @@ func initialize() {
 	}
 
 	// Connect DB
-	database := database.NewDb()
-	err = database.Connect()
+	db := database.NewDb()
+	err = db.Connect()
 	if err != nil {
 		panic(err)
 	}
 
 	// Migration
-	err = database.DoMigration()
+	err = db.DoMigration()
 	if err != nil {
 		panic(err)
 	}
+
+	// testDb(db)
 }
 
 func main() {

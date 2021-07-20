@@ -8,19 +8,22 @@ import (
 	"github.com/ethereum/go-ethereum"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/sisu-network/deyes/database"
 )
 
 type EthClient struct {
-	rpcEndpoint        string
-	client             *ethclient.Client
-	height             int64
-	estimatedBlockTime int
+	rpcEndpoint string
+	client      *ethclient.Client
+	height      int64
+	blockTime   int
+	db          *database.Database
 }
 
-func NewClient(rpcEndpoint string, estimatedBlockTime int) *EthClient {
+func NewClient(db *database.Database, rpcEndpoint string, blockTime int) *EthClient {
 	return &EthClient{
-		rpcEndpoint:        rpcEndpoint,
-		estimatedBlockTime: estimatedBlockTime,
+		db:          db,
+		rpcEndpoint: rpcEndpoint,
+		blockTime:   blockTime,
 	}
 }
 
@@ -47,7 +50,7 @@ func (c *EthClient) Start() {
 		c.processBlock(block)
 
 		c.height++
-		time.Sleep(time.Millisecond * time.Duration(c.estimatedBlockTime))
+		time.Sleep(time.Millisecond * time.Duration(c.blockTime))
 	}()
 }
 
