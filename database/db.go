@@ -102,3 +102,22 @@ func (d *Database) SaveTx(chain string, hash string, blockHeight int64, bytes []
 
 	return nil
 }
+
+func (d *Database) LoadBlockHeight(chain string) (int64, error) {
+	rows, err := d.db.Query("SELECT block_height FROM latest_block_height WHERE chain=?", chain)
+	if err != nil {
+		return 0, err
+	}
+
+	if !rows.Next() {
+		return 0, nil
+	}
+
+	var blockHeight int64
+	switch err := rows.Scan(&blockHeight); err {
+	case nil:
+		return blockHeight, nil
+	default:
+		return 0, err
+	}
+}

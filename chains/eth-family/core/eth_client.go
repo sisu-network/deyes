@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -12,18 +13,20 @@ import (
 )
 
 type EthClient struct {
+	chain       string
 	rpcEndpoint string
 	client      *ethclient.Client
-	height      int64
+	blockHeight int64
 	blockTime   int
 	db          *database.Database
 }
 
-func NewClient(db *database.Database, rpcEndpoint string, blockTime int) *EthClient {
+func NewClient(db *database.Database, rpcEndpoint string, blockTime int, chain string) *EthClient {
 	return &EthClient{
 		db:          db,
 		rpcEndpoint: rpcEndpoint,
 		blockTime:   blockTime,
+		chain:       chain,
 	}
 }
 
@@ -34,24 +37,44 @@ func (c *EthClient) init() {
 		panic(err)
 	}
 
-	// TODO: Load last blockheight
+	blockHeight, err := c.db.LoadBlockHeight(c.chain)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("blockHeight from db = ", blockHeight)
+
+	c.blockHeight = blockHeight
 }
 
 func (c *EthClient) Start() {
 	go func() {
 		c.init()
+
+		c.scanBlocks()
+	}()
+}
+
+func (c *EthClient) scanBlocks() {
+	for {
+		fmt.Println("Getting block")
 		// Get the blockheight
-		block, err := c.getBlock(c.height)
-		if err == ethereum.NotFound {
+		block, err := c.getBlock(c.blockHeight)
+		fmt.Println("err = ", err)
+
+		switch err {
+		case nil:
+			fmt.Println("Height = ", block.Number())
+		case ethereum.NotFound:
 			// Ping block for every second.
 		}
 
 		// TODO: Save this block into a channel or a storage
 		c.processBlock(block)
 
-		c.height++
-		time.Sleep(time.Millisecond * time.Duration(c.blockTime))
-	}()
+		c.blockHeight++
+		time.Sleep(time.Duration(c.blockTime) * time.Millisecond)
+	}
 }
 
 func (c *EthClient) getBlock(height int64) (*etypes.Block, error) {
