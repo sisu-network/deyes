@@ -10,10 +10,20 @@ import (
 	"github.com/golang-migrate/migrate"
 	"github.com/golang-migrate/migrate/database/mysql"
 	_ "github.com/golang-migrate/migrate/source/file"
+	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 )
 
+// A struct for saving txs into database.
+type saveTxsRequest struct {
+	chain       string
+	blockHeight int64
+	txs         *types.Txs
+}
+
 type Database struct {
-	db *sql.DB
+	db       *sql.DB
+	saveTxCh chan *saveTxsRequest
 }
 
 type dbLogger struct {
@@ -28,7 +38,9 @@ func (loggger *dbLogger) Verbose() bool {
 }
 
 func NewDb() *Database {
-	return &Database{}
+	return &Database{
+		saveTxCh: make(chan *saveTxsRequest),
+	}
 }
 
 func (d *Database) Connect() error {
@@ -90,17 +102,61 @@ func (d *Database) DoMigration() error {
 	return nil
 }
 
-func (d *Database) SaveTx(chain string, hash string, blockHeight int64, bytes []byte) error {
-	if len(hash) > 256 {
-		hash = hash[:256]
-	}
-
-	_, err := d.db.Exec("INSERT INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)", chain, hash, blockHeight, bytes)
+func (d *Database) Init() error {
+	err := d.Connect()
 	if err != nil {
 		return err
 	}
 
+	err = d.DoMigration()
+	if err != nil {
+		return err
+	}
+
+	go d.listen()
+
 	return nil
+}
+
+// Listen to request to save into datbase.
+func (d *Database) listen() {
+	for {
+		select {
+		case req := <-d.saveTxCh:
+			err := d.doSave(req)
+			if err != nil {
+				utils.LogError("Cannot save into db, err = ", err)
+			}
+		}
+	}
+}
+
+func (d *Database) doSave(req *saveTxsRequest) error {
+	chain := req.chain
+	txs := req.txs
+	blockHeight := req.blockHeight
+
+	for _, tx := range txs.Arr {
+		hash := tx.Hash
+		if len(hash) > 256 {
+			hash = hash[:256]
+		}
+
+		_, err := d.db.Exec("INSERT INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)", chain, hash, blockHeight, tx.Serialized)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *Database) SaveTxs(chain string, blockHeight int64, txs *types.Txs) {
+	d.saveTxCh <- &saveTxsRequest{
+		chain:       chain,
+		blockHeight: blockHeight,
+		txs:         txs,
+	}
 }
 
 func (d *Database) LoadBlockHeight(chain string) (int64, error) {
