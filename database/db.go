@@ -142,7 +142,8 @@ func (d *Database) doSave(req *saveTxsRequest) error {
 			hash = hash[:256]
 		}
 
-		_, err := d.db.Exec("INSERT INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)", chain, hash, blockHeight, tx.Serialized)
+		_, err := d.db.Exec("INSERT IGNORE INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)",
+			chain, hash, blockHeight, tx.Serialized)
 		if err != nil {
 			return err
 		}

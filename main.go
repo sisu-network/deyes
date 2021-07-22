@@ -9,6 +9,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sisu-network/deyes/chains"
+	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/database"
 )
 
@@ -34,7 +35,10 @@ func initialize() {
 	chain := os.Getenv("CHAIN")
 	fmt.Println("chain = ", chain)
 
-	txProcessor := chains.NewTxProcessor(chain, blockTime, db)
+	sisuUrl := os.Getenv("SISU_SERVER_URL")
+	sisuClient := client.NewClient(sisuUrl)
+
+	txProcessor := chains.NewTxProcessor(chain, blockTime, db, sisuClient)
 	txProcessor.Start()
 }
 

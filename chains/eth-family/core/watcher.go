@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -51,9 +53,16 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	fmt.Println("blockHeight from db = ", blockHeight)
+	startingBlockString := os.Getenv("STARTING_BLOCK")
+	startingBlock, err := strconv.Atoi(startingBlockString)
 
-	w.blockHeight = blockHeight
+	utils.LogDebug("startingBlock = ", startingBlock)
+
+	w.blockHeight = utils.MaxInt(int64(startingBlock), blockHeight)
+}
+
+func (w *Watcher) AddWatchedAddr(addr string) {
+	w.interestedAddrs.Store(addr, true)
 }
 
 func (w *Watcher) Start() {
@@ -77,9 +86,12 @@ func (w *Watcher) scanBlocks() {
 		}
 
 		allTxs, err := w.processBlock(block)
+		utils.LogDebug("Txs sizes = ", len(allTxs.Arr))
+
 		if err == nil {
 			// Filter only transactions that we are interested in.
 			filtered := w.filterTxs(allTxs)
+			utils.LogDebug("Filter txs sizes = ", len(filtered.Arr))
 
 			if len(filtered.Arr) > 0 {
 				// Send list of interested txs back to the listener.
@@ -104,6 +116,10 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
 	for _, tx := range block.Transactions() {
+		if tx.To() == nil {
+			continue
+		}
+
 		bz, err := tx.MarshalJSON()
 		if err != nil {
 			utils.LogError("Cannot serialize ETH tx, err = ", err)
@@ -111,8 +127,12 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 		}
 
 		arr = append(arr, &types.Tx{
+			Hash:       tx.Hash().String(),
 			Serialized: bz,
+			To:         tx.To().String(),
 		})
+
+		fmt.Println("To = ", tx.To().String())
 	}
 
 	return &types.Txs{
