@@ -37,6 +37,7 @@ func initialize() {
 
 	sisuUrl := os.Getenv("SISU_SERVER_URL")
 	sisuClient := client.NewClient(sisuUrl)
+	sisuClient.TryDial()
 
 	txProcessor := chains.NewTxProcessor(chain, blockTime, db, sisuClient)
 	txProcessor.Start()

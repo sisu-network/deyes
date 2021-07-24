@@ -38,16 +38,43 @@ func (c *Client) TryDial() {
 		utils.LogInfo("Dialing...", c.url)
 		var err error
 		c.client, err = rpc.DialContext(context.Background(), c.url)
-		if err == nil {
-			c.connected = true
-			break
+		if err != nil {
+			utils.LogError("Cannot connect to Sisu server err = ", err)
+			time.Sleep(RETRY_TIME)
+			continue
 		}
-		time.Sleep(RETRY_TIME)
+
+		_, err = c.GetVersion()
+		if err != nil {
+			utils.LogError("Cannot get Sisu version err = ", err)
+			time.Sleep(RETRY_TIME)
+			continue
+		}
+
+		c.connected = true
+		break
 	}
 
 	utils.LogInfo("Sisu server is connected")
 }
 
-func (c *Client) BroadcastTxs(txs *types.Txs) {
+func (c *Client) GetVersion() (string, error) {
+	var version string
+	err := c.client.CallContext(context.Background(), &version, "tss_version")
+	return version, err
+}
+
+// TODO: Handle the case when broadcasting fails. In that case, we need to save the first Tx
+// that we need to send to Sisu.
+func (c *Client) BroadcastTxs(txs *types.Txs) error {
 	utils.LogVerbose("Broadcasting to Sisu server...")
+
+	var result string
+	err := c.client.CallContext(context.Background(), &result, "tss_postObservedTxs", txs)
+	if err != nil {
+		utils.LogError("Cannot broadcast tx to Sisu, err = ", err)
+		return err
+	}
+
+	return nil
 }

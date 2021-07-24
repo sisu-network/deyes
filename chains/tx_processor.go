@@ -38,7 +38,7 @@ func (tp *TxProcessor) Start() {
 	switch tp.chain {
 	case "eth":
 		watcher := ethCore.NewWatcher(tp.db, os.Getenv("CHAIN_RPC_URL"), tp.blockTime, tp.chain, tp.txsCh)
-		watcher.AddWatchedAddr("0xb5A5F22694352C15B00323844aD545ABb2B11028") // Testing only
+		// watcher.AddWatchedAddr("0xb5A5F22694352C15B00323844aD545ABb2B11028") // Testing only
 		watcher.Start()
 
 	default:
