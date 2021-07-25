@@ -76,7 +76,7 @@ func (d *Database) Connect() error {
 	}
 
 	d.db = database
-	fmt.Println("Db is connected successfully")
+	utils.LogInfo("Db is connected successfully")
 	return nil
 }
 
@@ -105,6 +105,7 @@ func (d *Database) DoMigration() error {
 func (d *Database) Init() error {
 	err := d.Connect()
 	if err != nil {
+		utils.LogError("Failed to connect to DB. Err =", err)
 		return err
 	}
 

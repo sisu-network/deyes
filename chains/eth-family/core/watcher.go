@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -61,7 +60,7 @@ func (w *Watcher) init() {
 	w.blockHeight = utils.MaxInt(int64(startingBlock), blockHeight)
 }
 
-func (w *Watcher) AddWatchedAddr(addr string) {
+func (w *Watcher) AddWatchAddr(addr string) {
 	w.interestedAddrs.Store(addr, true)
 }
 
@@ -76,11 +75,9 @@ func (w *Watcher) scanBlocks() {
 	for {
 		// Get the blockheight
 		block, err := w.getBlock(w.blockHeight)
-		fmt.Println("err = ", err)
-
 		switch err {
 		case nil:
-			fmt.Println("Height = ", block.Number())
+			utils.LogDebug("Height = ", block.Number())
 		case ethereum.NotFound:
 			// Ping block for every second.
 		}
@@ -131,8 +128,6 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			Serialized: bz,
 			To:         tx.To().String(),
 		})
-
-		fmt.Println("To = ", tx.To().String())
 	}
 
 	return &types.Txs{

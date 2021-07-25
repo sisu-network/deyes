@@ -1,16 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/joho/godotenv"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/database"
+	"github.com/sisu-network/deyes/server"
+	"github.com/sisu-network/deyes/utils"
 )
 
 func initializeDb() *database.Database {
@@ -23,6 +26,18 @@ func initializeDb() *database.Database {
 	return db
 }
 
+func setupApiServer(txProcessor *chains.TxProcessor) {
+	handler := rpc.NewServer()
+	handler.RegisterName("deyes", server.NewApi(txProcessor))
+
+	if port, err := strconv.Atoi(os.Getenv("SERVER_PORT")); err != nil {
+		panic(err)
+	} else {
+		s := server.NewServer(handler, port)
+		s.Run()
+	}
+}
+
 func initialize() {
 	db := initializeDb()
 
@@ -33,14 +48,16 @@ func initialize() {
 	}
 
 	chain := os.Getenv("CHAIN")
-	fmt.Println("chain = ", chain)
+	utils.LogInfo("chain from config = ", chain)
 
 	sisuUrl := os.Getenv("SISU_SERVER_URL")
 	sisuClient := client.NewClient(sisuUrl)
-	sisuClient.TryDial()
+	go sisuClient.TryDial()
 
 	txProcessor := chains.NewTxProcessor(chain, blockTime, db, sisuClient)
 	txProcessor.Start()
+
+	setupApiServer(txProcessor)
 }
 
 func main() {
