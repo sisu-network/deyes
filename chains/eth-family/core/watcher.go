@@ -42,6 +42,8 @@ func NewWatcher(db *database.Database, rpcEndpoint string, blockTime int, chain 
 
 func (w *Watcher) init() {
 	var err error
+
+	utils.LogInfo("RPC endpoint for chain", w.chain, "is", w.rpcEndpoint)
 	w.client, err = ethclient.Dial(w.rpcEndpoint)
 	if err != nil {
 		panic(err)
@@ -74,12 +76,11 @@ func (w *Watcher) Start() {
 func (w *Watcher) scanBlocks() {
 	for {
 		// Get the blockheight
-		block, err := w.getBlock(w.blockHeight)
-		switch err {
-		case nil:
-			utils.LogDebug("Height = ", block.Number())
-		case ethereum.NotFound:
-			// Ping block for every second.
+		block, err := w.tryGetBlock()
+		if err != nil || block == nil {
+			utils.LogError("Cannot get block at height", w.blockHeight)
+			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			continue
 		}
 
 		allTxs, err := w.processBlock(block)
@@ -88,7 +89,7 @@ func (w *Watcher) scanBlocks() {
 		if err == nil {
 			// Filter only transactions that we are interested in.
 			filtered := w.filterTxs(allTxs)
-			utils.LogVerbose("Filter txs sizes = ", len(filtered.Arr))
+			utils.LogInfo("Filter txs sizes = ", len(filtered.Arr))
 
 			if len(filtered.Arr) > 0 {
 				// Send list of interested txs back to the listener.
@@ -103,6 +104,29 @@ func (w *Watcher) scanBlocks() {
 
 		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 	}
+}
+
+// Get block with retry when block is not mined yet.
+func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
+	block, err := w.getBlock(w.blockHeight)
+	switch err {
+	case nil:
+		utils.LogDebug("Height = ", block.Number())
+		return block, nil
+
+	case ethereum.NotFound:
+		// TODO: Ping block for every second.
+		for i := 0; i < 10; i++ {
+			block, err = w.getBlock(w.blockHeight)
+			if err == nil {
+				return block, err
+			}
+		}
+
+		time.Sleep(time.Duration(time.Second))
+	}
+
+	return block, err
 }
 
 func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
