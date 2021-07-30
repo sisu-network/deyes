@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -74,6 +75,12 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) scanBlocks() {
+	latestBlock, err := w.getLatestBlock()
+	if err == nil {
+		w.blockHeight = latestBlock.Header().Number.Int64()
+	}
+	utils.LogInfo("Latest height = ", w.blockHeight)
+
 	for {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
@@ -129,6 +136,10 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	return block, err
 }
 
+func (w *Watcher) getLatestBlock() (*etypes.Block, error) {
+	return w.client.BlockByNumber(context.Background(), nil)
+}
+
 func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 	return w.client.BlockByNumber(context.Background(), big.NewInt(height))
 }
@@ -141,7 +152,9 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		bz, err := tx.MarshalJSON()
+		fmt.Println("To 1 = ", tx.To().String())
+
+		bz, err := tx.MarshalBinary()
 		if err != nil {
 			utils.LogError("Cannot serialize ETH tx, err = ", err)
 			continue
