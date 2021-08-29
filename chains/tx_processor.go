@@ -15,22 +15,21 @@ import (
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
 	chain      string
-	db         *database.Database
+	db         database.DatabaseInterface
 	txsCh      chan *types.Txs
 	blockTime  int
-	sisuClient *client.Client
+	sisuClient client.ClientInterface
 
-	watchers map[string]Watcher
+	watchers map[string]WatcherInterface
 }
 
-func NewTxProcessor(chain string, blockTime int, db *database.Database,
-	sisuClient *client.Client) *TxProcessor {
+func NewTxProcessor(chain string, blockTime int, db database.DatabaseInterface, sisuClient client.ClientInterface) *TxProcessor {
 	return &TxProcessor{
 		chain:      chain,
 		db:         db,
 		blockTime:  blockTime,
 		sisuClient: sisuClient,
-		watchers:   make(map[string]Watcher),
+		watchers:   make(map[string]WatcherInterface),
 	}
 }
 
@@ -47,17 +46,14 @@ func (tp *TxProcessor) Start() {
 		tp.watchers[tp.chain] = watcher
 
 	default:
-		panic(fmt.Errorf("Unknown chain"))
+		panic(fmt.Errorf("unknown chain"))
 	}
 }
 
 func (tp *TxProcessor) listen() {
-	for {
-		select {
-		case txs := <-tp.txsCh:
-			// Broadcast this to Sisu.
-			tp.sisuClient.BroadcastTxs(txs)
-		}
+	for txs := range tp.txsCh {
+		// Broadcast this to Sisu.
+		tp.sisuClient.BroadcastTxs(txs)
 	}
 }
 

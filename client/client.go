@@ -78,3 +78,21 @@ func (c *Client) BroadcastTxs(txs *types.Txs) error {
 
 	return nil
 }
+
+type DefaultClient struct {
+	broadcastedTxs []*types.Txs
+}
+
+func NewDefaultClient() *DefaultClient {
+	return &DefaultClient{}
+}
+
+func (c *DefaultClient) TryDial() {}
+func (c *DefaultClient) GetVersion() (string, error) {
+	return "", nil
+}
+
+func (c *DefaultClient) BroadcastTxs(txs *types.Txs) error {
+	c.broadcastedTxs = append(c.broadcastedTxs, txs)
+	return nil
+}

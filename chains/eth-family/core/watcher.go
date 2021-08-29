@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -23,14 +22,15 @@ type Watcher struct {
 	client      *ethclient.Client
 	blockHeight int64
 	blockTime   int
-	db          *database.Database
+	db          database.DatabaseInterface
 	txsCh       chan *types.Txs
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 }
 
-func NewWatcher(db *database.Database, rpcEndpoint string, blockTime int, chain string, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db database.DatabaseInterface, rpcEndpoint string, blockTime int,
+	chain string, txsCh chan *types.Txs) *Watcher {
 	return &Watcher{
 		db:              db,
 		rpcEndpoint:     rpcEndpoint,
@@ -57,6 +57,9 @@ func (w *Watcher) init() {
 
 	startingBlockString := os.Getenv("STARTING_BLOCK")
 	startingBlock, err := strconv.Atoi(startingBlockString)
+	if err != nil {
+		panic(err)
+	}
 
 	utils.LogDebug("startingBlock = ", startingBlock)
 
@@ -128,9 +131,9 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 			if err == nil {
 				return block, err
 			}
-		}
 
-		time.Sleep(time.Duration(time.Second))
+			time.Sleep(time.Duration(time.Second))
+		}
 	}
 
 	return block, err
@@ -152,7 +155,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		fmt.Println("To 1 = ", tx.To().String())
+		utils.LogInfo("To 1 = ", tx.To().String())
 
 		bz, err := tx.MarshalBinary()
 		if err != nil {

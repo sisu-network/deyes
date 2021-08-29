@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -178,4 +179,25 @@ func (d *Database) LoadBlockHeight(chain string) (int64, error) {
 	default:
 		return 0, err
 	}
+}
+
+type DefaultDatabase struct {
+	blockHeights map[string]int64
+}
+
+func NewDefaultDatabase() *DefaultDatabase {
+	return &DefaultDatabase{blockHeights: make(map[string]int64)}
+}
+
+func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Txs) {
+	d.blockHeights[chain] = blockHeight
+}
+
+func (d *DefaultDatabase) LoadBlockHeight(chain string) (int64, error) {
+	bh, ok := d.blockHeights[chain]
+	if !ok {
+		return 0, errors.New("chain not found")
+	}
+
+	return bh, nil
 }
