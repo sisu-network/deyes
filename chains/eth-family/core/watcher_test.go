@@ -40,7 +40,7 @@ func TestProcessBlock(t *testing.T) {
 		Difficulty: big.NewInt(100),
 	}
 
-	block := etypes.NewBlock(&hdr, trans, nil, nil, &defaultTrieHasher{})
+	block := etypes.NewBlock(&hdr, trans, nil, nil, &mockTrieHasher{})
 	txs, err := watcher.processBlock(block)
 	require.NoError(t, err)
 	require.NotNil(t, txs)
@@ -54,12 +54,12 @@ func genTransactions() etypes.Transactions {
 	}
 }
 
-type defaultTrieHasher struct{}
+type mockTrieHasher struct{}
 
-func (h *defaultTrieHasher) Reset() {}
+func (h *mockTrieHasher) Reset() {}
 
-func (h *defaultTrieHasher) Update([]byte, []byte) {}
+func (h *mockTrieHasher) Update([]byte, []byte) {}
 
-func (h *defaultTrieHasher) Hash() common.Hash {
+func (h *mockTrieHasher) Hash() common.Hash {
 	return [32]byte{}
 }
