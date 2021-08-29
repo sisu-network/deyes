@@ -14,24 +14,30 @@ const (
 	RETRY_TIME = 10 * time.Second
 )
 
+type Client interface {
+	TryDial()
+	GetVersion() (string, error)
+	BroadcastTxs(txs *types.Txs) error
+}
+
 var (
-	SISU_SERVER_NOT_CONNECTED = errors.New("Sisu server is not connected")
+	ErrSisuServerNotConnected = errors.New("sisu server is not connected")
 )
 
 // A client that connects to Sisu server
-type Client struct {
+type DefaultClient struct {
 	client    *rpc.Client
 	url       string
 	connected bool
 }
 
-func NewClient(url string) *Client {
-	return &Client{
+func NewClient(url string) *DefaultClient {
+	return &DefaultClient{
 		url: url,
 	}
 }
 
-func (c *Client) TryDial() {
+func (c *DefaultClient) TryDial() {
 	utils.LogInfo("Trying to dial Sisu server")
 
 	for {
@@ -58,7 +64,7 @@ func (c *Client) TryDial() {
 	utils.LogInfo("Sisu server is connected")
 }
 
-func (c *Client) GetVersion() (string, error) {
+func (c *DefaultClient) GetVersion() (string, error) {
 	var version string
 	err := c.client.CallContext(context.Background(), &version, "tss_version")
 	return version, err
@@ -66,7 +72,7 @@ func (c *Client) GetVersion() (string, error) {
 
 // TODO: Handle the case when broadcasting fails. In that case, we need to save the first Tx
 // that we need to send to Sisu.
-func (c *Client) BroadcastTxs(txs *types.Txs) error {
+func (c *DefaultClient) BroadcastTxs(txs *types.Txs) error {
 	utils.LogVerbose("Broadcasting to Sisu server...")
 
 	var result string
