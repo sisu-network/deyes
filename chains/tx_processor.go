@@ -15,21 +15,21 @@ import (
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
 	chain      string
-	db         database.DatabaseInterface
+	db         database.Database
 	txsCh      chan *types.Txs
 	blockTime  int
-	sisuClient client.ClientInterface
+	sisuClient client.Client
 
-	watchers map[string]WatcherInterface
+	watchers map[string]Watcher
 }
 
-func NewTxProcessor(chain string, blockTime int, db database.DatabaseInterface, sisuClient client.ClientInterface) *TxProcessor {
+func NewTxProcessor(chain string, blockTime int, db database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
 		chain:      chain,
 		db:         db,
 		blockTime:  blockTime,
 		sisuClient: sisuClient,
-		watchers:   make(map[string]WatcherInterface),
+		watchers:   make(map[string]Watcher),
 	}
 }
 

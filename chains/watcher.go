@@ -1,6 +1,6 @@
 package chains
 
-type WatcherInterface interface {
+type Watcher interface {
 	Start()
 	AddWatchAddr(addr string)
 }

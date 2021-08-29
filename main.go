@@ -16,7 +16,7 @@ import (
 	"github.com/sisu-network/deyes/utils"
 )
 
-func initializeDb() *database.Database {
+func initializeDb() database.Database {
 	db := database.NewDb()
 	err := db.Init()
 	if err != nil {

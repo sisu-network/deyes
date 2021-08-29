@@ -22,14 +22,14 @@ type Watcher struct {
 	client      *ethclient.Client
 	blockHeight int64
 	blockTime   int
-	db          database.DatabaseInterface
+	db          database.Database
 	txsCh       chan *types.Txs
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 }
 
-func NewWatcher(db database.DatabaseInterface, rpcEndpoint string, blockTime int,
+func NewWatcher(db database.Database, rpcEndpoint string, blockTime int,
 	chain string, txsCh chan *types.Txs) *Watcher {
 	return &Watcher{
 		db:              db,
