@@ -2,10 +2,10 @@ package chains
 
 import (
 	"fmt"
-	"os"
 
 	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
+	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
@@ -14,40 +14,39 @@ import (
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
-	chain      string
 	db         *database.Database
 	txsCh      chan *types.Txs
-	blockTime  int
-	sisuClient *client.Client
+	sisuClient client.Client
 
 	watchers map[string]Watcher
+	cfg      *config.Deyes
 }
 
-func NewTxProcessor(chain string, blockTime int, db *database.Database,
-	sisuClient *client.Client) *TxProcessor {
+func NewTxProcessor(cfg *config.Deyes, db *database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
-		chain:      chain,
+		cfg:        cfg,
 		db:         db,
-		blockTime:  blockTime,
-		sisuClient: sisuClient,
 		watchers:   make(map[string]Watcher),
+		sisuClient: sisuClient,
 	}
 }
 
 func (tp *TxProcessor) Start() {
 	utils.LogInfo("Starting tx processor...")
 
-	tp.txsCh = make(chan *types.Txs)
-	go tp.listen()
+	for chain, cfg := range tp.cfg.Chains {
+		tp.txsCh = make(chan *types.Txs)
+		go tp.listen()
 
-	switch tp.chain {
-	case "eth":
-		watcher := ethCore.NewWatcher(tp.db, os.Getenv("CHAIN_RPC_URL"), tp.blockTime, tp.chain, tp.txsCh)
-		watcher.Start()
-		tp.watchers[tp.chain] = watcher
+		switch chain {
+		case "eth":
+			watcher := ethCore.NewWatcher(tp.db, &cfg, tp.txsCh)
+			watcher.Start()
+			tp.watchers[chain] = watcher
 
-	default:
-		panic(fmt.Errorf("Unknown chain"))
+		default:
+			panic(fmt.Errorf("Unknown chain"))
+		}
 	}
 }
 
@@ -68,5 +67,12 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 			utils.LogInfo("Adding watched addr", addr, "for chain", chain)
 			watcher.AddWatchAddr(addr)
 		}
+	}
+}
+
+func (tp *TxProcessor) DispatchTx(chain string, tx []byte) {
+	switch chain {
+	case "eth":
+
 	}
 }

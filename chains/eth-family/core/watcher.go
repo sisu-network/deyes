@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -12,17 +11,16 @@ import (
 	"github.com/ethereum/go-ethereum"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
 )
 
 type Watcher struct {
-	chain       string
-	rpcEndpoint string
+	cfg         *config.Chain
 	client      *ethclient.Client
 	blockHeight int64
-	blockTime   int
 	db          *database.Database
 	txsCh       chan *types.Txs
 	// A set of address we are interested in. Only send information about transaction to these
@@ -30,12 +28,10 @@ type Watcher struct {
 	interestedAddrs *sync.Map
 }
 
-func NewWatcher(db *database.Database, rpcEndpoint string, blockTime int, chain string, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db *database.Database, cfg *config.Chain, txsCh chan *types.Txs) *Watcher {
 	return &Watcher{
 		db:              db,
-		rpcEndpoint:     rpcEndpoint,
-		blockTime:       blockTime,
-		chain:           chain,
+		cfg:             cfg,
 		txsCh:           txsCh,
 		interestedAddrs: &sync.Map{},
 	}
@@ -44,13 +40,13 @@ func NewWatcher(db *database.Database, rpcEndpoint string, blockTime int, chain 
 func (w *Watcher) init() {
 	var err error
 
-	utils.LogInfo("RPC endpoint for chain", w.chain, "is", w.rpcEndpoint)
-	w.client, err = ethclient.Dial(w.rpcEndpoint)
+	utils.LogInfo("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.RpcUrl)
+	w.client, err = ethclient.Dial(w.cfg.RpcUrl)
 	if err != nil {
 		panic(err)
 	}
 
-	blockHeight, err := w.db.LoadBlockHeight(w.chain)
+	blockHeight, err := w.db.LoadBlockHeight(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
@@ -86,7 +82,7 @@ func (w *Watcher) scanBlocks() {
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
 			utils.LogError("Cannot get block at height", w.blockHeight)
-			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
 			continue
 		}
 
@@ -104,12 +100,12 @@ func (w *Watcher) scanBlocks() {
 			}
 
 			// Save all txs into database for later references.
-			w.db.SaveTxs(w.chain, w.blockHeight, allTxs)
+			w.db.SaveTxs(w.cfg.Chain, w.blockHeight, allTxs)
 
 			w.blockHeight++
 		}
 
-		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
 	}
 }
 
@@ -152,8 +148,6 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		fmt.Println("To 1 = ", tx.To().String())
-
 		bz, err := tx.MarshalBinary()
 		if err != nil {
 			utils.LogError("Cannot serialize ETH tx, err = ", err)
@@ -168,7 +162,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	}
 
 	return &types.Txs{
-		Chain: w.chain,
+		Chain: w.cfg.Chain,
 		Arr:   arr,
 	}, nil
 }
@@ -185,7 +179,7 @@ func (w *Watcher) filterTxs(txs *types.Txs) *types.Txs {
 	}
 
 	return &types.Txs{
-		Chain: w.chain,
+		Chain: w.cfg.Chain,
 		Arr:   arr,
 	}
 }

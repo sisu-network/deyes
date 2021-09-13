@@ -3,6 +3,7 @@ module github.com/sisu-network/deyes
 go 1.16
 
 require (
+	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5 // indirect
 	github.com/containerd/containerd v1.4.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect

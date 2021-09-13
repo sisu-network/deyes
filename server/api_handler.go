@@ -25,3 +25,7 @@ func (api *ApiHandler) SetSisuReady(chain string) {
 func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
 	api.txProcessor.AddWatchAddresses(chain, addrs)
 }
+
+func (api *ApiHandler) DispatchTx(chain string, tx []byte, signature []byte) {
+
+}
