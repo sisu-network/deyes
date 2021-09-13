@@ -29,8 +29,13 @@ RUN rm /root/.ssh/id_rsa
 
 # Start fresh from a smaller image
 FROM alpine:3.9 
-RUN apk add ca-certificates
+
+RUN apk add ca-certificates \
+    && touch /app/.env
 
 COPY --from=builder /tmp/go-app/out/deyes /app/deyes
+
+#Workaround: We shouldn't make .env mandatory, and the environment variables can be loaded from multiple places.
+RUN touch /app/.env
 
 CMD ["/app/deyes"]
