@@ -18,16 +18,18 @@ type TxProcessor struct {
 	txsCh      chan *types.Txs
 	sisuClient client.Client
 
-	watchers map[string]Watcher
-	cfg      *config.Deyes
+	watchers    map[string]Watcher
+	dispatchers map[string]Dispatcher
+	cfg         *config.Deyes
 }
 
 func NewTxProcessor(cfg *config.Deyes, db *database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
-		cfg:        cfg,
-		db:         db,
-		watchers:   make(map[string]Watcher),
-		sisuClient: sisuClient,
+		cfg:         cfg,
+		db:          db,
+		watchers:    make(map[string]Watcher),
+		dispatchers: make(map[string]Dispatcher),
+		sisuClient:  sisuClient,
 	}
 }
 
@@ -43,6 +45,11 @@ func (tp *TxProcessor) Start() {
 			watcher := ethCore.NewWatcher(tp.db, &cfg, tp.txsCh)
 			watcher.Start()
 			tp.watchers[chain] = watcher
+
+			// Dispatcher
+			dispatcher := NewDispatcher(chain, cfg.RpcUrl)
+			dispatcher.Start()
+			tp.dispatchers[chain] = dispatcher
 
 		default:
 			panic(fmt.Errorf("Unknown chain"))
@@ -70,9 +77,11 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	}
 }
 
-func (tp *TxProcessor) DispatchTx(chain string, tx []byte) {
-	switch chain {
-	case "eth":
-
+func (tp *TxProcessor) DispatchTx(chain string, tx []byte) error {
+	dispatcher := tp.dispatchers[chain]
+	if dispatcher == nil {
+		return fmt.Errorf("unknown chain %s", chain)
 	}
+
+	return dispatcher.Dispatch(tx)
 }
