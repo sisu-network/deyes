@@ -23,6 +23,9 @@ RUN go mod download
 
 COPY . .
 
+#Workaround: We shouldn't make .env mandatory, and the environment variables can be loaded from multiple places.
+RUN touch .env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > .env
+
 RUN go build -o ./out/deyes main.go
 
 RUN rm /root/.ssh/id_rsa
@@ -30,11 +33,13 @@ RUN rm /root/.ssh/id_rsa
 # Start fresh from a smaller image
 FROM alpine:3.9 
 
-RUN apk add ca-certificates
-
-COPY --from=builder /tmp/go-app/out/deyes /app/deyes
+WORKDIR /app
 
 #Workaround: We shouldn't make .env mandatory, and the environment variables can be loaded from multiple places.
-RUN touch /app/.env
+RUN apk add ca-certificates \
+    && touch /app/.env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > /app/.env
 
-CMD ["/app/deyes"]
+COPY --from=builder /tmp/go-app/out/deyes /app/deyes
+COPY --from=builder /tmp/go-app/migrations /app/migrations
+
+CMD ["./deyes"]
