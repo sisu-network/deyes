@@ -26,6 +26,7 @@ func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
 	api.txProcessor.AddWatchAddresses(chain, addrs)
 }
 
-func (api *ApiHandler) DispatchTx(chain string, tx []byte, signature []byte) {
-
+func (api *ApiHandler) DispatchTx(chain string, tx []byte) {
+	// Dispatching a tx can take time.
+	go api.txProcessor.DispatchTx(chain, tx)
 }
