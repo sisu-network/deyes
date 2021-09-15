@@ -3,8 +3,6 @@ package core
 import (
 	"context"
 	"math/big"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -52,15 +50,9 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	startingBlockString := os.Getenv("STARTING_BLOCK")
-	startingBlock, err := strconv.Atoi(startingBlockString)
-	if err != nil {
-		panic(err)
-	}
+	utils.LogInfo("startingBlock = ", w.cfg.StartingBlock)
 
-	utils.LogDebug("startingBlock = ", startingBlock)
-
-	w.blockHeight = utils.MaxInt(int64(startingBlock), blockHeight)
+	w.blockHeight = utils.MaxInt(int64(w.cfg.StartingBlock), blockHeight)
 }
 
 func (w *Watcher) AddWatchAddr(addr string) {
