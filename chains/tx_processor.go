@@ -14,8 +14,10 @@ import (
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
-	db         *database.Database
+	db         database.Database
 	txsCh      chan *types.Txs
+	chain      string
+	blockTime  int
 	sisuClient client.Client
 
 	watchers    map[string]Watcher
@@ -23,7 +25,7 @@ type TxProcessor struct {
 	cfg         *config.Deyes
 }
 
-func NewTxProcessor(cfg *config.Deyes, db *database.Database, sisuClient client.Client) *TxProcessor {
+func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
 		cfg:         cfg,
 		db:          db,
@@ -58,12 +60,9 @@ func (tp *TxProcessor) Start() {
 }
 
 func (tp *TxProcessor) listen() {
-	for {
-		select {
-		case txs := <-tp.txsCh:
-			// Broadcast this to Sisu.
-			tp.sisuClient.BroadcastTxs(txs)
-		}
+	for txs := range tp.txsCh {
+		// Broadcast this to Sisu.
+		tp.sisuClient.BroadcastTxs(txs)
 	}
 }
 

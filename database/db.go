@@ -13,6 +13,12 @@ import (
 	"github.com/sisu-network/deyes/utils"
 )
 
+type Database interface {
+	Init() error
+	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
+	LoadBlockHeight(chain string) (int64, error)
+}
+
 // A struct for saving txs into database.
 type saveTxsRequest struct {
 	chain       string
@@ -20,7 +26,7 @@ type saveTxsRequest struct {
 	txs         *types.Txs
 }
 
-type Database struct {
+type DefaultDatabase struct {
 	cfg      *config.Deyes
 	db       *sql.DB
 	saveTxCh chan *saveTxsRequest
@@ -37,14 +43,14 @@ func (loggger *dbLogger) Verbose() bool {
 	return true
 }
 
-func NewDb(cfg *config.Deyes) *Database {
-	return &Database{
+func NewDb(cfg *config.Deyes) Database {
+	return &DefaultDatabase{
 		cfg:      cfg,
 		saveTxCh: make(chan *saveTxsRequest),
 	}
 }
 
-func (d *Database) Connect() error {
+func (d *DefaultDatabase) Connect() error {
 	host := d.cfg.DbHost
 	if host == "" {
 		return fmt.Errorf("DB host cannot be empty")
@@ -78,7 +84,7 @@ func (d *Database) Connect() error {
 	return nil
 }
 
-func (d *Database) DoMigration() error {
+func (d *DefaultDatabase) DoMigration() error {
 	driver, err := mysql.WithInstance(d.db, &mysql.Config{})
 	if err != nil {
 		return err
@@ -100,7 +106,7 @@ func (d *Database) DoMigration() error {
 	return nil
 }
 
-func (d *Database) Init() error {
+func (d *DefaultDatabase) Init() error {
 	err := d.Connect()
 	if err != nil {
 		utils.LogError("Failed to connect to DB. Err =", err)
@@ -118,19 +124,16 @@ func (d *Database) Init() error {
 }
 
 // Listen to request to save into datbase.
-func (d *Database) listen() {
-	for {
-		select {
-		case req := <-d.saveTxCh:
-			err := d.doSave(req)
-			if err != nil {
-				utils.LogError("Cannot save into db, err = ", err)
-			}
+func (d *DefaultDatabase) listen() {
+	for req := range d.saveTxCh {
+		err := d.doSave(req)
+		if err != nil {
+			utils.LogError("Cannot save into db, err = ", err)
 		}
 	}
 }
 
-func (d *Database) doSave(req *saveTxsRequest) error {
+func (d *DefaultDatabase) doSave(req *saveTxsRequest) error {
 	chain := req.chain
 	txs := req.txs
 	blockHeight := req.blockHeight
@@ -151,7 +154,7 @@ func (d *Database) doSave(req *saveTxsRequest) error {
 	return nil
 }
 
-func (d *Database) SaveTxs(chain string, blockHeight int64, txs *types.Txs) {
+func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Txs) {
 	d.saveTxCh <- &saveTxsRequest{
 		chain:       chain,
 		blockHeight: blockHeight,
@@ -159,7 +162,7 @@ func (d *Database) SaveTxs(chain string, blockHeight int64, txs *types.Txs) {
 	}
 }
 
-func (d *Database) LoadBlockHeight(chain string) (int64, error) {
+func (d *DefaultDatabase) LoadBlockHeight(chain string) (int64, error) {
 	rows, err := d.db.Query("SELECT block_height FROM latest_block_height WHERE chain=?", chain)
 	if err != nil {
 		return 0, err

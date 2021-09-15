@@ -14,15 +14,16 @@ const (
 	RETRY_TIME = 10 * time.Second
 )
 
-var (
-	SISU_SERVER_NOT_CONNECTED = errors.New("Sisu server is not connected")
-)
-
 // A client that connects to Sisu server
 type Client interface {
 	TryDial()
+	GetVersion() (string, error)
 	BroadcastTxs(txs *types.Txs) error
 }
+
+var (
+	ErrSisuServerNotConnected = errors.New("sisu server is not connected")
+)
 
 type DefaultClient struct {
 	client    *rpc.Client

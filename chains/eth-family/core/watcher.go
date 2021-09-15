@@ -21,14 +21,15 @@ type Watcher struct {
 	cfg         *config.Chain
 	client      *ethclient.Client
 	blockHeight int64
-	db          *database.Database
+	blockTime   int
+	db          database.Database
 	txsCh       chan *types.Txs
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 }
 
-func NewWatcher(db *database.Database, cfg *config.Chain, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db database.Database, cfg *config.Chain, txsCh chan *types.Txs) *Watcher {
 	return &Watcher{
 		db:              db,
 		cfg:             cfg,
@@ -53,6 +54,9 @@ func (w *Watcher) init() {
 
 	startingBlockString := os.Getenv("STARTING_BLOCK")
 	startingBlock, err := strconv.Atoi(startingBlockString)
+	if err != nil {
+		panic(err)
+	}
 
 	utils.LogDebug("startingBlock = ", startingBlock)
 
@@ -124,9 +128,9 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 			if err == nil {
 				return block, err
 			}
-		}
 
-		time.Sleep(time.Duration(time.Second))
+			time.Sleep(time.Duration(time.Second))
+		}
 	}
 
 	return block, err
