@@ -1,4 +1,6 @@
 .env
+deyes.tomml
+deyes
 tmp
 out
 build

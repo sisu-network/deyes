@@ -1,23 +1,23 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/joho/godotenv"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/client"
+	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/server"
-	"github.com/sisu-network/deyes/utils"
 )
 
-func initializeDb() database.Database {
-	db := database.NewDb()
+func initializeDb(cfg *config.Deyes) database.Database {
+	db := database.NewDb(cfg)
 	err := db.Init()
 	if err != nil {
 		panic(err)
@@ -26,47 +26,72 @@ func initializeDb() database.Database {
 	return db
 }
 
-func setupApiServer(txProcessor *chains.TxProcessor) {
+func setupApiServer(cfg *config.Deyes, txProcessor *chains.TxProcessor) {
 	handler := rpc.NewServer()
 	handler.RegisterName("deyes", server.NewApi(txProcessor))
 
-	if port, err := strconv.Atoi(os.Getenv("SERVER_PORT")); err != nil {
-		panic(err)
-	} else {
-		s := server.NewServer(handler, port)
-		s.Run()
-	}
+	s := server.NewServer(handler, cfg.ServerPort)
+	s.Run()
 }
 
-func initialize() {
-	db := initializeDb()
+func initialize(cfg *config.Deyes) {
+	db := initializeDb(cfg)
 
-	blockTimeString := os.Getenv("BLOCK_TIME")
-	blockTime, err := strconv.Atoi(blockTimeString)
+	sisuClient := client.NewClient(cfg.SisuServerUrl)
+	go sisuClient.TryDial()
+
+	txProcessor := chains.NewTxProcessor(cfg, db, sisuClient)
+	txProcessor.Start()
+
+	setupApiServer(cfg, txProcessor)
+}
+
+func writeDefaultConfig(filePath string) error {
+	var defaultValue = `db_host = "localhost"
+	db_port = 3306
+	db_username = "root"
+	db_password = "password"
+	db_schema = "deyes"
+
+	server_port = 31001
+	sisu_server_url = "http://localhost:25456"
+
+	[chains]
+	[chains.eth]
+		name = "eth"
+		block_time = 1000
+		starting_block = 0
+		rpc_url = "http://localhost:7545"
+`
+	err := ioutil.WriteFile(filePath, []byte(defaultValue), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func loadConfig() *config.Deyes {
+	tomlFile := "./deyes.toml"
+	if _, err := os.Stat(tomlFile); os.IsNotExist(err) {
+		if err := writeDefaultConfig(tomlFile); err != nil {
+			panic(err)
+		}
+	}
+
+	cfg := new(config.Deyes)
+	_, err := toml.DecodeFile(tomlFile, &cfg)
 	if err != nil {
 		panic(err)
 	}
 
-	chain := os.Getenv("CHAIN")
-	utils.LogInfo("chain from config = ", chain)
-
-	sisuUrl := os.Getenv("SISU_SERVER_URL")
-	sisuClient := client.NewClient(sisuUrl)
-	go sisuClient.TryDial()
-
-	txProcessor := chains.NewTxProcessor(chain, blockTime, db, sisuClient)
-	txProcessor.Start()
-
-	setupApiServer(txProcessor)
+	return cfg
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		panic(err)
-	}
+	cfg := loadConfig()
 
-	initialize()
+	initialize(cfg)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)

@@ -14,6 +14,7 @@ const (
 	RETRY_TIME = 10 * time.Second
 )
 
+// A client that connects to Sisu server
 type Client interface {
 	TryDial()
 	GetVersion() (string, error)
@@ -24,14 +25,13 @@ var (
 	ErrSisuServerNotConnected = errors.New("sisu server is not connected")
 )
 
-// A client that connects to Sisu server
 type DefaultClient struct {
 	client    *rpc.Client
 	url       string
 	connected bool
 }
 
-func NewClient(url string) *DefaultClient {
+func NewClient(url string) Client {
 	return &DefaultClient{
 		url: url,
 	}

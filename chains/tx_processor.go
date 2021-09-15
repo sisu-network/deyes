@@ -2,10 +2,10 @@ package chains
 
 import (
 	"fmt"
-	"os"
 
 	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
+	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
@@ -14,39 +14,48 @@ import (
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
-	chain      string
 	db         database.Database
 	txsCh      chan *types.Txs
+	chain      string
 	blockTime  int
 	sisuClient client.Client
 
-	watchers map[string]Watcher
+	watchers    map[string]Watcher
+	dispatchers map[string]Dispatcher
+	cfg         *config.Deyes
 }
 
-func NewTxProcessor(chain string, blockTime int, db database.Database, sisuClient client.Client) *TxProcessor {
+func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
-		chain:      chain,
-		db:         db,
-		blockTime:  blockTime,
-		sisuClient: sisuClient,
-		watchers:   make(map[string]Watcher),
+		cfg:         cfg,
+		db:          db,
+		watchers:    make(map[string]Watcher),
+		dispatchers: make(map[string]Dispatcher),
+		sisuClient:  sisuClient,
 	}
 }
 
 func (tp *TxProcessor) Start() {
 	utils.LogInfo("Starting tx processor...")
 
-	tp.txsCh = make(chan *types.Txs)
-	go tp.listen()
+	for chain, cfg := range tp.cfg.Chains {
+		tp.txsCh = make(chan *types.Txs)
+		go tp.listen()
 
-	switch tp.chain {
-	case "eth":
-		watcher := ethCore.NewWatcher(tp.db, os.Getenv("CHAIN_RPC_URL"), tp.blockTime, tp.chain, tp.txsCh)
-		watcher.Start()
-		tp.watchers[tp.chain] = watcher
+		switch chain {
+		case "eth":
+			watcher := ethCore.NewWatcher(tp.db, &cfg, tp.txsCh)
+			watcher.Start()
+			tp.watchers[chain] = watcher
 
-	default:
-		panic(fmt.Errorf("unknown chain"))
+			// Dispatcher
+			dispatcher := NewDispatcher(chain, cfg.RpcUrl)
+			dispatcher.Start()
+			tp.dispatchers[chain] = dispatcher
+
+		default:
+			panic(fmt.Errorf("Unknown chain"))
+		}
 	}
 }
 
@@ -65,4 +74,13 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 			watcher.AddWatchAddr(addr)
 		}
 	}
+}
+
+func (tp *TxProcessor) DispatchTx(chain string, tx []byte) error {
+	dispatcher := tp.dispatchers[chain]
+	if dispatcher == nil {
+		return fmt.Errorf("unknown chain %s", chain)
+	}
+
+	return dispatcher.Dispatch(tx)
 }
