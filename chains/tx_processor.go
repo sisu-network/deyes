@@ -49,7 +49,7 @@ func (tp *TxProcessor) Start() {
 			tp.watchers[chain] = watcher
 
 			// Dispatcher
-			dispatcher := NewDispatcher(chain, cfg.RpcUrl)
+			dispatcher := NewEhtDispatcher(chain, cfg.RpcUrl)
 			dispatcher.Start()
 			tp.dispatchers[chain] = dispatcher
 
@@ -76,11 +76,13 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	}
 }
 
-func (tp *TxProcessor) DispatchTx(chain string, tx []byte) error {
+func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
+	chain := request.Chain
+
 	dispatcher := tp.dispatchers[chain]
 	if dispatcher == nil {
-		return fmt.Errorf("unknown chain %s", chain)
+		types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
 	}
 
-	return dispatcher.Dispatch(tx)
+	return dispatcher.Dispatch(request)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/sisu-network/deyes/utils"
 )
 
+// TODO: Move this to the chains package.
 type Watcher struct {
 	cfg         *config.Chain
 	client      *ethclient.Client
