@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 )
 
 type ApiHandler struct {
@@ -30,11 +29,6 @@ func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
 	api.txProcessor.AddWatchAddresses(chain, addrs)
 }
 
-func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
-	// Dispatching a tx can take time.
-	go func() {
-		if err := api.txProcessor.DispatchTx(request); err != nil {
-			utils.LogError("cannot dispatch tx, err =", err)
-		}
-	}()
+func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
+	return api.txProcessor.DispatchTx(request)
 }

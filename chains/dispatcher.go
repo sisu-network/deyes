@@ -2,6 +2,7 @@ package chains
 
 import (
 	"context"
+	"fmt"
 
 	eTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -46,17 +47,21 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		return types.NewDispatchTxError(err)
 	}
 
-	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
-		return types.NewDispatchTxError(err)
-	}
-
+	// Check if this is a contract deployment for eth. If it is, returns the deployed address.
 	var addr string
-
 	if request.IsEthContractDeployment {
+		if request.PubKey == nil {
+			return types.NewDispatchTxError(fmt.Errorf("invalid pubkey"))
+		}
+
 		from := utils.PublicKeyBytesToAddress(request.PubKey)
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
 		utils.LogDebug("Deployed address = ", addr)
+	}
+
+	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
+		return types.NewDispatchTxError(err)
 	}
 
 	return &types.DispatchedTxResult{

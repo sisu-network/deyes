@@ -84,8 +84,6 @@ func (w *Watcher) scanBlocks() {
 		}
 
 		allTxs, err := w.processBlock(block)
-		utils.LogVerbose("Txs sizes = ", len(allTxs.Arr))
-
 		if err == nil {
 			// Filter only transactions that we are interested in.
 			filtered := w.filterTxs(allTxs)
