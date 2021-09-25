@@ -37,14 +37,16 @@ func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.C
 
 func (tp *TxProcessor) Start() {
 	utils.LogInfo("Starting tx processor...")
+	utils.LogInfo("tp.cfg.Chains = ", tp.cfg.Chains)
 
 	for chain, cfg := range tp.cfg.Chains {
 		tp.txsCh = make(chan *types.Txs)
 		go tp.listen()
 
-		switch chain {
-		case "eth":
-			watcher := ethCore.NewWatcher(tp.db, &cfg, tp.txsCh)
+		utils.LogInfo("Supported chain and config:", chain, cfg)
+
+		if utils.IsETHBasedChain(chain) {
+			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
 			watcher.Start()
 			tp.watchers[chain] = watcher
 
@@ -52,17 +54,18 @@ func (tp *TxProcessor) Start() {
 			dispatcher := NewEhtDispatcher(chain, cfg.RpcUrl)
 			dispatcher.Start()
 			tp.dispatchers[chain] = dispatcher
-
-		default:
-			panic(fmt.Errorf("Unknown chain"))
+		} else {
+			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
 	}
 }
 
 func (tp *TxProcessor) listen() {
-	for txs := range tp.txsCh {
-		// Broadcast this to Sisu.
-		tp.sisuClient.BroadcastTxs(txs)
+	for {
+		select {
+		case txs := <-tp.txsCh:
+			tp.sisuClient.BroadcastTxs(txs)
+		}
 	}
 }
 

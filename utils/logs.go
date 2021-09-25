@@ -37,7 +37,6 @@ func SetLogLevel(level int) {
 func getLogger() Logger {
 	if globalLogger == nil {
 		SetLogger(&DefaultLogger{})
-		SetLogLevel(LOG_LEVEL_INFO)
 	}
 
 	return globalLogger

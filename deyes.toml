@@ -13,3 +13,9 @@ sisu_server_url = "http://localhost:25456"
   block_time = 1000
   starting_block = 0
   rpc_url = "http://localhost:7545"
+
+[chains.sisu-eth]
+  chain = "sisu-eth"
+  block_time = 1000
+  starting_block = 0
+  rpc_url = "http://localhost:8545"

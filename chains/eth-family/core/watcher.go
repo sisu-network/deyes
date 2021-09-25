@@ -17,7 +17,7 @@ import (
 
 // TODO: Move this to the chains package.
 type Watcher struct {
-	cfg         *config.Chain
+	cfg         config.Chain
 	client      *ethclient.Client
 	blockHeight int64
 	blockTime   int
@@ -28,7 +28,7 @@ type Watcher struct {
 	interestedAddrs *sync.Map
 }
 
-func NewWatcher(db database.Database, cfg *config.Chain, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
 	return &Watcher{
 		db:              db,
 		cfg:             cfg,
