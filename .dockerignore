@@ -5,4 +5,4 @@ Dockerfile
 .gitignore
 deyes
 README.md
-ganache-Dockerfile
+Dockerfile-ganache
