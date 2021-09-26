@@ -31,15 +31,17 @@ RUN go build -o ./out/deyes main.go
 RUN rm /root/.ssh/id_rsa
 
 # Start fresh from a smaller image
-FROM alpine:3.9 
+FROM alpine:3.9
 
 WORKDIR /app
 
 #Workaround: We shouldn't make .env mandatory, and the environment variables can be loaded from multiple places.
-RUN apk add ca-certificates \
-    && touch /app/.env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > /app/.env
+# RUN apk add ca-certificates \
+#     && touch /app/.env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > /app/.env
 
 COPY --from=builder /tmp/go-app/out/deyes /app/deyes
 COPY --from=builder /tmp/go-app/migrations /app/migrations
+
+COPY config.toml.dev /app/deyes.toml
 
 CMD ["./deyes"]
