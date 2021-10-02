@@ -42,6 +42,6 @@ WORKDIR /app
 COPY --from=builder /tmp/go-app/out/deyes /app/deyes
 COPY --from=builder /tmp/go-app/migrations /app/migrations
 
-COPY config.toml.dev /app/deyes.toml
+COPY docker.toml.dev /app/deyes.toml
 
 CMD ["./deyes"]

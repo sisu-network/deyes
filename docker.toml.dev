@@ -1,0 +1,21 @@
+db_host = "mysql"
+db_port = 3306
+db_username = "root"
+db_password = "password"
+db_schema = "deyes"
+
+server_port = 31001
+sisu_server_url = "http://sisu:25456"
+
+[chains]
+[chains.eth]
+  chain = "eth"
+  block_time = 1000
+  starting_block = 0
+  rpc_url = "http://ganache-cli-1:7545"
+
+[chains.sisu-eth]
+  chain = "sisu-eth"
+  block_time = 1000
+  starting_block = 0
+  rpc_url = "http://ganache-cli-2:8545"

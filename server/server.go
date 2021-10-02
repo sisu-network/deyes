@@ -18,7 +18,7 @@ type Server struct {
 func NewServer(handler *rpc.Server, port int) *Server {
 	return &Server{
 		handler:       handler,
-		listenAddress: fmt.Sprintf("localhost:%d", port),
+		listenAddress: fmt.Sprintf("0.0.0.0:%d", port),
 	}
 }
 

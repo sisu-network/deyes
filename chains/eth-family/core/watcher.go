@@ -78,7 +78,7 @@ func (w *Watcher) scanBlocks() {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
-			utils.LogError("Cannot get block at height", w.blockHeight)
+			utils.LogError("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain)
 			time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
 			continue
 		}
