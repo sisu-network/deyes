@@ -2,11 +2,13 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
@@ -26,6 +28,8 @@ type Watcher struct {
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
+
+	signers map[string]etypes.Signer
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
@@ -83,19 +87,17 @@ func (w *Watcher) scanBlocks() {
 			continue
 		}
 
-		allTxs, err := w.processBlock(block)
-		if err == nil {
-			// Filter only transactions that we are interested in.
-			filtered := w.filterTxs(allTxs)
-			utils.LogInfo("Filter txs sizes = ", len(filtered.Arr))
+		filteredTxs, err := w.processBlock(block)
+		utils.LogVerbose("Filtered txs sizes = ", len(filteredTxs.Arr))
 
-			if len(filtered.Arr) > 0 {
+		if err == nil {
+			if len(filteredTxs.Arr) > 0 {
 				// Send list of interested txs back to the listener.
-				w.txsCh <- filtered
+				w.txsCh <- filteredTxs
 			}
 
 			// Save all txs into database for later references.
-			w.db.SaveTxs(w.cfg.Chain, w.blockHeight, allTxs)
+			w.db.SaveTxs(w.cfg.Chain, w.blockHeight, filteredTxs)
 
 			w.blockHeight++
 		}
@@ -138,21 +140,31 @@ func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
-	for _, tx := range block.Transactions() {
-		if tx.To() == nil {
-			continue
-		}
+	utils.LogInfo("Block length = ", len(block.Transactions()))
 
+	for _, tx := range block.Transactions() {
 		bz, err := tx.MarshalBinary()
 		if err != nil {
 			utils.LogError("Cannot serialize ETH tx, err = ", err)
 			continue
 		}
 
+		// Only filter our interested transaction.
+		if !w.acceptTx(tx) {
+			continue
+		}
+
+		var to string
+		if tx.To() == nil {
+			to = ""
+		} else {
+			to = tx.To().String()
+		}
+
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
-			To:         tx.To().String(),
+			To:         to,
 		})
 	}
 
@@ -162,19 +174,37 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	}, nil
 }
 
-func (w *Watcher) filterTxs(txs *types.Txs) *types.Txs {
-	arr := make([]*types.Tx, 0)
-
-	for _, tx := range txs.Arr {
-		// Check if we are interested in this transaction.
-		_, ok := w.interestedAddrs.Load(tx.To)
+func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
+	if tx.To() != nil {
+		_, ok := w.interestedAddrs.Load(tx.To().Hex())
 		if ok {
-			arr = append(arr, tx)
+			return true
 		}
 	}
 
-	return &types.Txs{
-		Chain: w.cfg.Chain,
-		Arr:   arr,
+	// check from
+	from, err := w.getFromAddress(w.cfg.Chain, tx)
+	utils.LogVerbose("from = ", from.Hex())
+	if err == nil {
+		_, ok := w.interestedAddrs.Load(from.Hex())
+		if ok {
+			return true
+		}
 	}
+
+	return false
+}
+
+func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.Address, error) {
+	signer := utils.GetEthChainSigner(chain)
+	if signer == nil {
+		return common.Address{}, fmt.Errorf("cannot find signer for chain %s", chain)
+	}
+
+	msg, err := tx.AsMessage(etypes.NewEIP2930Signer(tx.ChainId()))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	return msg.From(), nil
 }

@@ -57,12 +57,15 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		from := utils.PublicKeyBytesToAddress(request.PubKey)
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
-		utils.LogDebug("Deployed address = ", addr)
+		utils.LogInfo("Deployed address = ", addr)
 	}
 
 	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
+		utils.LogError("cannot dispatch tx, err =", err)
 		return types.NewDispatchTxError(err)
 	}
+
+	utils.LogVerbose("Tx is dispatched successfully")
 
 	return &types.DispatchedTxResult{
 		Success:      true,

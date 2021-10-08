@@ -2,34 +2,12 @@ package core
 
 import (
 	"math/big"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/sisu-network/deyes/types"
 	"github.com/stretchr/testify/require"
 )
-
-func TestFilterTxs(t *testing.T) {
-	t.Parallel()
-
-	watcher := Watcher{
-		interestedAddrs: &sync.Map{},
-	}
-
-	watcher.AddWatchAddr("abc")
-
-	txs := &types.Txs{
-		Arr: []*types.Tx{
-			{To: "abc"},
-			{To: "xyz"},
-		},
-	}
-
-	txs = watcher.filterTxs(txs)
-	require.Len(t, txs.Arr, 1)
-}
 
 func TestProcessBlock(t *testing.T) {
 	t.Parallel()
