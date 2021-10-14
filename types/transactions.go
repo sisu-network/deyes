@@ -5,6 +5,7 @@ type Tx struct {
 	Hash       string
 	Serialized []byte
 	To         string
+	From       string
 }
 
 // List of all transactions in a block of a specific chain.

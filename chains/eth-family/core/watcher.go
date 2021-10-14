@@ -161,10 +161,12 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			to = tx.To().String()
 		}
 
+		from, err := w.getFromAddress(w.cfg.Chain, tx)
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
 			To:         to,
+			From:       from.Hex(),
 		})
 	}
 
