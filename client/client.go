@@ -81,6 +81,7 @@ func (c *DefaultClient) BroadcastTxs(txs *types.Txs) error {
 		utils.LogError("Cannot broadcast tx to Sisu, err = ", err)
 		return err
 	}
+	utils.LogVerbose("Done broadcasting!")
 
 	return nil
 }

@@ -100,6 +100,8 @@ func (w *Watcher) scanBlocks() {
 			w.db.SaveTxs(w.cfg.Chain, w.blockHeight, filteredTxs)
 
 			w.blockHeight++
+		} else {
+			utils.LogError("cannot process block, err =", err)
 		}
 
 		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
@@ -140,7 +142,7 @@ func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
-	utils.LogInfo("Block length = ", len(block.Transactions()))
+	utils.LogInfo(w.cfg.Chain, "Block length = ", len(block.Transactions()))
 
 	for _, tx := range block.Transactions() {
 		bz, err := tx.MarshalBinary()
@@ -186,7 +188,7 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	utils.LogVerbose("from = ", from.Hex())
+	utils.LogVerbose("from =", from.Hex(), "to", tx.To())
 	if err == nil {
 		_, ok := w.interestedAddrs.Load(from.Hex())
 		if ok {
@@ -209,4 +211,14 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 	}
 
 	return msg.From(), nil
+}
+
+func (w *Watcher) GetNonce(address string) int64 {
+	nonce, err := w.client.PendingNonceAt(context.Background(), common.HexToAddress(address))
+	if err != nil {
+		utils.LogError("cannot get nonce of chain", w.cfg.Chain, " at", address)
+		return -1
+	}
+
+	return int64(nonce)
 }

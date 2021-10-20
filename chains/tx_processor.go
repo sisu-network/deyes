@@ -39,8 +39,9 @@ func (tp *TxProcessor) Start() {
 	utils.LogInfo("Starting tx processor...")
 	utils.LogInfo("tp.cfg.Chains = ", tp.cfg.Chains)
 
+	tp.txsCh = make(chan *types.Txs, 100)
+
 	for chain, cfg := range tp.cfg.Chains {
-		tp.txsCh = make(chan *types.Txs)
 		go tp.listen()
 
 		utils.LogInfo("Supported chain and config:", chain, cfg)
@@ -88,4 +89,13 @@ func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) *types.Dis
 	}
 
 	return dispatcher.Dispatch(request)
+}
+
+func (tp *TxProcessor) GetNonce(chain string, address string) int64 {
+	watcher := tp.watchers[chain]
+	if watcher == nil {
+		return -1
+	}
+
+	return watcher.GetNonce(address)
 }

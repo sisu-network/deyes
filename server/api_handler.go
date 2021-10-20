@@ -32,3 +32,7 @@ func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
 	return api.txProcessor.DispatchTx(request)
 }
+
+func (api *ApiHandler) GetNonce(chain string, address string) int64 {
+	return api.txProcessor.GetNonce(chain, address)
+}
