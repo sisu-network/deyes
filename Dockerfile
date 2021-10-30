@@ -23,9 +23,6 @@ RUN go mod download
 
 COPY . .
 
-#Workaround: We shouldn't make .env mandatory, and the environment variables can be loaded from multiple places.
-RUN touch .env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > .env
-
 RUN go build -o ./out/deyes main.go
 
 RUN rm /root/.ssh/id_rsa
@@ -41,7 +38,5 @@ WORKDIR /app
 
 COPY --from=builder /tmp/go-app/out/deyes /app/deyes
 COPY --from=builder /tmp/go-app/migrations /app/migrations
-
-COPY docker.toml.dev /app/deyes.toml
 
 CMD ["./deyes"]

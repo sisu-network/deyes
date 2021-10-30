@@ -17,6 +17,10 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 	LoadBlockHeight(chain string) (int64, error)
+
+	// Watch address
+	SaveWatchAddress(chain, address string)
+	LoadWatchAddresses(chain string) []string
 }
 
 // A struct for saving txs into database.
@@ -179,4 +183,30 @@ func (d *DefaultDatabase) LoadBlockHeight(chain string) (int64, error) {
 	default:
 		return 0, err
 	}
+}
+
+func (d *DefaultDatabase) SaveWatchAddress(chain, address string) {
+	_, err := d.db.Exec("INSERT IGNORE INTO watch_address (chain, address) VALUES (?, ?)", chain, address)
+	if err != nil {
+		utils.LogError(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
+	}
+}
+
+func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
+	addrs := make([]string, 0)
+	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
+	if err != nil {
+		utils.LogError("Failed to load watch address for chain", chain, ". Error = ", err)
+		return addrs
+	}
+
+	for rows.Next() {
+		var addr string
+		err := rows.Scan(&addr)
+		if err == nil {
+			addrs = append(addrs, addr)
+		}
+	}
+
+	return addrs
 }

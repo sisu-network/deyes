@@ -58,10 +58,20 @@ func (w *Watcher) init() {
 	utils.LogInfo("startingBlock = ", w.cfg.StartingBlock)
 
 	w.blockHeight = utils.MaxInt(int64(w.cfg.StartingBlock), blockHeight)
+
+	// Load watch addresses
+	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
+
+	utils.LogInfo("Watch address for chain ", w.cfg.Chain, ": ", addrs)
+
+	for _, addr := range addrs {
+		w.interestedAddrs.Store(addr, true)
+	}
 }
 
 func (w *Watcher) AddWatchAddr(addr string) {
 	w.interestedAddrs.Store(addr, true)
+	w.db.SaveWatchAddress(w.cfg.Chain, addr)
 }
 
 func (w *Watcher) Start() {
