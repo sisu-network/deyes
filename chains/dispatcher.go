@@ -61,11 +61,18 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	}
 
 	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
-		utils.LogError("cannot dispatch tx, err =", err)
-		return types.NewDispatchTxError(err)
+		// It is possible that another node has deployed the same transaction. We check if the tx has
+		// been inclued into the blockchain or not.
+		_, _, err2 := d.client.TransactionByHash(context.Background(), tx.Hash())
+		if err2 != nil {
+			utils.LogError("cannot dispatch tx, err =", err)
+			return types.NewDispatchTxError(err)
+		}
+
+		utils.LogInfo("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
 	}
 
-	utils.LogVerbose("Tx is dispatched successfully")
+	utils.LogVerbose("Tx is dispatched successfully for chain", request.Chain)
 
 	return &types.DispatchedTxResult{
 		Success:      true,
