@@ -123,7 +123,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		utils.LogDebug("Height = ", block.Number())
+		utils.LogDebug(w.cfg.Chain, "Height = ", block.Number())
 		return block, nil
 
 	case ethereum.NotFound:

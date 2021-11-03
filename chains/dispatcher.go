@@ -49,12 +49,12 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 	// Check if this is a contract deployment for eth. If it is, returns the deployed address.
 	var addr string
+	from := utils.PublicKeyBytesToAddress(request.PubKey)
 	if request.IsEthContractDeployment {
 		if request.PubKey == nil {
 			return types.NewDispatchTxError(fmt.Errorf("invalid pubkey"))
 		}
 
-		from := utils.PublicKeyBytesToAddress(request.PubKey)
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
 		utils.LogInfo("Deployed address = ", addr, "for chain", request.Chain)
@@ -65,14 +65,16 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		// been inclued into the blockchain or not.
 		_, _, err2 := d.client.TransactionByHash(context.Background(), tx.Hash())
 		if err2 != nil {
+			utils.LogError("cannot dispatch tx, from =", from, "chain = ", request.Chain)
 			utils.LogError("cannot dispatch tx, err =", err)
+			utils.LogError("cannot dispatch tx, err2 =", err2)
 			return types.NewDispatchTxError(err)
 		}
 
 		utils.LogInfo("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
 	}
 
-	utils.LogVerbose("Tx is dispatched successfully for chain", request.Chain)
+	utils.LogVerbose("Tx is dispatched successfully for chain", request.Chain, "from", from, "txHash =", tx.Hash())
 
 	return &types.DispatchedTxResult{
 		Success:      true,
