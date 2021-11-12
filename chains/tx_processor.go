@@ -9,6 +9,7 @@ import (
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
+	libchain "github.com/sisu-network/lib/chain"
 )
 
 // This struct handles the logic in deyes.
@@ -46,7 +47,7 @@ func (tp *TxProcessor) Start() {
 
 		utils.LogInfo("Supported chain and config:", chain, cfg)
 
-		if utils.IsETHBasedChain(chain) {
+		if libchain.IsETHBasedChain(chain) {
 			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
 			watcher.Start()
 			tp.watchers[chain] = watcher

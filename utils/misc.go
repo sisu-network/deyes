@@ -15,14 +15,3 @@ func MaxInt(x, y int64) int64 {
 	}
 	return x
 }
-
-func IsETHBasedChain(chain string) bool {
-	switch chain {
-	case "sisu-eth":
-		return true
-	case "eth":
-		return true
-	}
-
-	return false
-}
