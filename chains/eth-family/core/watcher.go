@@ -15,6 +15,7 @@ import (
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
+	libchain "github.com/sisu-network/lib/chain"
 )
 
 // TODO: Move this to the chains package.
@@ -210,7 +211,7 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 }
 
 func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.Address, error) {
-	signer := utils.GetEthChainSigner(chain)
+	signer := libchain.GetEthChainSigner(chain)
 	if signer == nil {
 		return common.Address{}, fmt.Errorf("cannot find signer for chain %s", chain)
 	}

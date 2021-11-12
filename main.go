@@ -47,23 +47,7 @@ func initialize(cfg *config.Deyes) {
 }
 
 func writeDefaultConfig(filePath string) error {
-	var defaultValue = `db_host = "localhost"
-	db_port = 3306
-	db_username = "root"
-	db_password = "password"
-	db_schema = "deyes"
-
-	server_port = 31001
-	sisu_server_url = "http://localhost:25456"
-
-	[chains]
-	[chains.eth]
-		name = "eth"
-		block_time = 1000
-		starting_block = 0
-		rpc_url = "http://localhost:7545"
-`
-	err := ioutil.WriteFile(filePath, []byte(defaultValue), 0644)
+	err := ioutil.WriteFile(filePath, []byte(config.EyesConfigTemplate), 0644)
 	if err != nil {
 		return err
 	}
@@ -74,9 +58,7 @@ func writeDefaultConfig(filePath string) error {
 func loadConfig() *config.Deyes {
 	tomlFile := "./deyes.toml"
 	if _, err := os.Stat(tomlFile); os.IsNotExist(err) {
-		if err := writeDefaultConfig(tomlFile); err != nil {
-			panic(err)
-		}
+		panic(err)
 	}
 
 	cfg := new(config.Deyes)

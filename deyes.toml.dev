@@ -1,21 +1,21 @@
-db_host = "mysql"
+db_host = "localhost"
 db_port = 3306
 db_username = "root"
 db_password = "password"
 db_schema = "deyes"
 
 server_port = 31001
-sisu_server_url = "http://sisu:25456"
+sisu_server_url = "http://localhost:25456"
 
 [chains]
 [chains.eth]
-  chain = "eth"
+  chain = "ganache1"
   block_time = 1000
   starting_block = 0
-  rpc_url = "http://ganache-cli-1:7545"
+  rpc_url = "http://localhost:7545"
 
-[chains.sisu-eth]
-  chain = "sisu-eth"
+[chains.ganache2]
+  chain = "ganache2"
   block_time = 1000
   starting_block = 0
-  rpc_url = "http://ganache-cli-2:8545"
+  rpc_url = "http://localhost:8545"
