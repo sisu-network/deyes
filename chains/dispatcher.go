@@ -77,7 +77,10 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	utils.LogVerbose("Tx is dispatched successfully for chain", request.Chain, "from", from, "txHash =", tx.Hash())
 
 	return &types.DispatchedTxResult{
-		Success:      true,
-		DeployedAddr: addr,
+		Success:                 true,
+		DeployedAddr:            addr,
+		Chain:                   request.Chain,
+		TxHash:                  request.TxHash,
+		IsEthContractDeployment: request.IsEthContractDeployment,
 	}
 }

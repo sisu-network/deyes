@@ -81,7 +81,7 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	}
 }
 
-func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
+func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
 	dispatcher := tp.dispatchers[chain]
@@ -89,7 +89,9 @@ func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) *types.Dis
 		types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
 	}
 
-	return dispatcher.Dispatch(request)
+	result := dispatcher.Dispatch(request)
+	utils.LogInfo("Posting result to sisu for chain", chain, " tx hash =", request.TxHash)
+	tp.sisuClient.PostDeploymentResult(result)
 }
 
 func (tp *TxProcessor) GetNonce(chain string, address string) int64 {

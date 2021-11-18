@@ -1,8 +1,9 @@
 package types
 
 type DispatchedTxRequest struct {
-	Chain string
-	Tx    []byte
+	Chain  string
+	Tx     []byte
+	TxHash string
 
 	// For ETH chains
 	PubKey                  []byte
@@ -12,9 +13,12 @@ type DispatchedTxRequest struct {
 type DispatchedTxResult struct {
 	Success bool
 	Err     error
+	Chain   string
+	TxHash  string
 
 	// For ETH only. This is optional deployed contract addresses.
-	DeployedAddr string
+	DeployedAddr            string
+	IsEthContractDeployment bool
 }
 
 func NewDispatchTxError(err error) *DispatchedTxResult {

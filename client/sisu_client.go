@@ -19,6 +19,7 @@ type Client interface {
 	TryDial()
 	GetVersion() (string, error)
 	BroadcastTxs(txs *types.Txs) error
+	PostDeploymentResult(result *types.DispatchedTxResult) error
 }
 
 var (
@@ -82,6 +83,19 @@ func (c *DefaultClient) BroadcastTxs(txs *types.Txs) error {
 		return err
 	}
 	utils.LogVerbose("Done broadcasting!")
+
+	return nil
+}
+
+func (c *DefaultClient) PostDeploymentResult(result *types.DispatchedTxResult) error {
+	utils.LogVerbose("Sending Tx Deployment result back to Sisu...")
+
+	var r string
+	err := c.client.CallContext(context.Background(), &r, "tss_postDeploymentResult", result)
+	if err != nil {
+		utils.LogError("Cannot post tx deployment to sisu", "tx hash =", result.TxHash, "err = ", err)
+		return err
+	}
 
 	return nil
 }
