@@ -87,7 +87,7 @@ func (w *Watcher) scanBlocks() {
 	if err == nil {
 		w.blockHeight = latestBlock.Header().Number.Int64()
 	}
-	utils.LogInfo("Latest height = ", w.blockHeight)
+	utils.LogInfo(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
 		// Get the blockheight
@@ -135,7 +135,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 				return block, err
 			}
 
-			time.Sleep(time.Duration(time.Second))
+			time.Sleep(time.Duration(w.cfg.BlockTime) / 2 * time.Millisecond)
 		}
 	}
 
@@ -216,7 +216,7 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 		return common.Address{}, fmt.Errorf("cannot find signer for chain %s", chain)
 	}
 
-	msg, err := tx.AsMessage(etypes.NewEIP2930Signer(tx.ChainId()))
+	msg, err := tx.AsMessage(etypes.NewEIP2930Signer(tx.ChainId()), nil)
 	if err != nil {
 		return common.Address{}, err
 	}
