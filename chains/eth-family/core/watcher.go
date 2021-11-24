@@ -51,14 +51,8 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	blockHeight, err := w.db.LoadBlockHeight(w.cfg.Chain)
-	if err != nil {
-		panic(err)
-	}
-
-	utils.LogInfo("startingBlock = ", w.cfg.StartingBlock)
-
-	w.blockHeight = utils.MaxInt(int64(w.cfg.StartingBlock), blockHeight)
+	// Set the block height for the watcher.
+	w.setBlockHeight()
 
 	// Load watch addresses
 	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
@@ -68,6 +62,22 @@ func (w *Watcher) init() {
 	for _, addr := range addrs {
 		w.interestedAddrs.Store(addr, true)
 	}
+}
+
+func (w *Watcher) setBlockHeight() {
+	for {
+		number, err := w.client.BlockNumber(context.Background())
+		if err != nil {
+			utils.LogError("cannot get latest block number. Sleeping for a few seconds")
+			time.Sleep(time.Second * 5)
+			continue
+		}
+
+		w.blockHeight = int64(number)
+		break
+	}
+
+	utils.LogInfo("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
 }
 
 func (w *Watcher) AddWatchAddr(addr string) {

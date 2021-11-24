@@ -1,10 +1,9 @@
 package config
 
 type Chain struct {
-	Chain         string `toml:"chain"`
-	BlockTime     int    `toml:"block_time"`
-	StartingBlock int    `toml:"starting_block"`
-	RpcUrl        string `toml:"rpc_url"`
+	Chain     string `toml:"chain"`
+	BlockTime int    `toml:"block_time"`
+	RpcUrl    string `toml:"rpc_url"`
 }
 
 type Deyes struct {

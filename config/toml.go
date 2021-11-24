@@ -13,7 +13,6 @@ sisu_server_url = "{{ .SisuServerUrl }}"
 	[chains.{{ $k }}]
 	name = "{{ $k }}"
 	block_time = {{ $v.BlockTime }}
-	starting_block = {{ $v.StartingBlock }}
 	rpc_url = "{{ $v.RpcUrl }}"
 {{ end }}
 `

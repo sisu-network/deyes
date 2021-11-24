@@ -49,8 +49,8 @@ func (tp *TxProcessor) Start() {
 
 		if libchain.IsETHBasedChain(chain) {
 			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
-			watcher.Start()
 			tp.watchers[chain] = watcher
+			go watcher.Start()
 
 			// Dispatcher
 			dispatcher := NewEhtDispatcher(chain, cfg.RpcUrl)
