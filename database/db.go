@@ -10,7 +10,7 @@ import (
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 )
 
 type Database interface {
@@ -83,7 +83,7 @@ func (d *DefaultDatabase) Connect() error {
 	}
 
 	d.db = database
-	utils.LogInfo("Db is connected successfully")
+	log.Info("Db is connected successfully")
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (d *DefaultDatabase) DoMigration() error {
 func (d *DefaultDatabase) Init() error {
 	err := d.Connect()
 	if err != nil {
-		utils.LogError("Failed to connect to DB. Err =", err)
+		log.Error("Failed to connect to DB. Err =", err)
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (d *DefaultDatabase) listen() {
 	for req := range d.saveTxCh {
 		err := d.doSave(req)
 		if err != nil {
-			utils.LogError("Cannot save into db, err = ", err)
+			log.Error("Cannot save into db, err = ", err)
 		}
 	}
 }
@@ -168,7 +168,7 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 func (d *DefaultDatabase) SaveWatchAddress(chain, address string) {
 	_, err := d.db.Exec("INSERT IGNORE INTO watch_address (chain, address) VALUES (?, ?)", chain, address)
 	if err != nil {
-		utils.LogError(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
+		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}
 }
 
@@ -176,7 +176,7 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 	addrs := make([]string, 0)
 	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
 	if err != nil {
-		utils.LogError("Failed to load watch address for chain", chain, ". Error = ", err)
+		log.Error("Failed to load watch address for chain", chain, ". Error = ", err)
 		return addrs
 	}
 

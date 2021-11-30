@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -29,6 +29,6 @@ func (s *Server) Run() {
 	}
 
 	srv := &http.Server{Handler: s.handler}
-	utils.LogInfo("Running server at", s.listenAddress)
+	log.Info("Running server at", s.listenAddress)
 	srv.Serve(listener)
 }

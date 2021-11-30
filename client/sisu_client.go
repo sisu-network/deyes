@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 )
 
 const (
@@ -39,21 +39,21 @@ func NewClient(url string) Client {
 }
 
 func (c *DefaultClient) TryDial() {
-	utils.LogInfo("Trying to dial Sisu server")
+	log.Info("Trying to dial Sisu server")
 
 	for {
-		utils.LogInfo("Dialing...", c.url)
+		log.Info("Dialing...", c.url)
 		var err error
 		c.client, err = rpc.DialContext(context.Background(), c.url)
 		if err != nil {
-			utils.LogError("Cannot connect to Sisu server err = ", err)
+			log.Error("Cannot connect to Sisu server err = ", err)
 			time.Sleep(RETRY_TIME)
 			continue
 		}
 
 		_, err = c.GetVersion()
 		if err != nil {
-			utils.LogError("Cannot get Sisu version err = ", err)
+			log.Error("Cannot get Sisu version err = ", err)
 			time.Sleep(RETRY_TIME)
 			continue
 		}
@@ -62,7 +62,7 @@ func (c *DefaultClient) TryDial() {
 		break
 	}
 
-	utils.LogInfo("Sisu server is connected")
+	log.Info("Sisu server is connected")
 }
 
 func (c *DefaultClient) GetVersion() (string, error) {
@@ -74,26 +74,26 @@ func (c *DefaultClient) GetVersion() (string, error) {
 // TODO: Handle the case when broadcasting fails. In that case, we need to save the first Tx
 // that we need to send to Sisu.
 func (c *DefaultClient) BroadcastTxs(txs *types.Txs) error {
-	utils.LogVerbose("Broadcasting to Sisu server...")
+	log.Verbose("Broadcasting to Sisu server...")
 
 	var result string
 	err := c.client.CallContext(context.Background(), &result, "tss_postObservedTxs", txs)
 	if err != nil {
-		utils.LogError("Cannot broadcast tx to Sisu, err = ", err)
+		log.Error("Cannot broadcast tx to Sisu, err = ", err)
 		return err
 	}
-	utils.LogVerbose("Done broadcasting!")
+	log.Verbose("Done broadcasting!")
 
 	return nil
 }
 
 func (c *DefaultClient) PostDeploymentResult(result *types.DispatchedTxResult) error {
-	utils.LogVerbose("Sending Tx Deployment result back to Sisu...")
+	log.Verbose("Sending Tx Deployment result back to Sisu...")
 
 	var r string
 	err := c.client.CallContext(context.Background(), &r, "tss_postDeploymentResult", result)
 	if err != nil {
-		utils.LogError("Cannot post tx deployment to sisu", "tx hash =", result.TxHash, "err = ", err)
+		log.Error("Cannot post tx deployment to sisu", "tx hash =", result.TxHash, "err = ", err)
 		return err
 	}
 

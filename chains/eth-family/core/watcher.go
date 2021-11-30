@@ -14,8 +14,8 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
+	"github.com/sisu-network/lib/log"
 )
 
 // TODO: Move this to the chains package.
@@ -45,7 +45,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *
 func (w *Watcher) init() {
 	var err error
 
-	utils.LogInfo("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.RpcUrl)
+	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.RpcUrl)
 	w.client, err = ethclient.Dial(w.cfg.RpcUrl)
 	if err != nil {
 		panic(err)
@@ -57,7 +57,7 @@ func (w *Watcher) init() {
 	// Load watch addresses
 	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
 
-	utils.LogInfo("Watch address for chain ", w.cfg.Chain, ": ", addrs)
+	log.Info("Watch address for chain ", w.cfg.Chain, ": ", addrs)
 
 	for _, addr := range addrs {
 		w.interestedAddrs.Store(addr, true)
@@ -68,7 +68,7 @@ func (w *Watcher) setBlockHeight() {
 	for {
 		number, err := w.client.BlockNumber(context.Background())
 		if err != nil {
-			utils.LogError("cannot get latest block number. Sleeping for a few seconds")
+			log.Error("cannot get latest block number. Sleeping for a few seconds")
 			time.Sleep(time.Second * 5)
 			continue
 		}
@@ -77,7 +77,7 @@ func (w *Watcher) setBlockHeight() {
 		break
 	}
 
-	utils.LogInfo("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
+	log.Info("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
 }
 
 func (w *Watcher) AddWatchAddr(addr string) {
@@ -86,7 +86,7 @@ func (w *Watcher) AddWatchAddr(addr string) {
 }
 
 func (w *Watcher) Start() {
-	utils.LogInfo("Starting Watcher...")
+	log.Info("Starting Watcher...")
 
 	w.init()
 	go w.scanBlocks()
@@ -94,22 +94,30 @@ func (w *Watcher) Start() {
 
 func (w *Watcher) scanBlocks() {
 	latestBlock, err := w.getLatestBlock()
-	if err == nil {
-		w.blockHeight = latestBlock.Header().Number.Int64()
+	if err != nil {
+		log.Error(err)
+		return
 	}
-	utils.LogInfo(w.cfg.Chain, "Latest height = ", w.blockHeight)
+
+	w.blockHeight = latestBlock.Header().Number.Int64()
+	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
-			utils.LogError("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain)
+			log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain)
 			time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
 			continue
 		}
 
 		filteredTxs, err := w.processBlock(block)
-		utils.LogVerbose("Filtered txs sizes = ", len(filteredTxs.Arr))
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr))
 
 		if err == nil {
 			if len(filteredTxs.Arr) > 0 {
@@ -122,7 +130,7 @@ func (w *Watcher) scanBlocks() {
 
 			w.blockHeight++
 		} else {
-			utils.LogError("cannot process block, err =", err)
+			log.Error("cannot process block, err =", err)
 		}
 
 		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
@@ -134,7 +142,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		utils.LogDebug(w.cfg.Chain, "Height = ", block.Number())
+		log.Debug(w.cfg.Chain, "Height = ", block.Number())
 		return block, nil
 
 	case ethereum.NotFound:
@@ -163,12 +171,12 @@ func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
-	utils.LogInfo(w.cfg.Chain, "Block length = ", len(block.Transactions()))
+	log.Info(w.cfg.Chain, "Block length = ", len(block.Transactions()))
 
 	for _, tx := range block.Transactions() {
 		bz, err := tx.MarshalBinary()
 		if err != nil {
-			utils.LogError("Cannot serialize ETH tx, err = ", err)
+			log.Error("Cannot serialize ETH tx, err = ", err)
 			continue
 		}
 
@@ -209,7 +217,7 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	utils.LogVerbose("from =", from.Hex(), "to", tx.To())
+	log.Verbose("from =", from.Hex(), "to", tx.To())
 	if err == nil {
 		_, ok := w.interestedAddrs.Load(from.Hex())
 		if ok {
@@ -237,7 +245,7 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 func (w *Watcher) GetNonce(address string) int64 {
 	nonce, err := w.client.PendingNonceAt(context.Background(), common.HexToAddress(address))
 	if err != nil {
-		utils.LogError("cannot get nonce of chain", w.cfg.Chain, " at", address)
+		log.Error("cannot get nonce of chain", w.cfg.Chain, " at", address)
 		return -1
 	}
 
