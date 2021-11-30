@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 )
 
 type Dispatcher interface {
@@ -32,7 +33,7 @@ func (d *EthDispatcher) Start() {
 	var err error
 	d.client, err = ethclient.Dial(d.rpcEndpoint)
 	if err != nil {
-		utils.LogError("Cannot dial chain", d.chain, "at endpoint", d.rpcEndpoint)
+		log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcEndpoint)
 		// TODO: Add retry mechanism here.
 		return
 	}
@@ -57,7 +58,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
-		utils.LogInfo("Deployed address = ", addr, "for chain", request.Chain)
+		log.Info("Deployed address = ", addr, "for chain", request.Chain)
 	}
 
 	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
@@ -65,16 +66,16 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		// been inclued into the blockchain or not.
 		_, _, err2 := d.client.TransactionByHash(context.Background(), tx.Hash())
 		if err2 != nil {
-			utils.LogError("cannot dispatch tx, from =", from, "chain = ", request.Chain)
-			utils.LogError("cannot dispatch tx, err =", err)
-			utils.LogError("cannot dispatch tx, err2 =", err2)
+			log.Error("cannot dispatch tx, from =", from, "chain = ", request.Chain)
+			log.Error("cannot dispatch tx, err =", err)
+			log.Error("cannot dispatch tx, err2 =", err2)
 			return types.NewDispatchTxError(err)
 		}
 
-		utils.LogInfo("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+		log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
 	}
 
-	utils.LogVerbose("Tx is dispatched successfully for chain", request.Chain, "from", from, "txHash =", tx.Hash())
+	log.Verbose("Tx is dispatched successfully for chain", request.Chain, "from", from, "txHash =", tx.Hash())
 
 	return &types.DispatchedTxResult{
 		Success:                 true,

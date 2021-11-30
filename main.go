@@ -14,7 +14,7 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/server"
-	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 )
 
 func initializeDb(cfg *config.Deyes) database.Database {
@@ -31,7 +31,7 @@ func setupApiServer(cfg *config.Deyes, txProcessor *chains.TxProcessor) {
 	handler := rpc.NewServer()
 	handler.RegisterName("deyes", server.NewApi(txProcessor))
 
-	utils.LogInfo("Running server at port", cfg.ServerPort)
+	log.Info("Running server at port", cfg.ServerPort)
 	s := server.NewServer(handler, cfg.ServerPort)
 	s.Run()
 }

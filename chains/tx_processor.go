@@ -8,8 +8,8 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
+	"github.com/sisu-network/lib/log"
 )
 
 // This struct handles the logic in deyes.
@@ -37,15 +37,15 @@ func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.C
 }
 
 func (tp *TxProcessor) Start() {
-	utils.LogInfo("Starting tx processor...")
-	utils.LogInfo("tp.cfg.Chains = ", tp.cfg.Chains)
+	log.Info("Starting tx processor...")
+	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
 	tp.txsCh = make(chan *types.Txs, 100)
 
 	for chain, cfg := range tp.cfg.Chains {
 		go tp.listen()
 
-		utils.LogInfo("Supported chain and config:", chain, cfg)
+		log.Info("Supported chain and config:", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
 			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
@@ -75,7 +75,7 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
-			utils.LogInfo("Adding watched addr", addr, "for chain", chain)
+			log.Info("Adding watched addr", addr, "for chain", chain)
 			watcher.AddWatchAddr(addr)
 		}
 	}
@@ -90,7 +90,7 @@ func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) {
 	}
 
 	result := dispatcher.Dispatch(request)
-	utils.LogInfo("Posting result to sisu for chain", chain, " tx hash =", request.TxHash)
+	log.Info("Posting result to sisu for chain", chain, " tx hash =", request.TxHash)
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
