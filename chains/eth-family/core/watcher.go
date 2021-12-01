@@ -97,11 +97,13 @@ func (w *Watcher) Start() {
 
 func (w *Watcher) scanBlocks() {
 	latestBlock, err := w.getLatestBlock()
-	if err != nil {
+	if err == nil {
 		log.Error(err)
 	}
 
-	w.blockHeight = latestBlock.Header().Number.Int64()
+	if latestBlock != nil {
+		w.blockHeight = latestBlock.Header().Number.Int64()
+	}
 	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
