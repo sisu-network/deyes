@@ -2,6 +2,7 @@ package core
 
 import (
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +13,10 @@ import (
 func TestProcessBlock(t *testing.T) {
 	t.Parallel()
 
-	watcher := Watcher{}
+	watcher := Watcher{
+		interestedAddrs: &sync.Map{},
+	}
+	watcher.interestedAddrs.Store(common.Address{1}.Hex(), true)
 	trans := genTransactions()
 	hdr := etypes.Header{
 		Difficulty: big.NewInt(100),
