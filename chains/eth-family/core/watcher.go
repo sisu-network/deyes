@@ -11,12 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 )
+
+var _ chains.Watcher = (*Watcher)(nil)
 
 // TODO: Move this to the chains package.
 type Watcher struct {
@@ -94,12 +97,13 @@ func (w *Watcher) Start() {
 
 func (w *Watcher) scanBlocks() {
 	latestBlock, err := w.getLatestBlock()
-	if err != nil {
+	if err == nil {
 		log.Error(err)
-		return
 	}
 
-	w.blockHeight = latestBlock.Header().Number.Int64()
+	if latestBlock != nil {
+		w.blockHeight = latestBlock.Header().Number.Int64()
+	}
 	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
@@ -113,25 +117,21 @@ func (w *Watcher) scanBlocks() {
 
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
-			log.Error(err)
+			log.Error("cannot process block, err = ",err)
 			continue
 		}
 
 		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr))
 
-		if err == nil {
-			if len(filteredTxs.Arr) > 0 {
-				// Send list of interested txs back to the listener.
-				w.txsCh <- filteredTxs
-			}
-
-			// Save all txs into database for later references.
-			w.db.SaveTxs(w.cfg.Chain, w.blockHeight, filteredTxs)
-
-			w.blockHeight++
-		} else {
-			log.Error("cannot process block, err =", err)
+		if len(filteredTxs.Arr) > 0 {
+			// Send list of interested txs back to the listener.
+			w.txsCh <- filteredTxs
 		}
+
+		// Save all txs into database for later references.
+		w.db.SaveTxs(w.cfg.Chain, w.blockHeight, filteredTxs)
+
+		w.blockHeight++
 
 		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
 	}

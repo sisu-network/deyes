@@ -25,11 +25,6 @@ func TestProcessBlock(t *testing.T) {
 	require.Len(t, txs.Arr, len(trans))
 }
 
-func Test_LoadWatchAddr(t *testing.T) {
-	t.Parallel()
-
-}
-
 func genTransactions() etypes.Transactions {
 	tx := etypes.NewTransaction(0, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
 	return etypes.Transactions{
