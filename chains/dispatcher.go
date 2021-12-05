@@ -58,7 +58,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
-		log.Info("Deployed address = ", addr, "for chain", request.Chain)
+		log.Info("Deployed address = ", addr, " for chain ", request.Chain)
 	}
 
 	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
@@ -66,9 +66,9 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		// been included into the blockchain or not.
 		_, _, err2 := d.client.TransactionByHash(context.Background(), tx.Hash())
 		if err2 != nil {
-			log.Error("cannot dispatch tx, from =", from, "chain = ", request.Chain)
-			log.Error("cannot dispatch tx, err =", err)
-			log.Error("cannot dispatch tx, err2 =", err2)
+			log.Error("cannot dispatch tx, from = ", from, " chain = ", request.Chain)
+			log.Error("cannot dispatch tx, err = ", err)
+			log.Error("cannot dispatch tx, err2 = ", err2)
 			return types.NewDispatchTxError(err)
 		}
 

@@ -45,7 +45,7 @@ func (tp *TxProcessor) Start() {
 	for chain, cfg := range tp.cfg.Chains {
 		go tp.listen()
 
-		log.Info("Supported chain and config:", chain, cfg)
+		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
 			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
@@ -75,7 +75,7 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
-			log.Info("Adding watched addr", addr, "for chain", chain)
+			log.Info("Adding watched addr ", addr, " for chain ", chain)
 			watcher.AddWatchAddr(addr)
 		}
 	}
@@ -90,7 +90,7 @@ func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) {
 	}
 
 	result := dispatcher.Dispatch(request)
-	log.Info("Posting result to sisu for chain", chain, " tx hash =", request.TxHash)
+	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash)
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
