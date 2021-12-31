@@ -40,7 +40,7 @@ func (tp *TxProcessor) Start() {
 	log.Info("Starting tx processor...")
 	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
-	tp.txsCh = make(chan *types.Txs, 100)
+	tp.txsCh = make(chan *types.Txs, 1000)
 
 	for chain, cfg := range tp.cfg.Chains {
 		go tp.listen()

@@ -114,7 +114,7 @@ func (w *Watcher) scanBlocks() {
 
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
-			log.Error("cannot process block, err = ",err)
+			log.Error("cannot process block, err = ", err)
 			continue
 		}
 
@@ -214,7 +214,7 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	log.Verbose("from =", from.Hex(), "to", tx.To())
+	log.Verbose("from = ", from.Hex(), " to ", tx.To())
 	if err == nil {
 		_, ok := w.interestedAddrs.Load(from.Hex())
 		if ok {
