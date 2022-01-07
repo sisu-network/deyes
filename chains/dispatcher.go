@@ -58,7 +58,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 		addr = crypto.CreateAddress(from, tx.Nonce()).String()
 
-		log.Info("Deployed address = ", addr, " for chain ", request.Chain)
+		log.Info("Deploying address = ", addr, " for chain ", request.Chain)
 	}
 
 	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
