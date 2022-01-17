@@ -39,6 +39,8 @@ func (d *EthDispatcher) Start() {
 	}
 }
 
+func (d *EthDispatcher) GetSuggestedGasPrice() {}
+
 func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
 	txBytes := request.Tx
 

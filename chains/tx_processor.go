@@ -102,3 +102,7 @@ func (tp *TxProcessor) GetNonce(chain string, address string) int64 {
 
 	return watcher.GetNonce(address)
 }
+
+func (tp *TxProcessor) GetWatcher(chain string) Watcher {
+	return tp.watchers[chain]
+}
