@@ -125,13 +125,13 @@ func (w *Watcher) scanBlocks() {
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
 		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
 			w.updateGasPrice(context.Background())
+			w.gasPriceCh <- &types.GasPriceRequest{
+				Chain:    w.cfg.Chain,
+				Height:   w.blockHeight,
+				GasPrice: w.GetGasPrice(),
+			}
 		}
 
-		w.gasPriceCh <- &types.GasPriceRequest{
-			Chain:    w.cfg.Chain,
-			Height:   w.blockHeight,
-			GasPrice: w.GetGasPrice(),
-		}
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
