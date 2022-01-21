@@ -17,6 +17,7 @@ import (
 type TxProcessor struct {
 	db         database.Database
 	txsCh      chan *types.Txs
+	gasPriceCh chan *types.GasPriceRequest
 	chain      string
 	blockTime  int
 	sisuClient client.Client
@@ -41,6 +42,7 @@ func (tp *TxProcessor) Start() {
 	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
 	tp.txsCh = make(chan *types.Txs, 1000)
+	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
 
 	for chain, cfg := range tp.cfg.Chains {
 		go tp.listen()
@@ -48,7 +50,7 @@ func (tp *TxProcessor) Start() {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
+			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh, tp.gasPriceCh)
 			tp.watchers[chain] = watcher
 			go watcher.Start()
 
@@ -67,6 +69,8 @@ func (tp *TxProcessor) listen() {
 		select {
 		case txs := <-tp.txsCh:
 			tp.sisuClient.BroadcastTxs(txs)
+		case gasReq := <-tp.gasPriceCh:
+			tp.sisuClient.UpdateGasPrice(gasReq)
 		}
 	}
 }

@@ -33,6 +33,7 @@ type Watcher struct {
 	blockTime   int
 	db          database.Database
 	txsCh       chan *types.Txs
+	gasPriceCh  chan *types.GasPriceRequest
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
@@ -42,11 +43,12 @@ type Watcher struct {
 	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, gasPriceCh chan *types.GasPriceRequest) *Watcher {
 	w := &Watcher{
 		db:              db,
 		cfg:             cfg,
 		txsCh:           txsCh,
+		gasPriceCh:      gasPriceCh,
 		interestedAddrs: &sync.Map{},
 	}
 
@@ -117,7 +119,18 @@ func (w *Watcher) scanBlocks() {
 	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
-		w.updateGasPrice(context.Background())
+		// Only update gas price at deterministic block height
+		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
+		chainParams := config.ChainParamsMap[w.cfg.Chain]
+		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+			w.updateGasPrice(context.Background())
+		}
+
+		w.gasPriceCh <- &types.GasPriceRequest{
+			Chain:    w.cfg.Chain,
+			Height:   w.blockHeight,
+			GasPrice: w.GetGasPrice(),
+		}
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
@@ -286,7 +299,6 @@ func (w *Watcher) updateGasPrice(ctx context.Context) error {
 	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
 	w.gasPrice = medianGasPrice
 
-	log.Debug("New gas price: ", medianGasPrice)
 	return nil
 }
 

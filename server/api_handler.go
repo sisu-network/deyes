@@ -36,7 +36,7 @@ func (api *ApiHandler) GetNonce(chain string, address string) int64 {
 	return api.txProcessor.GetNonce(chain, address)
 }
 
-func (api *ApiHandler) GetSuggestedGasPrice(chain string) int64 {
+func (api *ApiHandler) GetGasPrice(chain string) int64 {
 	watcher := api.txProcessor.GetWatcher(chain)
 	return watcher.GetGasPrice()
 }
