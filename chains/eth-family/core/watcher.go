@@ -38,8 +38,9 @@ type Watcher struct {
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 
+	signers map[string]etypes.Signer
+
 	gasPrice        *big.Int
-	signers         map[string]etypes.Signer
 	gasPriceGetters []GasPriceGetter
 }
 
