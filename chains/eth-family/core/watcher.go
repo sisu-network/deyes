@@ -41,6 +41,7 @@ type Watcher struct {
 	signers map[string]etypes.Signer
 
 	gasPrice        *big.Int
+	gasPriceLocker  sync.RWMutex
 	gasPriceGetters []GasPriceGetter
 }
 
@@ -278,6 +279,8 @@ func (w *Watcher) GetNonce(address string) int64 {
 }
 
 func (w *Watcher) GetGasPrice() int64 {
+	w.gasPriceLocker.RLock()
+	defer w.gasPriceLocker.RUnlock()
 	return w.gasPrice.Int64()
 }
 
@@ -298,6 +301,9 @@ func (w *Watcher) updateGasPrice(ctx context.Context) error {
 	}
 
 	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
+
+	w.gasPriceLocker.Lock()
+	defer w.gasPriceLocker.Unlock()
 	w.gasPrice = medianGasPrice
 
 	return nil
