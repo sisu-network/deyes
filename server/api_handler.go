@@ -35,3 +35,8 @@ func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
 func (api *ApiHandler) GetNonce(chain string, address string) int64 {
 	return api.txProcessor.GetNonce(chain, address)
 }
+
+func (api *ApiHandler) GetGasPrice(chain string) int64 {
+	watcher := api.txProcessor.GetWatcher(chain)
+	return watcher.GetGasPrice()
+}

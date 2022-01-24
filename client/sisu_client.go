@@ -20,6 +20,7 @@ type Client interface {
 	GetVersion() (string, error)
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
+	UpdateGasPrice(req *types.GasPriceRequest) error
 }
 
 var (
@@ -94,6 +95,19 @@ func (c *DefaultClient) PostDeploymentResult(result *types.DispatchedTxResult) e
 	err := c.client.CallContext(context.Background(), &r, "tss_postDeploymentResult", result)
 	if err != nil {
 		log.Error("Cannot post tx deployment to sisu", "tx hash =", result.TxHash, "err = ", err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *DefaultClient) UpdateGasPrice(request *types.GasPriceRequest) error {
+	log.Debug("Posting gas price back to Sisu...")
+
+	var r string
+	err := c.client.CallContext(context.Background(), &r, "tss_updateGasPrice", request)
+	if err != nil {
+		log.Error(err)
 		return err
 	}
 
