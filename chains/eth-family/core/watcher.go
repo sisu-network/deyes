@@ -54,7 +54,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, g
 		interestedAddrs: &sync.Map{},
 	}
 
-	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromGasStation, w.getGasPriceFromNode}
+	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
 	w.gasPriceGetters = gasPriceGetters
 	return w
 }
@@ -317,9 +317,4 @@ func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 	}
 
 	return gasPrice, nil
-}
-
-func (w *Watcher) getGasPriceFromGasStation(ctx context.Context) (*big.Int, error) {
-	// TODO: call to ETH gas station (https://docs.ethgasstation.info/)
-	return big.NewInt(0), nil
 }
