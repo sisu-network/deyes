@@ -13,4 +13,4 @@ EXPOSE 7545
 
 # Example of how to run the docker command:
 # docker run -i -t -e port=7545 -e networkId=1 ganache-cli
-CMD ["sh", "-c", "ganache-cli --accounts 10 --blockTime 3 --host 0.0.0.0 --port ${port} --defaultBalanceEther 100000 --chain.chainId ${networkId} --mnemonic 'draft attract behave allow rib raise puzzle frost neck curtain gentle bless letter parrot hold century diet budget paper fetch hat vanish wonder maximum'"]
+CMD ["sh", "-c", "ganache-cli --accounts 10 --blockTime 3 --host 0.0.0.0 --port ${port} --gasLimit 0x1C9C380 --defaultBalanceEther 100000 --chain.chainId ${networkId} --mnemonic 'draft attract behave allow rib raise puzzle frost neck curtain gentle bless letter parrot hold century diet budget paper fetch hat vanish wonder maximum'"]
