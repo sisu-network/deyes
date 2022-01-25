@@ -1,5 +1,15 @@
 package config
 
+var ChainParamsMap = map[string]ChainParams{
+	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 10},
+}
+
+type ChainParams struct {
+	GasPriceStartBlockHeight int64
+	Interval                 int64
+}
+
 type Chain struct {
 	Chain     string `toml:"chain"`
 	BlockTime int    `toml:"block_time"`

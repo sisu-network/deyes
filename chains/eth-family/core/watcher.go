@@ -14,9 +14,16 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 )
+
+const (
+	minGasPrice = 10_000_000_000
+)
+
+type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 
 // TODO: Move this to the chains package.
 type Watcher struct {
@@ -26,20 +33,30 @@ type Watcher struct {
 	blockTime   int
 	db          database.Database
 	txsCh       chan *types.Txs
+	gasPriceCh  chan *types.GasPriceRequest
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 
 	signers map[string]etypes.Signer
+
+	gasPrice        *big.Int
+	gasPriceLocker  sync.RWMutex
+	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
-	return &Watcher{
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, gasPriceCh chan *types.GasPriceRequest) *Watcher {
+	w := &Watcher{
 		db:              db,
 		cfg:             cfg,
 		txsCh:           txsCh,
+		gasPriceCh:      gasPriceCh,
 		interestedAddrs: &sync.Map{},
 	}
+
+	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
+	w.gasPriceGetters = gasPriceGetters
+	return w
 }
 
 func (w *Watcher) init() {
@@ -104,6 +121,18 @@ func (w *Watcher) scanBlocks() {
 	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
 
 	for {
+		// Only update gas price at deterministic block height
+		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
+		chainParams := config.ChainParamsMap[w.cfg.Chain]
+		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+			w.updateGasPrice(context.Background())
+			w.gasPriceCh <- &types.GasPriceRequest{
+				Chain:    w.cfg.Chain,
+				Height:   w.blockHeight,
+				GasPrice: w.GetGasPrice(),
+			}
+		}
+
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
@@ -247,4 +276,45 @@ func (w *Watcher) GetNonce(address string) int64 {
 	}
 
 	return int64(nonce)
+}
+
+func (w *Watcher) GetGasPrice() int64 {
+	w.gasPriceLocker.RLock()
+	defer w.gasPriceLocker.RUnlock()
+	return w.gasPrice.Int64()
+}
+
+func (w *Watcher) updateGasPrice(ctx context.Context) error {
+	potentialGasPriceList := make([]*big.Int, 0)
+	for _, getter := range w.gasPriceGetters {
+		gasPrice, err := getter(ctx)
+		if err != nil {
+			return err
+		}
+
+		// make sure the gas price is at least 10 Gwei
+		if gasPrice.Cmp(big.NewInt(minGasPrice)) < 0 {
+			gasPrice = big.NewInt(minGasPrice)
+		}
+
+		potentialGasPriceList = append(potentialGasPriceList, gasPrice)
+	}
+
+	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
+
+	w.gasPriceLocker.Lock()
+	defer w.gasPriceLocker.Unlock()
+	w.gasPrice = medianGasPrice
+
+	return nil
+}
+
+func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
+	gasPrice, err := w.client.SuggestGasPrice(ctx)
+	if err != nil {
+		log.Error("error when getting gas price", err)
+		return big.NewInt(0), err
+	}
+
+	return gasPrice, nil
 }
