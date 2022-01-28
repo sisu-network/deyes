@@ -7,6 +7,10 @@ db_schema = "deyes"
 server_port = 31001
 sisu_server_url = "http://localhost:25456"
 
+price_oracle_url =
+price_poll_frequency = 1800
+price_token_list = ["eth"]
+
 [chains]
 [chains.ganache1]
   chain = "ganache1"

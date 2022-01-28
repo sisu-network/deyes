@@ -24,12 +24,12 @@ type TxProcessor struct {
 
 	watchers    map[string]Watcher
 	dispatchers map[string]Dispatcher
-	cfg         *config.Deyes
+	cfg         config.Deyes
 }
 
 func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.Client) *TxProcessor {
 	return &TxProcessor{
-		cfg:         cfg,
+		cfg:         *cfg,
 		db:          db,
 		watchers:    make(map[string]Watcher),
 		dispatchers: make(map[string]Dispatcher),

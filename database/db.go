@@ -13,6 +13,7 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
+// go:generate mockgen -source database/db.go -destination=tests/mock/database/db.go -package=mock
 type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
@@ -20,6 +21,10 @@ type Database interface {
 	// Watch address
 	SaveWatchAddress(chain, address string)
 	LoadWatchAddresses(chain string) []string
+
+	// Token price
+	SaveTokenPrices(tokenPrices types.TokenPrices)
+	LoadPrices() types.TokenPrices
 }
 
 // A struct for saving txs into database.
@@ -180,6 +185,8 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 		return addrs
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
 		var addr string
 		err := rows.Scan(&addr)
@@ -189,4 +196,46 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 	}
 
 	return addrs
+}
+
+func (d *DefaultDatabase) SaveTokenPrices(tokenPrices types.TokenPrices) {
+	for _, tokenPrice := range tokenPrices {
+		_, err := d.db.Exec(
+			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token_price SET price = ?",
+			tokenPrice.Id,
+			tokenPrice.PublicId,
+			tokenPrice.Price,
+			tokenPrice.Price,
+		)
+		if err != nil {
+			log.Error("Cannot insert into db, token = ", tokenPrice)
+		}
+	}
+}
+
+func (d *DefaultDatabase) LoadPrices() types.TokenPrices {
+	prices := make([]*types.TokenPrice, 0)
+
+	rows, err := d.db.Query("SELECT id, public_id, price FROM token_price")
+	if err != nil {
+		log.Error("Cannot load prices")
+		return prices
+	}
+
+	for rows.Next() {
+		var NullableId, NullablePublicId sql.NullString
+		var price float32
+
+		rows.Scan(&NullableId, &NullablePublicId, &price)
+
+		prices = append(prices, &types.TokenPrice{
+			Id:       NullableId.String,
+			PublicId: NullablePublicId.String,
+			Price:    price,
+		})
+	}
+
+	defer rows.Close()
+
+	return prices
 }

@@ -1,8 +1,8 @@
 package config
 
 var ChainParamsMap = map[string]ChainParams{
-	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 10},
-	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
 type ChainParams struct {
@@ -23,8 +23,14 @@ type Deyes struct {
 	DbPassword string `toml:"db_password"`
 	DbSchema   string `toml:"db_schema"`
 
+	PriceOracleUrl     string   `toml:"price_oracle_url"`
+	PricePollFrequency int      `toml:"price_poll_frequency"`
+	PriceTokenList     []string `toml:"price_token_list"`
+
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
 
 	Chains map[string]Chain `toml:"chains"`
+
+	// Oracle
 }
