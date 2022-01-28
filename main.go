@@ -12,7 +12,9 @@ import (
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/core/oracle"
 	"github.com/sisu-network/deyes/database"
+	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/server"
 	"github.com/sisu-network/lib/log"
 )
@@ -42,7 +44,10 @@ func initialize(cfg *config.Deyes) {
 	sisuClient := client.NewClient(cfg.SisuServerUrl)
 	go sisuClient.TryDial()
 
-	txProcessor := chains.NewTxProcessor(cfg, db, sisuClient)
+	networkHttp := network.NewHttp()
+	priceManager := oracle.NewTokenPriceManager(*cfg, db, networkHttp)
+
+	txProcessor := chains.NewTxProcessor(cfg, db, sisuClient, priceManager)
 	txProcessor.Start()
 
 	setupApiServer(cfg, txProcessor)

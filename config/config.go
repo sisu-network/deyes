@@ -24,6 +24,7 @@ type Deyes struct {
 	DbSchema   string `toml:"db_schema"`
 
 	PriceOracleUrl     string   `toml:"price_oracle_url"`
+	PriceOracleSecret  string   `toml:"price_oracle_secret"`
 	PricePollFrequency int      `toml:"price_poll_frequency"`
 	PriceTokenList     []string `toml:"price_token_list"`
 

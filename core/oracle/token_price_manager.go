@@ -25,28 +25,26 @@ type Response struct {
 }
 
 type TokenPriceManager interface {
-	Start()
+	Start(outCh chan types.TokenPrices)
 	Stop()
 }
 
 type DefaultTokenPriceManager struct {
 	cfg         config.Deyes
-	updateCh    chan types.TokenPrices
 	stop        atomic.Value
 	db          database.Database
 	networkHttp network.Http
 }
 
-func NewTokenPriceManager(cfg config.Deyes, db database.Database, updateCh chan types.TokenPrices, networkHttp network.Http) TokenPriceManager {
+func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http) TokenPriceManager {
 	return &DefaultTokenPriceManager{
 		cfg:         cfg,
-		updateCh:    updateCh,
 		db:          db,
 		networkHttp: networkHttp,
 	}
 }
 
-func (m *DefaultTokenPriceManager) Start() {
+func (m *DefaultTokenPriceManager) Start(outCh chan types.TokenPrices) {
 	req := m.getRequest()
 	m.stop.Store(false)
 
@@ -60,21 +58,38 @@ func (m *DefaultTokenPriceManager) Start() {
 			break
 		}
 
-		response := m.getResponse(req)
-		if response != nil {
+		response, err := m.getResponse(req)
+		if err == nil {
 			tokenPrices := make([]*types.TokenPrice, 0)
 			for _, token := range m.cfg.PriceTokenList {
+				var tokenPrice *types.TokenPrice
 				for key, value := range response.Data {
 					if key == token {
-						tokenPrice := &types.TokenPrice{
+						tokenPrice = &types.TokenPrice{
 							Id:       token,
 							PublicId: token,
 							Price:    value.Quote.Usd.Value,
 						}
-
-						tokenPrices = append(tokenPrices, tokenPrice)
 						break
 					}
+				}
+
+				if tokenPrice == nil {
+					// Get default price
+					if value, ok := DEFAULT_PRICES[token]; ok {
+						// Get the default price
+						tokenPrice = &types.TokenPrice{
+							Id:       token,
+							PublicId: token,
+							Price:    value,
+						}
+					}
+				}
+
+				if tokenPrice != nil {
+					tokenPrices = append(tokenPrices, tokenPrice)
+				} else {
+					log.Error("Cannot find price for token ", token)
 				}
 			}
 
@@ -82,7 +97,9 @@ func (m *DefaultTokenPriceManager) Start() {
 			m.db.SaveTokenPrices(tokenPrices)
 
 			// Broadcast the result we have.
-			m.updateCh <- tokenPrices
+			outCh <- tokenPrices
+		} else {
+			log.Error("Cannot get response, err = ", err)
 		}
 
 		time.Sleep(time.Second * time.Duration(m.cfg.PricePollFrequency))
@@ -90,34 +107,40 @@ func (m *DefaultTokenPriceManager) Start() {
 }
 
 func (m *DefaultTokenPriceManager) getRequest() *http.Request {
-	url := m.cfg.PriceOracleUrl
+	baseUrl := m.cfg.PriceOracleUrl
 	tokenList := m.cfg.PriceTokenList
 
-	req, err := http.NewRequest("GET", url, nil)
+	log.Info("tokenList = ", tokenList)
+
+	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
 	}
+
+	req.Header.Add("X-CMC_PRO_API_KEY", m.cfg.PriceOracleSecret)
 
 	q := req.URL.Query()
 	q.Add("symbol", strings.Join(tokenList, ","))
 	req.URL.RawQuery = q.Encode()
 
+	log.Info("url = ", req.URL.String())
+
 	return req
 }
 
-func (m *DefaultTokenPriceManager) getResponse(req *http.Request) *Response {
+func (m *DefaultTokenPriceManager) getResponse(req *http.Request) (*Response, error) {
 	data, err := m.networkHttp.Get(req)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	target := &Response{}
 	err = json.Unmarshal(data, &target)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return target
+	return target, nil
 }
 
 func (m *DefaultTokenPriceManager) Stop() {

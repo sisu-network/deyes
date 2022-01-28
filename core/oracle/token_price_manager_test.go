@@ -33,8 +33,8 @@ func TestStartManager(t *testing.T) {
 
 	updateCh := make(chan types.TokenPrices)
 
-	priceManager := NewTokenPriceManager(cfg, mockDb, updateCh, mockNetwork)
-	go priceManager.Start()
+	priceManager := NewTokenPriceManager(cfg, mockDb, mockNetwork)
+	go priceManager.Start(updateCh)
 
 	result := <-updateCh
 

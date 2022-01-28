@@ -10,30 +10,40 @@ import (
 	"github.com/sisu-network/deyes/types"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
+
+	"github.com/sisu-network/deyes/core/oracle"
 )
 
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
 type TxProcessor struct {
-	db         database.Database
-	txsCh      chan *types.Txs
-	gasPriceCh chan *types.GasPriceRequest
-	chain      string
-	blockTime  int
-	sisuClient client.Client
+	db            database.Database
+	txsCh         chan *types.Txs
+	gasPriceCh    chan *types.GasPriceRequest
+	priceUpdateCh chan types.TokenPrices
+	chain         string
+	blockTime     int
+	sisuClient    client.Client
 
 	watchers    map[string]Watcher
 	dispatchers map[string]Dispatcher
 	cfg         config.Deyes
+	tpm         oracle.TokenPriceManager
 }
 
-func NewTxProcessor(cfg *config.Deyes, db database.Database, sisuClient client.Client) *TxProcessor {
+func NewTxProcessor(
+	cfg *config.Deyes,
+	db database.Database,
+	sisuClient client.Client,
+	tpm oracle.TokenPriceManager,
+) *TxProcessor {
 	return &TxProcessor{
 		cfg:         *cfg,
 		db:          db,
 		watchers:    make(map[string]Watcher),
 		dispatchers: make(map[string]Dispatcher),
 		sisuClient:  sisuClient,
+		tpm:         tpm,
 	}
 }
 
@@ -43,10 +53,12 @@ func (tp *TxProcessor) Start() {
 
 	tp.txsCh = make(chan *types.Txs, 1000)
 	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
+	tp.priceUpdateCh = make(chan types.TokenPrices)
+
+	go tp.listen()
+	go tp.tpm.Start(tp.priceUpdateCh)
 
 	for chain, cfg := range tp.cfg.Chains {
-		go tp.listen()
-
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
@@ -71,6 +83,9 @@ func (tp *TxProcessor) listen() {
 			tp.sisuClient.BroadcastTxs(txs)
 		case gasReq := <-tp.gasPriceCh:
 			tp.sisuClient.UpdateGasPrice(gasReq)
+		case prices := <-tp.priceUpdateCh:
+			log.Info("There is new token price update", prices)
+			tp.sisuClient.UpdateTokenPrices(prices)
 		}
 	}
 }

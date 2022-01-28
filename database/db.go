@@ -13,7 +13,7 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
-// go:generate mockgen -source database/db.go -destination=tests/mock/database/db.go -package=mock
+// go:generate mockgen -source database/db.go -destination=tests/mock/network/http.go -package=mock
 type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
@@ -133,10 +133,13 @@ func (d *DefaultDatabase) Init() error {
 
 // Listen to request to save into datbase.
 func (d *DefaultDatabase) listen() {
-	for req := range d.saveTxCh {
-		err := d.doSave(req)
-		if err != nil {
-			log.Error("Cannot save into db, err = ", err)
+	for {
+		select {
+		case req := <-d.saveTxCh:
+			err := d.doSave(req)
+			if err != nil {
+				log.Error("Cannot save into db, err = ", err)
+			}
 		}
 	}
 }
@@ -201,14 +204,14 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices types.TokenPrices) {
 	for _, tokenPrice := range tokenPrices {
 		_, err := d.db.Exec(
-			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE token_price SET price = ?",
+			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
 			tokenPrice.Price,
 			tokenPrice.Price,
 		)
 		if err != nil {
-			log.Error("Cannot insert into db, token = ", tokenPrice)
+			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
 		}
 	}
 }
