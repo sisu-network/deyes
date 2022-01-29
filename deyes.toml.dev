@@ -7,6 +7,11 @@ db_schema = "deyes"
 server_port = 31001
 sisu_server_url = "http://localhost:25456"
 
+price_oracle_url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+price_oracle_secret =
+price_poll_frequency = 1800
+price_token_list = ["ETH"]
+
 [chains]
 [chains.ganache1]
   chain = "ganache1"

@@ -111,8 +111,8 @@ func (w *Watcher) Start() {
 
 func (w *Watcher) scanBlocks() {
 	latestBlock, err := w.getLatestBlock()
-	if err == nil {
-		log.Error(err)
+	if err != nil {
+		log.Error("Failed to scan blocks, err = ", err)
 	}
 
 	if latestBlock != nil {

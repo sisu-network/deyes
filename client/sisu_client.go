@@ -21,6 +21,7 @@ type Client interface {
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateGasPrice(req *types.GasPriceRequest) error
+	UpdateTokenPrices(prices []*types.TokenPrice) error
 }
 
 var (
@@ -102,12 +103,25 @@ func (c *DefaultClient) PostDeploymentResult(result *types.DispatchedTxResult) e
 }
 
 func (c *DefaultClient) UpdateGasPrice(request *types.GasPriceRequest) error {
-	log.Debug("Posting gas price back to Sisu...")
+	log.Verbose("Posting gas price back to Sisu...")
 
 	var r string
 	err := c.client.CallContext(context.Background(), &r, "tss_updateGasPrice", request)
 	if err != nil {
-		log.Error(err)
+		log.Error("Failed to update gas price, err = ", err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *DefaultClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
+	log.Verbose("Posting token prices back to Sisu...")
+
+	var r string
+	err := c.client.CallContext(context.Background(), &r, "tss_updateTokenPrices", prices)
+	if err != nil {
+		log.Error("Failed to update token prices, err = ", err)
 		return err
 	}
 
