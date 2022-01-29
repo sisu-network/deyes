@@ -34,6 +34,7 @@ type DefaultTokenPriceManager struct {
 	stop        atomic.Value
 	db          database.Database
 	networkHttp network.Http
+	prices      atomic.Value // types.TokenPrices
 }
 
 func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http) TokenPriceManager {
@@ -47,6 +48,8 @@ func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp ne
 func (m *DefaultTokenPriceManager) Start(outCh chan types.TokenPrices) {
 	req := m.getRequest()
 	m.stop.Store(false)
+
+	m.initTokenPrices()
 
 	for {
 		if m.stop.Load().(bool) == true {
@@ -93,6 +96,9 @@ func (m *DefaultTokenPriceManager) Start(outCh chan types.TokenPrices) {
 				}
 			}
 
+			// Update the in-memory prices
+			m.prices.Store(tokenPrices)
+
 			// Update the database.
 			m.db.SaveTokenPrices(tokenPrices)
 
@@ -104,6 +110,16 @@ func (m *DefaultTokenPriceManager) Start(outCh chan types.TokenPrices) {
 
 		time.Sleep(time.Second * time.Duration(m.cfg.PricePollFrequency))
 	}
+}
+
+// initTokenPrices loads prices from db and store in-memory. If the db is empty, take the default
+// prices.
+func (m *DefaultTokenPriceManager) initTokenPrices() {
+	prices := m.db.LoadPrices()
+	if len(prices) == 0 {
+		prices = getDefaultTokenPriceList()
+	}
+	m.prices.Store(prices)
 }
 
 func (m *DefaultTokenPriceManager) getRequest() *http.Request {
