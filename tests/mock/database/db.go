@@ -49,10 +49,10 @@ func (mr *MockDatabaseMockRecorder) Init() *gomock.Call {
 }
 
 // LoadPrices mocks base method.
-func (m *MockDatabase) LoadPrices() types.TokenPrices {
+func (m *MockDatabase) LoadPrices() []*types.TokenPrice {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadPrices")
-	ret0, _ := ret[0].(types.TokenPrices)
+	ret0, _ := ret[0].([]*types.TokenPrice)
 	return ret0
 }
 
@@ -77,7 +77,7 @@ func (mr *MockDatabaseMockRecorder) LoadWatchAddresses(chain interface{}) *gomoc
 }
 
 // SaveTokenPrices mocks base method.
-func (m *MockDatabase) SaveTokenPrices(tokenPrices types.TokenPrices) {
+func (m *MockDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SaveTokenPrices", tokenPrices)
 }

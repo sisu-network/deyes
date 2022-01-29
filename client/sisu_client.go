@@ -21,7 +21,7 @@ type Client interface {
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateGasPrice(req *types.GasPriceRequest) error
-	UpdateTokenPrices(prices types.TokenPrices) error
+	UpdateTokenPrices(prices []*types.TokenPrice) error
 }
 
 var (
@@ -115,7 +115,7 @@ func (c *DefaultClient) UpdateGasPrice(request *types.GasPriceRequest) error {
 	return nil
 }
 
-func (c *DefaultClient) UpdateTokenPrices(prices types.TokenPrices) error {
+func (c *DefaultClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
 	log.Verbose("Posting token prices back to Sisu...")
 
 	var r string

@@ -20,7 +20,7 @@ type TxProcessor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
 	gasPriceCh    chan *types.GasPriceRequest
-	priceUpdateCh chan types.TokenPrices
+	priceUpdateCh chan []*types.TokenPrice
 	chain         string
 	blockTime     int
 	sisuClient    client.Client
@@ -53,7 +53,7 @@ func (tp *TxProcessor) Start() {
 
 	tp.txsCh = make(chan *types.Txs, 1000)
 	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
-	tp.priceUpdateCh = make(chan types.TokenPrices)
+	tp.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go tp.listen()
 	go tp.tpm.Start(tp.priceUpdateCh)

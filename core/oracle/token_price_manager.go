@@ -25,7 +25,7 @@ type Response struct {
 }
 
 type TokenPriceManager interface {
-	Start(outCh chan types.TokenPrices)
+	Start(outCh chan []*types.TokenPrice)
 	Stop()
 }
 
@@ -45,7 +45,7 @@ func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp ne
 	}
 }
 
-func (m *DefaultTokenPriceManager) Start(outCh chan types.TokenPrices) {
+func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 	req := m.getRequest()
 	m.stop.Store(false)
 

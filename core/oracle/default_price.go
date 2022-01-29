@@ -10,7 +10,7 @@ var (
 	}
 )
 
-func getDefaultTokenPriceList() types.TokenPrices {
+func getDefaultTokenPriceList() []*types.TokenPrice {
 	prices := make([]*types.TokenPrice, 0)
 
 	for token, price := range DEFAULT_PRICES {

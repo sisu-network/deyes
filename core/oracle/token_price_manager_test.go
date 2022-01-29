@@ -29,9 +29,10 @@ func TestStartManager(t *testing.T) {
 		Times(1)
 
 	mockDb := mockdb.NewMockDatabase(ctrl)
+	mockDb.EXPECT().LoadPrices().Times(1)
 	mockDb.EXPECT().SaveTokenPrices(gomock.Any()).Times(1)
 
-	updateCh := make(chan types.TokenPrices)
+	updateCh := make(chan []*types.TokenPrice)
 
 	priceManager := NewTokenPriceManager(cfg, mockDb, mockNetwork)
 	go priceManager.Start(updateCh)
