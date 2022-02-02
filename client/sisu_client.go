@@ -17,7 +17,7 @@ const (
 // A client that connects to Sisu server
 type Client interface {
 	TryDial()
-	GetVersion() (string, error)
+	Ping(source string) error
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateGasPrice(req *types.GasPriceRequest) error
@@ -53,9 +53,9 @@ func (c *DefaultClient) TryDial() {
 			continue
 		}
 
-		_, err = c.GetVersion()
+		err = c.Ping("deyes")
 		if err != nil {
-			log.Error("Cannot get Sisu version err = ", err)
+			log.Error("Cannot ping sisu err = ", err)
 			time.Sleep(RETRY_TIME)
 			continue
 		}
@@ -67,10 +67,10 @@ func (c *DefaultClient) TryDial() {
 	log.Info("Sisu server is connected")
 }
 
-func (c *DefaultClient) GetVersion() (string, error) {
-	var version string
-	err := c.client.CallContext(context.Background(), &version, "tss_version")
-	return version, err
+func (c *DefaultClient) Ping(source string) error {
+	var result string
+	err := c.client.CallContext(context.Background(), &result, "tss_ping", source)
+	return err
 }
 
 // TODO: Handle the case when broadcasting fails. In that case, we need to save the first Tx
