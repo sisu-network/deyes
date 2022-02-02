@@ -16,7 +16,7 @@ func NewApi(txProcessor *chains.TxProcessor) *ApiHandler {
 }
 
 // Empty function for checking health only.
-func (api *ApiHandler) CheckHealth() {
+func (api *ApiHandler) Ping(source string) {
 }
 
 // Called by Sisu to indicate that the server is ready to receive messages.
