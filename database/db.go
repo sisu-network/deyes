@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -98,8 +99,16 @@ func (d *DefaultDatabase) DoMigration() error {
 		return err
 	}
 
+	// Write the migrations to a temporary directory
+	// so they don't need to be managed out of band from the dheart binary.
+	migrationDir, err := MigrationsTempDir()
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory for migrations: %w", err)
+	}
+	defer os.RemoveAll(migrationDir)
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations/",
+		"file://"+migrationDir,
 		"mysql",
 		driver,
 	)
