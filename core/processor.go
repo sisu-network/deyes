@@ -1,8 +1,10 @@
-package chains
+package core
 
 import (
 	"fmt"
+	"sync/atomic"
 
+	"github.com/sisu-network/deyes/chains"
 	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
@@ -16,7 +18,7 @@ import (
 
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
-type TxProcessor struct {
+type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
 	gasPriceCh    chan *types.GasPriceRequest
@@ -25,29 +27,31 @@ type TxProcessor struct {
 	blockTime     int
 	sisuClient    client.Client
 
-	watchers    map[string]Watcher
-	dispatchers map[string]Dispatcher
+	watchers    map[string]chains.Watcher
+	dispatchers map[string]chains.Dispatcher
 	cfg         config.Deyes
 	tpm         oracle.TokenPriceManager
+
+	sisuReady atomic.Value
 }
 
-func NewTxProcessor(
+func NewProcessor(
 	cfg *config.Deyes,
 	db database.Database,
 	sisuClient client.Client,
 	tpm oracle.TokenPriceManager,
-) *TxProcessor {
-	return &TxProcessor{
+) *Processor {
+	return &Processor{
 		cfg:         *cfg,
 		db:          db,
-		watchers:    make(map[string]Watcher),
-		dispatchers: make(map[string]Dispatcher),
+		watchers:    make(map[string]chains.Watcher),
+		dispatchers: make(map[string]chains.Dispatcher),
 		sisuClient:  sisuClient,
 		tpm:         tpm,
 	}
 }
 
-func (tp *TxProcessor) Start() {
+func (tp *Processor) Start() {
 	log.Info("Starting tx processor...")
 	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
@@ -67,7 +71,7 @@ func (tp *TxProcessor) Start() {
 			go watcher.Start()
 
 			// Dispatcher
-			dispatcher := NewEhtDispatcher(chain, cfg.RpcUrl)
+			dispatcher := chains.NewEhtDispatcher(chain, cfg.RpcUrl)
 			dispatcher.Start()
 			tp.dispatchers[chain] = dispatcher
 		} else {
@@ -76,21 +80,27 @@ func (tp *TxProcessor) Start() {
 	}
 }
 
-func (tp *TxProcessor) listen() {
+func (p *Processor) listen() {
 	for {
 		select {
-		case txs := <-tp.txsCh:
-			tp.sisuClient.BroadcastTxs(txs)
-		case gasReq := <-tp.gasPriceCh:
-			tp.sisuClient.UpdateGasPrice(gasReq)
-		case prices := <-tp.priceUpdateCh:
+		case txs := <-p.txsCh:
+			if p.sisuReady.Load() == true {
+				p.sisuClient.BroadcastTxs(txs)
+			}
+		case gasReq := <-p.gasPriceCh:
+			if p.sisuReady.Load() == true {
+				p.sisuClient.UpdateGasPrice(gasReq)
+			}
+		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
-			tp.sisuClient.UpdateTokenPrices(prices)
+			if p.sisuReady.Load() == true {
+				p.sisuClient.UpdateTokenPrices(prices)
+			}
 		}
 	}
 }
 
-func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
+func (tp *Processor) AddWatchAddresses(chain string, addrs []string) {
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
@@ -100,7 +110,7 @@ func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
 	}
 }
 
-func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) {
+func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
 	dispatcher := tp.dispatchers[chain]
@@ -113,7 +123,7 @@ func (tp *TxProcessor) DispatchTx(request *types.DispatchedTxRequest) {
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
-func (tp *TxProcessor) GetNonce(chain string, address string) int64 {
+func (tp *Processor) GetNonce(chain string, address string) int64 {
 	watcher := tp.watchers[chain]
 	if watcher == nil {
 		return -1
@@ -122,6 +132,10 @@ func (tp *TxProcessor) GetNonce(chain string, address string) int64 {
 	return watcher.GetNonce(address)
 }
 
-func (tp *TxProcessor) GetWatcher(chain string) Watcher {
+func (tp *Processor) GetWatcher(chain string) chains.Watcher {
 	return tp.watchers[chain]
+}
+
+func (p *Processor) SetSisuReady(isReady bool) {
+	p.sisuReady.Store(isReady)
 }
