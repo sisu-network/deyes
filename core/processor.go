@@ -33,7 +33,6 @@ type Processor struct {
 	tpm         oracle.TokenPriceManager
 
 	sisuReady atomic.Value
-	started   atomic.Value
 }
 
 func NewProcessor(
