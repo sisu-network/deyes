@@ -22,6 +22,7 @@ func (api *ApiHandler) Ping(source string) error {
 
 // Called by Sisu to indicate that the server is ready to receive messages.
 func (api *ApiHandler) SetSisuReady(isReady bool) {
+	api.processor.SetSisuReady(isReady)
 }
 
 // Adds a list of address to watch on a specific chain.

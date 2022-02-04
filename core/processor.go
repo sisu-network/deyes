@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/sisu-network/deyes/chains"
 	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
@@ -30,6 +31,9 @@ type Processor struct {
 	dispatchers map[string]chains.Dispatcher
 	cfg         config.Deyes
 	tpm         oracle.TokenPriceManager
+
+	sisuReady atomic.Value
+	started   atomic.Value
 }
 
 func NewProcessor(
@@ -77,16 +81,22 @@ func (tp *Processor) Start() {
 	}
 }
 
-func (tp *Processor) listen() {
+func (p *Processor) listen() {
 	for {
 		select {
-		case txs := <-tp.txsCh:
-			tp.sisuClient.BroadcastTxs(txs)
-		case gasReq := <-tp.gasPriceCh:
-			tp.sisuClient.UpdateGasPrice(gasReq)
-		case prices := <-tp.priceUpdateCh:
+		case txs := <-p.txsCh:
+			if p.sisuReady.Load() == true {
+				p.sisuClient.BroadcastTxs(txs)
+			}
+		case gasReq := <-p.gasPriceCh:
+			if p.sisuReady.Load() == true {
+				p.sisuClient.UpdateGasPrice(gasReq)
+			}
+		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
-			tp.sisuClient.UpdateTokenPrices(prices)
+			if p.sisuReady.Load() == true {
+				p.sisuClient.UpdateTokenPrices(prices)
+			}
 		}
 	}
 }
@@ -125,4 +135,8 @@ func (tp *Processor) GetNonce(chain string, address string) int64 {
 
 func (tp *Processor) GetWatcher(chain string) chains.Watcher {
 	return tp.watchers[chain]
+}
+
+func (p *Processor) SetSisuReady(isReady bool) {
+	p.sisuReady.Store(isReady)
 }
