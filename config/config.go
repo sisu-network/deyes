@@ -1,8 +1,12 @@
 package config
 
 var ChainParamsMap = map[string]ChainParams{
-	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 10},
-	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"ganache1":            {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"ganache2":            {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"eth-ropsten":         {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"eth-binance-testnet": {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"fantom-testnet":      {GasPriceStartBlockHeight: 1000, Interval: 10},
+	"polygon-testnet":     {GasPriceStartBlockHeight: 1000, Interval: 10},
 }
 
 type ChainParams struct {

@@ -50,6 +50,7 @@ func (tp *TxProcessor) Start() {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
+			log.Debug("Creating wacher for chain ", chain)
 			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh, tp.gasPriceCh)
 			tp.watchers[chain] = watcher
 			go watcher.Start()
@@ -76,12 +77,15 @@ func (tp *TxProcessor) listen() {
 }
 
 func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
+	log.Info("Chainnnnnnnnnnnnnn ", chain)
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
 			log.Info("Adding watched addr ", addr, " for chain ", chain)
 			watcher.AddWatchAddr(addr)
 		}
+	} else {
+		log.Info("wacher for chain is nil: ", chain)
 	}
 }
 
