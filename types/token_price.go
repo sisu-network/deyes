@@ -1,7 +1,9 @@
 package types
 
+import "math/big"
+
 type TokenPrice struct {
 	Id       string
 	PublicId string
-	Price    float32
+	Price    *big.Float
 }

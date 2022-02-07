@@ -2,6 +2,7 @@ package oracle
 
 import (
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -18,7 +19,7 @@ type Response struct {
 	Data map[string]struct {
 		Quote struct {
 			Usd struct {
-				Value float32 `json:"price"`
+				Value float64 `json:"price"`
 			} `json:"USD"`
 		} `json:"quote"`
 	} `json:"data"`
@@ -71,7 +72,7 @@ func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 						tokenPrice = &types.TokenPrice{
 							Id:       token,
 							PublicId: token,
-							Price:    value.Quote.Usd.Value,
+							Price:    big.NewFloat(value.Quote.Usd.Value),
 						}
 						break
 					}

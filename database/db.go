@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"math/big"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -216,8 +217,8 @@ func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
-			tokenPrice.Price,
-			tokenPrice.Price,
+			tokenPrice.Price.String(),
+			tokenPrice.Price.String(),
 		)
 		if err != nil {
 			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
@@ -235,14 +236,19 @@ func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
 	}
 
 	for rows.Next() {
-		var NullableId, NullablePublicId sql.NullString
-		var price float32
+		var nullableId, nullablePublicId, nullablePrice sql.NullString
 
-		rows.Scan(&NullableId, &NullablePublicId, &price)
+		rows.Scan(&nullableId, &nullablePublicId, &nullablePrice)
+
+		price, ok := new(big.Float).SetString(nullablePrice.String)
+		if !ok {
+			log.Error("cannot set float price string for id ", nullableId.String, " with string ", nullablePrice.String)
+			continue
+		}
 
 		prices = append(prices, &types.TokenPrice{
-			Id:       NullableId.String,
-			PublicId: NullablePublicId.String,
+			Id:       nullableId.String,
+			PublicId: nullablePublicId.String,
 			Price:    price,
 		})
 	}
