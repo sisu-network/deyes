@@ -1,16 +1,14 @@
 package oracle
 
 import (
-	"math/big"
-
 	"github.com/sisu-network/deyes/types"
 )
 
 var (
-	DEFAULT_PRICES = map[string]*big.Float{
-		"ETH":  big.NewFloat(1000),
-		"DAI":  big.NewFloat(1),
-		"SISU": big.NewFloat(0.02),
+	DEFAULT_PRICES = map[string]float64{
+		"ETH":  1000.0,
+		"DAI":  1.0,
+		"SISU": 0.02,
 	}
 )
 

@@ -2,7 +2,6 @@ package oracle
 
 import (
 	"encoding/json"
-	"math/big"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -72,7 +71,7 @@ func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 						tokenPrice = &types.TokenPrice{
 							Id:       token,
 							PublicId: token,
-							Price:    big.NewFloat(value.Quote.Usd.Value),
+							Price:    value.Quote.Usd.Value,
 						}
 						break
 					}
