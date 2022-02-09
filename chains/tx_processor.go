@@ -77,15 +77,15 @@ func (tp *TxProcessor) listen() {
 }
 
 func (tp *TxProcessor) AddWatchAddresses(chain string, addrs []string) {
-	log.Info("Chainnnnnnnnnnnnnn ", chain)
 	watcher := tp.watchers[chain]
-	if watcher != nil {
-		for _, addr := range addrs {
-			log.Info("Adding watched addr ", addr, " for chain ", chain)
-			watcher.AddWatchAddr(addr)
-		}
-	} else {
-		log.Info("wacher for chain is nil: ", chain)
+	if watcher == nil {
+		log.Info("watcher for chain is nil: ", chain)
+		return
+	}
+
+	for _, addr := range addrs {
+		log.Info("Adding watched addr ", addr, " for chain ", chain)
+		watcher.AddWatchAddr(addr)
 	}
 }
 
