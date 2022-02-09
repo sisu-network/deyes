@@ -37,6 +37,5 @@ WORKDIR /app
 #     && touch /app/.env && echo "#SAMPLE_KEY:SAMPLE_VALUE" > /app/.env
 
 COPY --from=builder /tmp/go-app/out/deyes /app/deyes
-COPY --from=builder /tmp/go-app/migrations /app/migrations
 
 CMD ["./deyes"]
