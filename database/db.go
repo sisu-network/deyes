@@ -235,14 +235,13 @@ func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
 	}
 
 	for rows.Next() {
-		var NullableId, NullablePublicId sql.NullString
-		var price float32
-
-		rows.Scan(&NullableId, &NullablePublicId, &price)
+		var nullableId, nullablePublicId sql.NullString
+		var price float64
+		rows.Scan(&nullableId, &nullablePublicId, &price)
 
 		prices = append(prices, &types.TokenPrice{
-			Id:       NullableId.String,
-			PublicId: NullablePublicId.String,
+			Id:       nullableId.String,
+			PublicId: nullablePublicId.String,
 			Price:    price,
 		})
 	}

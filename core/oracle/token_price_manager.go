@@ -18,7 +18,7 @@ type Response struct {
 	Data map[string]struct {
 		Quote struct {
 			Usd struct {
-				Value float32 `json:"price"`
+				Value float64 `json:"price"`
 			} `json:"USD"`
 		} `json:"quote"`
 	} `json:"data"`
