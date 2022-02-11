@@ -17,10 +17,11 @@ const (
 // A client that connects to Sisu server
 type Client interface {
 	TryDial()
-	GetVersion() (string, error)
+	Ping(source string) error
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateGasPrice(req *types.GasPriceRequest) error
+	UpdateTokenPrices(prices []*types.TokenPrice) error
 }
 
 var (
@@ -52,9 +53,9 @@ func (c *DefaultClient) TryDial() {
 			continue
 		}
 
-		_, err = c.GetVersion()
+		err = c.Ping("deyes")
 		if err != nil {
-			log.Error("Cannot get Sisu version err = ", err)
+			log.Error("Cannot ping sisu err = ", err)
 			time.Sleep(RETRY_TIME)
 			continue
 		}
@@ -66,10 +67,10 @@ func (c *DefaultClient) TryDial() {
 	log.Info("Sisu server is connected")
 }
 
-func (c *DefaultClient) GetVersion() (string, error) {
-	var version string
-	err := c.client.CallContext(context.Background(), &version, "tss_version")
-	return version, err
+func (c *DefaultClient) Ping(source string) error {
+	var result string
+	err := c.client.CallContext(context.Background(), &result, "tss_ping", source)
+	return err
 }
 
 // TODO: Handle the case when broadcasting fails. In that case, we need to save the first Tx
@@ -102,12 +103,25 @@ func (c *DefaultClient) PostDeploymentResult(result *types.DispatchedTxResult) e
 }
 
 func (c *DefaultClient) UpdateGasPrice(request *types.GasPriceRequest) error {
-	log.Debug("Posting gas price back to Sisu...")
+	log.Verbose("Posting gas price back to Sisu...")
 
 	var r string
 	err := c.client.CallContext(context.Background(), &r, "tss_updateGasPrice", request)
 	if err != nil {
-		log.Error(err)
+		log.Error("Failed to update gas price, err = ", err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *DefaultClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
+	log.Verbose("Posting token prices back to Sisu...")
+
+	var r string
+	err := c.client.CallContext(context.Background(), &r, "tss_updateTokenPrices", prices)
+	if err != nil {
+		log.Error("Failed to update token prices, err = ", err)
 		return err
 	}
 

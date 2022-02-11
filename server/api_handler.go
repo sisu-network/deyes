@@ -1,42 +1,44 @@
 package server
 
 import (
-	"github.com/sisu-network/deyes/chains"
+	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
 )
 
 type ApiHandler struct {
-	txProcessor *chains.TxProcessor
+	processor *core.Processor
 }
 
-func NewApi(txProcessor *chains.TxProcessor) *ApiHandler {
+func NewApi(processor *core.Processor) *ApiHandler {
 	return &ApiHandler{
-		txProcessor: txProcessor,
+		processor: processor,
 	}
 }
 
 // Empty function for checking health only.
-func (api *ApiHandler) CheckHealth() {
+func (api *ApiHandler) Ping(source string) error {
+	return nil
 }
 
 // Called by Sisu to indicate that the server is ready to receive messages.
-func (api *ApiHandler) SetSisuReady(chain string) {
+func (api *ApiHandler) SetSisuReady(isReady bool) {
+	api.processor.SetSisuReady(isReady)
 }
 
 // Adds a list of address to watch on a specific chain.
 func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
-	api.txProcessor.AddWatchAddresses(chain, addrs)
+	api.processor.AddWatchAddresses(chain, addrs)
 }
 
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
-	api.txProcessor.DispatchTx(request)
+	api.processor.DispatchTx(request)
 }
 
 func (api *ApiHandler) GetNonce(chain string, address string) int64 {
-	return api.txProcessor.GetNonce(chain, address)
+	return api.processor.GetNonce(chain, address)
 }
 
 func (api *ApiHandler) GetGasPrice(chain string) int64 {
-	watcher := api.txProcessor.GetWatcher(chain)
+	watcher := api.processor.GetWatcher(chain)
 	return watcher.GetGasPrice()
 }

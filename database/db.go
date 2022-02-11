@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -13,6 +14,7 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
+// go:generate mockgen -source database/db.go -destination=tests/mock/database/db.go -package=mock
 type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
@@ -20,6 +22,10 @@ type Database interface {
 	// Watch address
 	SaveWatchAddress(chain, address string)
 	LoadWatchAddresses(chain string) []string
+
+	// Token price
+	SaveTokenPrices(tokenPrices []*types.TokenPrice)
+	LoadPrices() []*types.TokenPrice
 }
 
 // A struct for saving txs into database.
@@ -93,8 +99,16 @@ func (d *DefaultDatabase) DoMigration() error {
 		return err
 	}
 
+	// Write the migrations to a temporary directory
+	// so they don't need to be managed out of band from the dheart binary.
+	migrationDir, err := MigrationsTempDir()
+	if err != nil {
+		return fmt.Errorf("failed to create temporary directory for migrations: %w", err)
+	}
+	defer os.RemoveAll(migrationDir)
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations/",
+		"file://"+migrationDir,
 		"mysql",
 		driver,
 	)
@@ -128,10 +142,13 @@ func (d *DefaultDatabase) Init() error {
 
 // Listen to request to save into datbase.
 func (d *DefaultDatabase) listen() {
-	for req := range d.saveTxCh {
-		err := d.doSave(req)
-		if err != nil {
-			log.Error("Cannot save into db, err = ", err)
+	for {
+		select {
+		case req := <-d.saveTxCh:
+			err := d.doSave(req)
+			if err != nil {
+				log.Error("Cannot save into db, err = ", err)
+			}
 		}
 	}
 }
@@ -180,6 +197,8 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 		return addrs
 	}
 
+	defer rows.Close()
+
 	for rows.Next() {
 		var addr string
 		err := rows.Scan(&addr)
@@ -189,4 +208,45 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
 	}
 
 	return addrs
+}
+
+func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
+	for _, tokenPrice := range tokenPrices {
+		_, err := d.db.Exec(
+			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
+			tokenPrice.Id,
+			tokenPrice.PublicId,
+			tokenPrice.Price,
+			tokenPrice.Price,
+		)
+		if err != nil {
+			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
+		}
+	}
+}
+
+func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
+	prices := make([]*types.TokenPrice, 0)
+
+	rows, err := d.db.Query("SELECT id, public_id, price FROM token_price")
+	if err != nil {
+		log.Error("Cannot load prices")
+		return prices
+	}
+
+	for rows.Next() {
+		var nullableId, nullablePublicId sql.NullString
+		var price float64
+		rows.Scan(&nullableId, &nullablePublicId, &price)
+
+		prices = append(prices, &types.TokenPrice{
+			Id:       nullableId.String,
+			PublicId: nullablePublicId.String,
+			Price:    price,
+		})
+	}
+
+	defer rows.Close()
+
+	return prices
 }

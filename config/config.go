@@ -27,8 +27,15 @@ type Deyes struct {
 	DbPassword string `toml:"db_password"`
 	DbSchema   string `toml:"db_schema"`
 
+	PriceOracleUrl     string   `toml:"price_oracle_url"`
+	PriceOracleSecret  string   `toml:"price_oracle_secret"`
+	PricePollFrequency int      `toml:"price_poll_frequency"`
+	PriceTokenList     []string `toml:"price_token_list"`
+
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
 
 	Chains map[string]Chain `toml:"chains"`
+
+	// Oracle
 }
