@@ -37,7 +37,6 @@ jobs:
             type=ref,event=tag
             type=ref,event=branch
             type=sha,prefix={{branch}}-
-            type=raw,value=SNAPSHOT-{{date 'YYYYMMDDHHmmss'}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
