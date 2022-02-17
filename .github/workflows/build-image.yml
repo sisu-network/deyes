@@ -58,6 +58,6 @@ jobs:
           context: .
           file: Dockerfile-ganache
           push: true
-          tags: sisu-network/ganache:latest
+          tags: ghcr.io/sisu-network/ganache:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
