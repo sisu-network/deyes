@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/logdna/logdna-go/logger"
 	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/logdna/logdna-go/logger"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/core"
