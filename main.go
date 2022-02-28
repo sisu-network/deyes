@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/logdna/logdna-go/logger"
 	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
-
-	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
@@ -79,6 +79,17 @@ func loadConfig() *config.Deyes {
 
 func main() {
 	cfg := loadConfig()
+	if len(cfg.LogDNA.Secret) > 0 {
+		opts := logger.Options{
+			App:           cfg.LogDNA.AppName,
+			FlushInterval: cfg.LogDNA.FlushInterval,
+			Hostname:      cfg.LogDNA.HostName,
+			Level:         cfg.LogDNA.Level,
+			MaxBufferLen:  cfg.LogDNA.MaxBufferLen,
+		}
+		logDNA := log.NewDNALogger(cfg.LogDNA.Secret, opts)
+		log.SetLogger(logDNA)
+	}
 
 	initialize(cfg)
 
