@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 const EyesConfigTemplate = `db_host = "{{ .DbHost }}"
 db_port = {{ .DbPort }}
 db_username = "{{ .DbUsername }}"
@@ -16,3 +18,13 @@ sisu_server_url = "{{ .SisuServerUrl }}"
 	rpc_url = "{{ $v.RpcUrl }}"
 {{ end }}
 `
+
+type duration struct {
+	time.Duration
+}
+
+func (d *duration) UnmarshalText(text []byte) error {
+	var err error
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
+}

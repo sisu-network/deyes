@@ -1,7 +1,5 @@
 package config
 
-import "time"
-
 var ChainParamsMap = map[string]ChainParams{
 	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 50},
@@ -39,10 +37,10 @@ type Deyes struct {
 }
 
 type LogDNA struct {
-	Secret        string        `toml:"secret"`
-	AppName       string        `toml:"app_name"`
-	HostName      string        `toml:"host_name"`
-	FlushInterval time.Duration `toml:"flush_interval"`
-	MaxBufferLen  int           `toml:"max_buffer_len"`
-	Level         string        `toml:"level"`
+	Secret        string   `toml:"secret"`
+	AppName       string   `toml:"app_name"`
+	HostName      string   `toml:"host_name"`
+	FlushInterval duration `toml:"flush_interval"`
+	MaxBufferLen  int      `toml:"max_buffer_len"`
+	Level         string   `toml:"level"`
 }

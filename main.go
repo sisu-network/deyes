@@ -82,7 +82,7 @@ func main() {
 	if len(cfg.LogDNA.Secret) > 0 {
 		opts := logger.Options{
 			App:           cfg.LogDNA.AppName,
-			FlushInterval: cfg.LogDNA.FlushInterval,
+			FlushInterval: cfg.LogDNA.FlushInterval.Duration,
 			Hostname:      cfg.LogDNA.HostName,
 			Level:         cfg.LogDNA.Level,
 			MaxBufferLen:  cfg.LogDNA.MaxBufferLen,
