@@ -84,7 +84,6 @@ func main() {
 			App:           cfg.LogDNA.AppName,
 			FlushInterval: cfg.LogDNA.FlushInterval.Duration,
 			Hostname:      cfg.LogDNA.HostName,
-			Level:         cfg.LogDNA.Level,
 			MaxBufferLen:  cfg.LogDNA.MaxBufferLen,
 		}
 		logDNA := log.NewDNALogger(cfg.LogDNA.Secret, opts)

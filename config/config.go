@@ -42,5 +42,4 @@ type LogDNA struct {
 	HostName      string   `toml:"host_name"`
 	FlushInterval duration `toml:"flush_interval"`
 	MaxBufferLen  int      `toml:"max_buffer_len"`
-	Level         string   `toml:"level"`
 }
