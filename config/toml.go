@@ -16,3 +16,4 @@ sisu_server_url = "{{ .SisuServerUrl }}"
 	rpc_url = "{{ $v.RpcUrl }}"
 {{ end }}
 `
+
