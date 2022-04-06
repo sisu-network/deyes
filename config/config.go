@@ -1,5 +1,9 @@
 package config
 
+import (
+	"github.com/sisu-network/lib/log"
+)
+
 var ChainParamsMap = map[string]ChainParams{
 	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 50},
@@ -33,5 +37,5 @@ type Deyes struct {
 
 	Chains map[string]Chain `toml:"chains"`
 
-	// Oracle
+	LogDNA log.LogDNAConfig `toml:"log_dna"`
 }
