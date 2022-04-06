@@ -260,7 +260,7 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 		return common.Address{}, fmt.Errorf("cannot find signer for chain %s", chain)
 	}
 
-	msg, err := tx.AsMessage(etypes.NewEIP2930Signer(tx.ChainId()), nil)
+	msg, err := tx.AsMessage(etypes.NewLondonSigner(tx.ChainId()), nil)
 	if err != nil {
 		return common.Address{}, err
 	}
