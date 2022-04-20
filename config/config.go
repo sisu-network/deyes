@@ -7,6 +7,7 @@ import (
 var ChainParamsMap = map[string]ChainParams{
 	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"eth-binance-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
 type ChainParams struct {
