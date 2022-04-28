@@ -86,15 +86,21 @@ func (p *Processor) listen() {
 		case txs := <-p.txsCh:
 			if p.sisuReady.Load() == true {
 				p.sisuClient.BroadcastTxs(txs)
+			} else {
+				log.Warnf("txs: Sisu is not ready")
 			}
 		case gasReq := <-p.gasPriceCh:
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateGasPrice(gasReq)
+			} else {
+				log.Warnf("gasReq: Sisu is not ready")
 			}
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateTokenPrices(prices)
+			} else {
+				log.Warnf("prices: Sisu is not ready")
 			}
 		}
 	}

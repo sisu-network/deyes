@@ -75,7 +75,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
 	}
 
-	log.Verbose("Tx is dispatched successfully for chain", request.Chain, "from", from, "txHash =", tx.Hash())
+	log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from", from, "txHash =", tx.Hash())
 
 	return &types.DispatchedTxResult{
 		Success:                 true,
