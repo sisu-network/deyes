@@ -150,6 +150,7 @@ func (w *Watcher) scanBlocks() {
 		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr))
 
 		if len(filteredTxs.Arr) > 0 {
+			log.Verbose("filteredTxs.Arr = ", filteredTxs.Arr)
 			// Send list of interested txs back to the listener.
 			w.txsCh <- filteredTxs
 		}
@@ -243,7 +244,7 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	log.Verbose("from = ", from.Hex(), " to ", tx.To(), " hash = ", tx.Hash())
+	// log.Verbose("from = ", from.Hex(), " to ", tx.To(), " hash = ", tx.Hash())
 	if err == nil {
 		_, ok := w.interestedAddrs.Load(from.Hex())
 		if ok {
