@@ -142,6 +142,8 @@ func (w *Watcher) scanBlocks() {
 			continue
 		}
 
+		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
+
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
 			log.Error("cannot process block, err = ", err)
@@ -180,6 +182,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 
 		// Extend the wait time a little bit more
 		w.blockTime = w.blockTime + w.cfg.AdjustTime
+		log.Verbose("New blocktime: ", w.blockTime)
 	}
 
 	return block, err
