@@ -107,12 +107,16 @@ func (p *Processor) listen() {
 }
 
 func (tp *Processor) AddWatchAddresses(chain string, addrs []string) {
+	log.Verbose("Received watch address from sisu: ", chain, addrs)
+
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
 			log.Info("Adding watched addr ", addr, " for chain ", chain)
 			watcher.AddWatchAddr(addr)
 		}
+	} else {
+		log.Critical("Watcher is nil")
 	}
 }
 
