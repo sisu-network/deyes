@@ -17,9 +17,10 @@ type ChainParams struct {
 }
 
 type Chain struct {
-	Chain     string `toml:"chain"`
-	BlockTime int    `toml:"block_time"`
-	RpcUrl    string `toml:"rpc_url"`
+	Chain      string `toml:"chain"`
+	BlockTime  int    `toml:"block_time"`
+	AdjustTime int    `toml:"adjust_time"`
+	RpcUrl     string `toml:"rpc_url"`
 }
 
 type Deyes struct {

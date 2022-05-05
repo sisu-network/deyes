@@ -6,7 +6,7 @@ import (
 )
 
 // Min returns the smaller of x or y.
-func MinInt(x, y int64) int64 {
+func MinInt64(x, y int64) int64 {
 	if x > y {
 		return y
 	}
@@ -16,6 +16,14 @@ func MinInt(x, y int64) int64 {
 // Max returns the larger of x or y.
 func MaxInt(x, y int64) int64 {
 	if x < y {
+		return y
+	}
+	return x
+}
+
+// Min returns the smaller of x or y.
+func MinInt(x, y int) int {
+	if x > y {
 		return y
 	}
 	return x

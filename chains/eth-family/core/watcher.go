@@ -52,6 +52,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, g
 		txsCh:           txsCh,
 		gasPriceCh:      gasPriceCh,
 		interestedAddrs: &sync.Map{},
+		blockTime:       cfg.BlockTime,
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -137,7 +138,7 @@ func (w *Watcher) scanBlocks() {
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
 			log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain)
-			time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
+			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
 
@@ -160,7 +161,7 @@ func (w *Watcher) scanBlocks() {
 
 		w.blockHeight++
 
-		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
+		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 	}
 }
 
@@ -173,15 +174,12 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 		return block, nil
 
 	case ethereum.NotFound:
-		// TODO: Ping block for every second.
-		for i := 0; i < 10; i++ {
-			block, err = w.getBlock(w.blockHeight)
-			if err == nil {
-				return block, err
-			}
+		// Sleep a few seconds and to get the block again.
+		time.Sleep(time.Duration(utils.MinInt(w.blockTime/4, 3000)) * time.Millisecond)
+		block, err = w.getBlock(w.blockHeight)
 
-			time.Sleep(time.Duration(w.cfg.BlockTime) / 2 * time.Millisecond)
-		}
+		// Extend the wait time a little bit more
+		w.blockTime = w.blockTime + w.cfg.AdjustTime
 	}
 
 	return block, err
