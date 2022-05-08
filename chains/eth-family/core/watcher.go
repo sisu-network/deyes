@@ -86,7 +86,7 @@ func (w *Watcher) setBlockHeight() {
 	for {
 		number, err := w.client.BlockNumber(context.Background())
 		if err != nil {
-			log.Error("cannot get latest block number. Sleeping for a few seconds")
+			log.Errorf("cannot get latest block number for chain %s. Sleeping for a few seconds", w.cfg.Chain)
 			time.Sleep(time.Second * 5)
 			continue
 		}
