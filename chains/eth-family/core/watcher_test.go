@@ -1,12 +1,15 @@
 package core
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,4 +47,18 @@ func (h *mockTrieHasher) Update([]byte, []byte) {}
 
 func (h *mockTrieHasher) Hash() common.Hash {
 	return [32]byte{}
+}
+
+func TestGetBlock(t *testing.T) {
+	client, err := ethclient.Dial("https://polygon-mumbai.infura.io/v3/b5c7d3d86ce341069cfbfd0c8714aab3")
+	if err != nil {
+		panic(err)
+	}
+
+	block, err := client.BlockByNumber(context.Background(), big.NewInt(26261184))
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Tx length = ", block.Transactions().Len())
 }
