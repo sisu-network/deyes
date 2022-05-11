@@ -226,7 +226,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 		}
 
 		receipt, err := w.client.TransactionReceipt(context.Background(), tx.Hash())
-		if receipt != nil {
+		if receipt == nil {
 			log.Errorf("cannot get receipt for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
 			continue
 		}
