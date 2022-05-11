@@ -220,11 +220,27 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 		}
 
 		from, err := w.getFromAddress(w.cfg.Chain, tx)
+		if err != nil {
+			log.Errorf("cannot get from address for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
+			continue
+		}
+
+		receipt, err := w.client.TransactionReceipt(context.Background(), tx.Hash())
+		if receipt != nil {
+			log.Errorf("cannot get receipt for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
+			continue
+		}
+
+		if receipt.Status == 0 {
+			log.Errorf("Tx is included in the blockchain but failed during execution. hash %s - chain %s", tx.Hash().String(), w.cfg.Chain)
+		}
+
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
 			To:         to,
 			From:       from.Hex(),
+			Success:    receipt.Status == 1,
 		})
 	}
 
