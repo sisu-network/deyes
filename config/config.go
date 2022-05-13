@@ -5,10 +5,16 @@ import (
 )
 
 var ChainParamsMap = map[string]ChainParams{
-	"ganache1":            {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"ganache2":            {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"eth-binance-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"polygon-testnet":     {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"eth":              {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ropsten-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"goerli-testnet":   {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"binance-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ganache1":         {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ganache2":         {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"fantom-testnet":   {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"polygon-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"xdai":             {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"arbitrum-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
 type ChainParams struct {
