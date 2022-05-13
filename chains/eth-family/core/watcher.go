@@ -137,7 +137,9 @@ func (w *Watcher) scanBlocks() {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
-			log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
+			if err != ethereum.NotFound {
+				log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
+			}
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
