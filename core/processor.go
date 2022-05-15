@@ -124,12 +124,14 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
 	dispatcher := tp.dispatchers[chain]
+	var result *types.DispatchedTxResult
 	if dispatcher == nil {
-		types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+		result = types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+	} else {
+		result = dispatcher.Dispatch(request)
 	}
 
-	result := dispatcher.Dispatch(request)
-	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash)
+	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
