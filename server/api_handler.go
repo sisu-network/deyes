@@ -3,6 +3,8 @@ package server
 import (
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
+
+	libchain "github.com/sisu-network/lib/chain"
 )
 
 type ApiHandler struct {
@@ -38,7 +40,16 @@ func (api *ApiHandler) GetNonce(chain string, address string) int64 {
 	return api.processor.GetNonce(chain, address)
 }
 
-func (api *ApiHandler) GetGasPrice(chain string) int64 {
-	watcher := api.processor.GetWatcher(chain)
-	return watcher.GetGasPrice()
+func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
+	prices := make([]int64, len(chains))
+	for i, chain := range chains {
+		if libchain.IsETHBasedChain(chain) {
+			watcher := api.processor.GetWatcher(chain)
+			prices[i] = watcher.GetGasPrice()
+		} else {
+			prices[i] = 0
+		}
+	}
+
+	return prices
 }

@@ -20,6 +20,7 @@ require (
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/sisu-network/lib v0.0.1-alpha9.0.20220513004242-472b80d0d606
 	github.com/stretchr/testify v1.7.1
+	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	google.golang.org/genproto v0.0.0-20201030142918-24207fddd1c3 // indirect
 	google.golang.org/grpc v1.33.1 // indirect

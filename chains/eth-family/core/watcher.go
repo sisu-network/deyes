@@ -17,6 +17,7 @@ import (
 	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -33,26 +34,24 @@ type Watcher struct {
 	blockTime   int
 	db          database.Database
 	txsCh       chan *types.Txs
-	gasPriceCh  chan *types.GasPriceRequest
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 
 	signers map[string]etypes.Signer
 
-	gasPrice        *big.Int
-	gasPriceLocker  sync.RWMutex
+	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, gasPriceCh chan *types.GasPriceRequest) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
 	w := &Watcher{
 		db:              db,
 		cfg:             cfg,
 		txsCh:           txsCh,
-		gasPriceCh:      gasPriceCh,
 		interestedAddrs: &sync.Map{},
 		blockTime:       cfg.BlockTime,
+		gasPrice:        atomic.NewInt64(0),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -119,19 +118,19 @@ func (w *Watcher) scanBlocks() {
 	if latestBlock != nil {
 		w.blockHeight = latestBlock.Header().Number.Int64()
 	}
-	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
+	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
 
 	for {
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
-		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
-			w.updateGasPrice(context.Background())
-			w.gasPriceCh <- &types.GasPriceRequest{
-				Chain:    w.cfg.Chain,
-				Height:   w.blockHeight,
-				GasPrice: w.GetGasPrice(),
-			}
+		if libchain.IsETHBasedChain(w.cfg.Chain) {
+			go func() {
+				gasPrice := w.GetGasPrice()
+				if gasPrice == 0 || (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+					w.updateGasPrice(context.Background())
+				}
+			}()
 		}
 
 		// Get the blockheight
@@ -173,7 +172,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		log.Debug(w.cfg.Chain, "Height = ", block.Number())
+		log.Debug(w.cfg.Chain, " Height = ", block.Number())
 		return block, nil
 
 	case ethereum.NotFound:
@@ -200,7 +199,7 @@ func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
-	log.Info(w.cfg.Chain, "Block length = ", len(block.Transactions()))
+	log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
 
 	for _, tx := range block.Transactions() {
 		bz, err := tx.MarshalBinary()
@@ -300,9 +299,7 @@ func (w *Watcher) GetNonce(address string) int64 {
 }
 
 func (w *Watcher) GetGasPrice() int64 {
-	w.gasPriceLocker.RLock()
-	defer w.gasPriceLocker.RUnlock()
-	return w.gasPrice.Int64()
+	return w.gasPrice.Load()
 }
 
 func (w *Watcher) updateGasPrice(ctx context.Context) error {
@@ -313,19 +310,11 @@ func (w *Watcher) updateGasPrice(ctx context.Context) error {
 			return err
 		}
 
-		// make sure the gas price is at least 10 Gwei
-		if gasPrice.Cmp(big.NewInt(minGasPrice)) < 0 {
-			gasPrice = big.NewInt(minGasPrice)
-		}
-
 		potentialGasPriceList = append(potentialGasPriceList, gasPrice)
 	}
 
 	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
-
-	w.gasPriceLocker.Lock()
-	defer w.gasPriceLocker.Unlock()
-	w.gasPrice = medianGasPrice
+	w.gasPrice.Store(medianGasPrice.Int64())
 
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
-	gasPriceCh    chan *types.GasPriceRequest
 	priceUpdateCh chan []*types.TokenPrice
 	chain         string
 	blockTime     int
@@ -56,7 +55,6 @@ func (tp *Processor) Start() {
 	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
 	tp.txsCh = make(chan *types.Txs, 1000)
-	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
 	tp.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go tp.listen()
@@ -66,7 +64,7 @@ func (tp *Processor) Start() {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh, tp.gasPriceCh)
+			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
 			tp.watchers[chain] = watcher
 			go watcher.Start()
 
@@ -88,12 +86,6 @@ func (p *Processor) listen() {
 				p.sisuClient.BroadcastTxs(txs)
 			} else {
 				log.Warnf("txs: Sisu is not ready")
-			}
-		case gasReq := <-p.gasPriceCh:
-			if p.sisuReady.Load() == true {
-				p.sisuClient.UpdateGasPrice(gasReq)
-			} else {
-				log.Warnf("gasReq: Sisu is not ready")
 			}
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
