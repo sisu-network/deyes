@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -25,6 +26,7 @@ func TestProcessBlock(t *testing.T) {
 			}, nil
 		},
 	}
+
 	watcher := Watcher{
 		interestedAddrs: &sync.Map{},
 		clients:         []EthClient{client},
@@ -65,12 +67,83 @@ func genTransactions(t *testing.T) etypes.Transactions {
 	}
 }
 
-type mockTrieHasher struct{}
+func TestMultipleRpcs(t *testing.T) {
+	expectedErr := fmt.Errorf("Cannot connect to RPC")
+	expectedBlockNumber := uint64(10)
+	expectedBlock := &etypes.Block{}
+	expectedReceipt := &etypes.Receipt{}
+	expectedGasPrice := big.NewInt(10)
+	expectedNonce := uint64(10)
 
-func (h *mockTrieHasher) Reset() {}
+	// Client1 does not work.
+	client1 := &MockEthClient{
+		BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+			return 0, expectedErr
+		},
 
-func (h *mockTrieHasher) Update([]byte, []byte) {}
+		BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
+			return nil, expectedErr
+		},
 
-func (h *mockTrieHasher) Hash() common.Hash {
-	return [32]byte{}
+		TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
+			return nil, expectedErr
+		},
+
+		SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
+			return nil, expectedErr
+		},
+
+		PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
+			return 0, expectedErr
+		},
+	}
+
+	client2 := &MockEthClient{
+		BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+			return expectedBlockNumber, nil
+		},
+
+		BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
+			return expectedBlock, nil
+		},
+
+		TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
+			return expectedReceipt, nil
+		},
+
+		SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
+			return expectedGasPrice, nil
+		},
+
+		PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
+			return expectedNonce, nil
+		},
+	}
+
+	watcher := Watcher{
+		interestedAddrs: &sync.Map{},
+		clients:         []EthClient{client1, client2},
+		cfg: config.Chain{
+			Chain: "ganache1",
+		},
+	}
+
+	blockNumber, err := watcher.getBlockNumber()
+	require.Equal(t, nil, err)
+	require.Equal(t, expectedBlockNumber, blockNumber)
+
+	block, err := watcher.getBlock(-1)
+	require.Equal(t, nil, err)
+	require.Equal(t, expectedBlock, block)
+
+	receipt, err := watcher.getTxReceipt(common.Hash{})
+	require.Equal(t, nil, err)
+	require.Equal(t, expectedReceipt, receipt)
+
+	gasPrice, err := watcher.getSuggestedGasPrice()
+	require.Equal(t, nil, err)
+	require.Equal(t, expectedGasPrice, gasPrice)
+
+	nonce := uint64(watcher.GetNonce("0x123"))
+	require.Equal(t, expectedNonce, nonce)
 }
