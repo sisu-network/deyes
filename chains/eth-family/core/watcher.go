@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -29,7 +28,7 @@ type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 // TODO: Move this to the chains package.
 type Watcher struct {
 	cfg         config.Chain
-	clients     []*ethclient.Client
+	clients     []EthClient
 	blockHeight int64
 	blockTime   int
 	db          database.Database
@@ -44,7 +43,7 @@ type Watcher struct {
 	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) *Watcher {
 	w := &Watcher{
 		db:              db,
 		cfg:             cfg,
@@ -52,6 +51,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *
 		interestedAddrs: &sync.Map{},
 		blockTime:       cfg.BlockTime,
 		gasPrice:        atomic.NewInt64(0),
+		clients:         clients,
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -60,24 +60,6 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *
 }
 
 func (w *Watcher) init() {
-	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.Rpcs[0])
-	w.clients = make([]*ethclient.Client, 0)
-
-	// Make sure at least one RPC is working
-	ok := false
-	for _, rpc := range w.cfg.Rpcs {
-		client, err := ethclient.Dial(rpc)
-		if err == nil {
-			ok = true
-			w.clients = append(w.clients, client)
-			log.Info("Adding eth client at rpc: ", rpc)
-		}
-	}
-
-	if !ok {
-		panic(fmt.Sprintf("None of rpcs is working, rpcs = %v", w.cfg.Rpcs))
-	}
-
 	// Set the block height for the watcher.
 	w.setBlockHeight()
 
@@ -286,7 +268,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 
 		from, err := w.getFromAddress(w.cfg.Chain, tx)
 		if err != nil {
-			log.Errorf("cannot get from address for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
+			log.Errorf("cannot get from address for tx %s on chain %s, err = %v", tx.Hash().String(), w.cfg.Chain, err)
 			continue
 		}
 
