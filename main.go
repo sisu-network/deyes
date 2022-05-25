@@ -86,7 +86,7 @@ func main() {
 			Hostname:      cfg.LogDNA.HostName,
 			MaxBufferLen:  cfg.LogDNA.MaxBufferLen,
 		}
-		logDNA := log.NewDNALogger(cfg.LogDNA.Secret, opts)
+		logDNA := log.NewDNALogger(cfg.LogDNA.Secret, opts, false)
 		log.SetLogger(logDNA)
 	}
 
