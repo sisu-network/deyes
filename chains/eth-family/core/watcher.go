@@ -28,7 +28,7 @@ type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 // TODO: Move this to the chains package.
 type Watcher struct {
 	cfg         config.Chain
-	client      *ethclient.Client
+	clients     []*ethclient.Client
 	blockHeight int64
 	blockTime   int
 	db          database.Database
@@ -60,12 +60,21 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, g
 }
 
 func (w *Watcher) init() {
-	var err error
-
 	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.Rpcs[0])
-	w.client, err = ethclient.Dial(w.cfg.Rpcs[0])
-	if err != nil {
-		panic(err)
+	w.clients = make([]*ethclient.Client, len(w.cfg.Rpcs))
+
+	// Make sure at least one RPC is working
+	ok := false
+	for i, rpc := range w.cfg.Rpcs {
+		client, err := ethclient.Dial(rpc)
+		if err == nil {
+			ok = true
+			w.clients[i] = client
+		}
+	}
+
+	if !ok {
+		panic(fmt.Sprintf("None of rpcs is working, rpcs = %v", w.cfg.Rpcs))
 	}
 
 	// Set the block height for the watcher.
@@ -83,7 +92,7 @@ func (w *Watcher) init() {
 
 func (w *Watcher) setBlockHeight() {
 	for {
-		number, err := w.client.BlockNumber(context.Background())
+		number, err := w.clients.BlockNumber(context.Background())
 		if err != nil {
 			log.Error("cannot get latest block number. Sleeping for a few seconds")
 			time.Sleep(time.Second * 5)
@@ -187,11 +196,39 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 }
 
 func (w *Watcher) getLatestBlock() (*etypes.Block, error) {
-	return w.client.BlockByNumber(context.Background(), nil)
+
+	return w.clients.BlockByNumber(context.Background(), nil)
 }
 
 func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
-	return w.client.BlockByNumber(context.Background(), big.NewInt(height))
+	wg := &sync.WaitGroup{}
+
+	for i, client := range w.clients {
+		if client != nil {
+			wg.Add(1)
+			go func(index int, client *ethclient.Client) {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.cfg.BlockTime)*2*time.Millisecond)
+				defer func() {
+					cancel()
+					wg.Done()
+				}()
+
+				blockNum := big.NewInt(height)
+				if height == -1 { // latest block
+					blockNum = nil
+				}
+
+				block, err := client.BlockByNumber(ctx, blockNum)
+				if err == nil {
+
+				}
+			}(client)
+		}
+	}
+
+	wg.Wait()
+
+	return w.clients.BlockByNumber(context.Background(), big.NewInt(height))
 }
 
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
@@ -269,7 +306,7 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 }
 
 func (w *Watcher) GetNonce(address string) int64 {
-	nonce, err := w.client.PendingNonceAt(context.Background(), common.HexToAddress(address))
+	nonce, err := w.clients.PendingNonceAt(context.Background(), common.HexToAddress(address))
 	if err != nil {
 		log.Error("cannot get nonce of chain", w.cfg.Chain, " at", address)
 		return -1
@@ -310,7 +347,7 @@ func (w *Watcher) updateGasPrice(ctx context.Context) error {
 }
 
 func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
-	gasPrice, err := w.client.SuggestGasPrice(ctx)
+	gasPrice, err := w.clients.SuggestGasPrice(ctx)
 	if err != nil {
 		log.Error("error when getting gas price", err)
 		return big.NewInt(0), err
