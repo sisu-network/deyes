@@ -71,7 +71,7 @@ func (tp *Processor) Start() {
 			go watcher.Start()
 
 			// Dispatcher
-			dispatcher := chains.NewEhtDispatcher(chain, cfg.RpcUrl)
+			dispatcher := chains.NewEhtDispatcher(chain, cfg.Rpcs)
 			dispatcher.Start()
 			tp.dispatchers[chain] = dispatcher
 		} else {

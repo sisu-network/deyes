@@ -5,8 +5,8 @@ import (
 )
 
 var ChainParamsMap = map[string]ChainParams{
-	"ganache1": {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"ganache2": {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ganache1":            {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"ganache2":            {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"eth-binance-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
@@ -16,9 +16,9 @@ type ChainParams struct {
 }
 
 type Chain struct {
-	Chain     string `toml:"chain"`
-	BlockTime int    `toml:"block_time"`
-	RpcUrl    string `toml:"rpc_url"`
+	Chain     string   `toml:"chain"`
+	BlockTime int      `toml:"block_time"`
+	Rpcs      []string `toml:"rpc_url"`
 }
 
 type Deyes struct {

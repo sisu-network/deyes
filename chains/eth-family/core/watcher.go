@@ -62,8 +62,8 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, g
 func (w *Watcher) init() {
 	var err error
 
-	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.RpcUrl)
-	w.client, err = ethclient.Dial(w.cfg.RpcUrl)
+	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.Rpcs[0])
+	w.client, err = ethclient.Dial(w.cfg.Rpcs[0])
 	if err != nil {
 		panic(err)
 	}

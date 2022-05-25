@@ -18,22 +18,23 @@ type Dispatcher interface {
 }
 
 type EthDispatcher struct {
-	chain, rpcEndpoint string
-	client             *ethclient.Client
+	chain  string
+	rpcs   []string
+	client *ethclient.Client
 }
 
-func NewEhtDispatcher(chain, rpcEndpoint string) Dispatcher {
+func NewEhtDispatcher(chain string, rpcs []string) Dispatcher {
 	return &EthDispatcher{
-		chain:       chain,
-		rpcEndpoint: rpcEndpoint,
+		chain: chain,
+		rpcs:  rpcs,
 	}
 }
 
 func (d *EthDispatcher) Start() {
 	var err error
-	d.client, err = ethclient.Dial(d.rpcEndpoint)
+	d.client, err = ethclient.Dial(d.rpcs[0])
 	if err != nil {
-		log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcEndpoint)
+		log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[0])
 		// TODO: Add retry mechanism here.
 		return
 	}
