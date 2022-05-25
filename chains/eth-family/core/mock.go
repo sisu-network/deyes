@@ -18,7 +18,7 @@ type MockEthClient struct {
 
 func (c *MockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	if c.BlockNumberFunc != nil {
-		return c.BlockNumber(ctx)
+		return c.BlockNumberFunc(ctx)
 	}
 	return 0, nil
 }
@@ -52,4 +52,16 @@ func (c *MockEthClient) PendingNonceAt(ctx context.Context, account common.Addre
 	}
 
 	return 0, nil
+}
+
+//////
+
+type mockTrieHasher struct{}
+
+func (h *mockTrieHasher) Reset() {}
+
+func (h *mockTrieHasher) Update([]byte, []byte) {}
+
+func (h *mockTrieHasher) Hash() common.Hash {
+	return [32]byte{}
 }
