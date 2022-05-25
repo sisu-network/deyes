@@ -47,4 +47,6 @@ type Deyes struct {
 	Chains map[string]Chain `toml:"chains"`
 
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
+
+	InMemory bool // Used in test only
 }

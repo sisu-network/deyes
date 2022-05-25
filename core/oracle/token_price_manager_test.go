@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/sisu-network/deyes/config"
-	mockdb "github.com/sisu-network/deyes/tests/mock/database"
+	"github.com/sisu-network/deyes/database"
 	mocknetwork "github.com/sisu-network/deyes/tests/mock/network"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
@@ -28,6 +28,10 @@ func TestStartManager(t *testing.T) {
 			PricePollFrequency: 1,
 			PriceOracleUrl:     "http://example.com",
 			PriceTokenList:     []string{"ETH", "BTC"},
+
+			DbHost:   "127.0.0.1",
+			DbSchema: "deyes",
+			InMemory: true,
 		}
 
 		mockNetwork := mocknetwork.NewMockHttp(ctrl)
@@ -35,13 +39,15 @@ func TestStartManager(t *testing.T) {
 			Return([]byte(`{"data":{"BTC":{"quote":{"USD":{"price":36367.076791144566}}},"ETH":{"quote":{"USD":{"price":2410.875945408672}}}}}`), nil).
 			Times(1)
 
-		mockDb := mockdb.NewMockDatabase(ctrl)
-		mockDb.EXPECT().LoadPrices().Times(1)
-		mockDb.EXPECT().SaveTokenPrices(gomock.Any()).Times(1)
+		dbInstance := database.NewDb(&cfg)
+		err := dbInstance.Init()
+		if err != nil {
+			panic(err)
+		}
 
 		updateCh := make(chan []*types.TokenPrice)
 
-		priceManager := NewTokenPriceManager(cfg, mockDb, mockNetwork)
+		priceManager := NewTokenPriceManager(cfg, dbInstance, mockNetwork)
 		go priceManager.Start(updateCh)
 
 		result := <-updateCh
@@ -54,6 +60,10 @@ func TestStartManager(t *testing.T) {
 			PricePollFrequency: 1,
 			PriceOracleUrl:     "http://example.com",
 			PriceTokenList:     []string{"INVALID_TOKEN"},
+
+			DbHost:   "127.0.0.1",
+			DbSchema: "deyes",
+			InMemory: true,
 		}
 
 		mockNetwork := mocknetwork.NewMockHttp(ctrl)
@@ -61,11 +71,15 @@ func TestStartManager(t *testing.T) {
 			Return([]byte(`nothing`), nil).
 			AnyTimes()
 
-		mockDb := mockdb.NewMockDatabase(ctrl)
-		mockDb.EXPECT().LoadPrices().Times(1)
+		dbInstance := database.NewDb(&cfg)
+		err := dbInstance.Init()
+		if err != nil {
+			panic(err)
+		}
+
 		updateCh := make(chan []*types.TokenPrice)
 
-		priceManager := NewTokenPriceManager(cfg, mockDb, mockNetwork)
+		priceManager := NewTokenPriceManager(cfg, dbInstance, mockNetwork)
 
 		timeOut := time.After(3 * time.Second)
 		go priceManager.Start(updateCh)
