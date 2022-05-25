@@ -17,6 +17,7 @@ import (
 	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -33,25 +34,24 @@ type Watcher struct {
 	blockTime   int
 	db          database.Database
 	txsCh       chan *types.Txs
-	gasPriceCh  chan *types.GasPriceRequest
 	// A set of address we are interested in. Only send information about transaction to these
 	// addresses back to Sisu.
 	interestedAddrs *sync.Map
 
 	signers map[string]etypes.Signer
 
-	gasPrice        *big.Int
-	gasPriceLocker  sync.RWMutex
+	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, gasPriceCh chan *types.GasPriceRequest) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *Watcher {
 	w := &Watcher{
 		db:              db,
 		cfg:             cfg,
 		txsCh:           txsCh,
-		gasPriceCh:      gasPriceCh,
 		interestedAddrs: &sync.Map{},
+		blockTime:       cfg.BlockTime,
+		gasPrice:        atomic.NewInt64(0),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -94,7 +94,7 @@ func (w *Watcher) setBlockHeight() {
 	for {
 		number, err := w.clients.BlockNumber(context.Background())
 		if err != nil {
-			log.Error("cannot get latest block number. Sleeping for a few seconds")
+			log.Errorf("cannot get latest block number for chain %s. Sleeping for a few seconds", w.cfg.Chain)
 			time.Sleep(time.Second * 5)
 			continue
 		}
@@ -127,28 +127,32 @@ func (w *Watcher) scanBlocks() {
 	if latestBlock != nil {
 		w.blockHeight = latestBlock.Header().Number.Int64()
 	}
-	log.Info(w.cfg.Chain, "Latest height = ", w.blockHeight)
+	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
 
 	for {
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
-		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
-			w.updateGasPrice(context.Background())
-			w.gasPriceCh <- &types.GasPriceRequest{
-				Chain:    w.cfg.Chain,
-				Height:   w.blockHeight,
-				GasPrice: w.GetGasPrice(),
-			}
+		if libchain.IsETHBasedChain(w.cfg.Chain) {
+			go func() {
+				gasPrice := w.GetGasPrice()
+				if gasPrice == 0 || (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+					w.updateGasPrice(context.Background())
+				}
+			}()
 		}
 
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
-			log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain)
-			time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
+			if err != ethereum.NotFound {
+				log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
+			}
+			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
+
+		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
@@ -156,7 +160,7 @@ func (w *Watcher) scanBlocks() {
 			continue
 		}
 
-		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr))
+		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr), " on chain ", w.cfg.Chain)
 
 		if len(filteredTxs.Arr) > 0 {
 			// Send list of interested txs back to the listener.
@@ -168,7 +172,7 @@ func (w *Watcher) scanBlocks() {
 
 		w.blockHeight++
 
-		time.Sleep(time.Duration(w.cfg.BlockTime) * time.Millisecond)
+		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 	}
 }
 
@@ -177,19 +181,17 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		log.Debug(w.cfg.Chain, "Height = ", block.Number())
+		log.Debug(w.cfg.Chain, " Height = ", block.Number())
 		return block, nil
 
 	case ethereum.NotFound:
-		// TODO: Ping block for every second.
-		for i := 0; i < 10; i++ {
-			block, err = w.getBlock(w.blockHeight)
-			if err == nil {
-				return block, err
-			}
+		// Sleep a few seconds and to get the block again.
+		time.Sleep(time.Duration(utils.MinInt(w.blockTime/4, 3000)) * time.Millisecond)
+		block, err = w.getBlock(w.blockHeight)
 
-			time.Sleep(time.Duration(w.cfg.BlockTime) / 2 * time.Millisecond)
-		}
+		// Extend the wait time a little bit more
+		w.blockTime = w.blockTime + w.cfg.AdjustTime
+		log.Verbose("New blocktime: ", w.blockTime)
 	}
 
 	return block, err
@@ -234,7 +236,7 @@ func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
 func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	arr := make([]*types.Tx, 0)
 
-	log.Info(w.cfg.Chain, "Block length = ", len(block.Transactions()))
+	log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
 
 	for _, tx := range block.Transactions() {
 		bz, err := tx.MarshalBinary()
@@ -256,11 +258,27 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 		}
 
 		from, err := w.getFromAddress(w.cfg.Chain, tx)
+		if err != nil {
+			log.Errorf("cannot get from address for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
+			continue
+		}
+
+		receipt, err := w.client.TransactionReceipt(context.Background(), tx.Hash())
+		if receipt == nil {
+			log.Errorf("cannot get receipt for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
+			continue
+		}
+
+		if receipt.Status == 0 {
+			log.Errorf("Tx is included in the blockchain but failed during execution. hash %s - chain %s", tx.Hash().String(), w.cfg.Chain)
+		}
+
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
 			To:         to,
 			From:       from.Hex(),
+			Success:    receipt.Status == 1,
 		})
 	}
 
@@ -274,16 +292,18 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 	if tx.To() != nil {
 		_, ok := w.interestedAddrs.Load(tx.To().Hex())
 		if ok {
+			log.Verbose("Tx is accepted with TO address: ", tx.To().Hex(), " on chain ", w.cfg.Chain)
 			return true
 		}
 	}
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	log.Verbose("from = ", from.Hex(), " to ", tx.To(), " hash = ", tx.Hash())
+	// log.Verbose("from = ", from.Hex(), " to ", tx.To(), " hash = ", tx.Hash())
 	if err == nil {
 		_, ok := w.interestedAddrs.Load(from.Hex())
 		if ok {
+			log.Verbose("Tx is accepted with FROM address: ", from.Hex(), " on chain ", w.cfg.Chain)
 			return true
 		}
 	}
@@ -316,9 +336,7 @@ func (w *Watcher) GetNonce(address string) int64 {
 }
 
 func (w *Watcher) GetGasPrice() int64 {
-	w.gasPriceLocker.RLock()
-	defer w.gasPriceLocker.RUnlock()
-	return w.gasPrice.Int64()
+	return w.gasPrice.Load()
 }
 
 func (w *Watcher) updateGasPrice(ctx context.Context) error {
@@ -329,19 +347,11 @@ func (w *Watcher) updateGasPrice(ctx context.Context) error {
 			return err
 		}
 
-		// make sure the gas price is at least 10 Gwei
-		if gasPrice.Cmp(big.NewInt(minGasPrice)) < 0 {
-			gasPrice = big.NewInt(minGasPrice)
-		}
-
 		potentialGasPriceList = append(potentialGasPriceList, gasPrice)
 	}
 
 	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
-
-	w.gasPriceLocker.Lock()
-	defer w.gasPriceLocker.Unlock()
-	w.gasPrice = medianGasPrice
+	w.gasPrice.Store(medianGasPrice.Int64())
 
 	return nil
 }

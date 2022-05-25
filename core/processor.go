@@ -21,7 +21,6 @@ import (
 type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
-	gasPriceCh    chan *types.GasPriceRequest
 	priceUpdateCh chan []*types.TokenPrice
 	chain         string
 	blockTime     int
@@ -56,7 +55,6 @@ func (tp *Processor) Start() {
 	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
 
 	tp.txsCh = make(chan *types.Txs, 1000)
-	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
 	tp.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go tp.listen()
@@ -66,7 +64,7 @@ func (tp *Processor) Start() {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh, tp.gasPriceCh)
+			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh)
 			tp.watchers[chain] = watcher
 			go watcher.Start()
 
@@ -86,27 +84,31 @@ func (p *Processor) listen() {
 		case txs := <-p.txsCh:
 			if p.sisuReady.Load() == true {
 				p.sisuClient.BroadcastTxs(txs)
-			}
-		case gasReq := <-p.gasPriceCh:
-			if p.sisuReady.Load() == true {
-				p.sisuClient.UpdateGasPrice(gasReq)
+			} else {
+				log.Warnf("txs: Sisu is not ready")
 			}
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateTokenPrices(prices)
+			} else {
+				log.Warnf("prices: Sisu is not ready")
 			}
 		}
 	}
 }
 
 func (tp *Processor) AddWatchAddresses(chain string, addrs []string) {
+	log.Verbose("Received watch address from sisu: ", chain, addrs)
+
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
 			log.Info("Adding watched addr ", addr, " for chain ", chain)
 			watcher.AddWatchAddr(addr)
 		}
+	} else {
+		log.Critical("Watcher is nil")
 	}
 }
 
@@ -114,12 +116,14 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
 	dispatcher := tp.dispatchers[chain]
+	var result *types.DispatchedTxResult
 	if dispatcher == nil {
-		types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+		result = types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+	} else {
+		result = dispatcher.Dispatch(request)
 	}
 
-	result := dispatcher.Dispatch(request)
-	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash)
+	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
