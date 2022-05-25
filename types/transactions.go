@@ -6,6 +6,7 @@ type Tx struct {
 	Serialized []byte
 	To         string
 	From       string
+	Success    bool
 }
 
 // List of all transactions in a block of a specific chain.

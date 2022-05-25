@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/sisu-network/deyes/chains"
+	"github.com/sisu-network/deyes/chains/eth-family/core"
 	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
@@ -21,7 +22,6 @@ import (
 type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
-	gasPriceCh    chan *types.GasPriceRequest
 	priceUpdateCh chan []*types.TokenPrice
 	chain         string
 	blockTime     int
@@ -51,33 +51,41 @@ func NewProcessor(
 	}
 }
 
-func (tp *Processor) Start() {
+func (p *Processor) Start() {
 	log.Info("Starting tx processor...")
-	log.Info("tp.cfg.Chains = ", tp.cfg.Chains)
+	log.Info("tp.cfg.Chains = ", p.cfg.Chains)
 
-	tp.txsCh = make(chan *types.Txs, 1000)
-	tp.gasPriceCh = make(chan *types.GasPriceRequest, 1000)
-	tp.priceUpdateCh = make(chan []*types.TokenPrice)
+	p.txsCh = make(chan *types.Txs, 1000)
+	p.priceUpdateCh = make(chan []*types.TokenPrice)
 
-	go tp.listen()
-	go tp.tpm.Start(tp.priceUpdateCh)
+	go p.listen()
+	go p.tpm.Start(p.priceUpdateCh)
 
-	for chain, cfg := range tp.cfg.Chains {
+	for chain, cfg := range p.cfg.Chains {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(tp.db, cfg, tp.txsCh, tp.gasPriceCh)
-			tp.watchers[chain] = watcher
+			watcher := ethCore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			p.watchers[chain] = watcher
 			go watcher.Start()
 
 			// Dispatcher
-			dispatcher := chains.NewEhtDispatcher(chain, cfg.RpcUrl)
+			dispatcher := chains.NewEhtDispatcher(chain, cfg.Rpcs)
 			dispatcher.Start()
-			tp.dispatchers[chain] = dispatcher
+			p.dispatchers[chain] = dispatcher
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
 	}
+}
+
+func (p *Processor) getEthClients(rpcs []string) []ethCore.EthClient {
+	clients := core.NewEthClients(rpcs)
+	if len(clients) == 0 {
+		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
+	}
+
+	return clients
 }
 
 func (p *Processor) listen() {
@@ -86,27 +94,31 @@ func (p *Processor) listen() {
 		case txs := <-p.txsCh:
 			if p.sisuReady.Load() == true {
 				p.sisuClient.BroadcastTxs(txs)
-			}
-		case gasReq := <-p.gasPriceCh:
-			if p.sisuReady.Load() == true {
-				p.sisuClient.UpdateGasPrice(gasReq)
+			} else {
+				log.Warnf("txs: Sisu is not ready")
 			}
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateTokenPrices(prices)
+			} else {
+				log.Warnf("prices: Sisu is not ready")
 			}
 		}
 	}
 }
 
 func (tp *Processor) AddWatchAddresses(chain string, addrs []string) {
+	log.Verbose("Received watch address from sisu: ", chain, addrs)
+
 	watcher := tp.watchers[chain]
 	if watcher != nil {
 		for _, addr := range addrs {
 			log.Info("Adding watched addr ", addr, " for chain ", chain)
 			watcher.AddWatchAddr(addr)
 		}
+	} else {
+		log.Critical("Watcher is nil")
 	}
 }
 
@@ -114,12 +126,14 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
 	dispatcher := tp.dispatchers[chain]
+	var result *types.DispatchedTxResult
 	if dispatcher == nil {
-		types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+		result = types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+	} else {
+		result = dispatcher.Dispatch(request)
 	}
 
-	result := dispatcher.Dispatch(request)
-	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash)
+	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
