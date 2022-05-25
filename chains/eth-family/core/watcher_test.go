@@ -68,82 +68,119 @@ func genTransactions(t *testing.T) etypes.Transactions {
 }
 
 func TestMultipleRpcs(t *testing.T) {
-	expectedErr := fmt.Errorf("Cannot connect to RPC")
-	expectedBlockNumber := uint64(10)
-	expectedBlock := &etypes.Block{}
-	expectedReceipt := &etypes.Receipt{}
-	expectedGasPrice := big.NewInt(10)
-	expectedNonce := uint64(10)
+	t.Parallel()
 
-	// Client1 does not work.
-	client1 := &MockEthClient{
-		BlockNumberFunc: func(ctx context.Context) (uint64, error) {
-			return 0, expectedErr
-		},
+	t.Run("RPC should be successful if one RPC call fails and the other successful", func(t *testing.T) {
+		t.Parallel()
 
-		BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
-			return nil, expectedErr
-		},
+		expectedErr := fmt.Errorf("Cannot connect to RPC")
+		expectedBlockNumber := uint64(10)
+		expectedBlock := &etypes.Block{}
+		expectedReceipt := &etypes.Receipt{}
+		expectedGasPrice := big.NewInt(10)
+		expectedNonce := uint64(10)
 
-		TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
-			return nil, expectedErr
-		},
+		// Client1 does not work.
+		client1 := &MockEthClient{
+			BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+				return 0, expectedErr
+			},
 
-		SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
-			return nil, expectedErr
-		},
+			BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
+				return nil, expectedErr
+			},
 
-		PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
-			return 0, expectedErr
-		},
-	}
+			TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
+				return nil, expectedErr
+			},
 
-	client2 := &MockEthClient{
-		BlockNumberFunc: func(ctx context.Context) (uint64, error) {
-			return expectedBlockNumber, nil
-		},
+			SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
+				return nil, expectedErr
+			},
 
-		BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
-			return expectedBlock, nil
-		},
+			PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
+				return 0, expectedErr
+			},
+		}
 
-		TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
-			return expectedReceipt, nil
-		},
+		// Client2 works.
+		client2 := &MockEthClient{
+			BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+				return expectedBlockNumber, nil
+			},
 
-		SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
-			return expectedGasPrice, nil
-		},
+			BlockByNumberFunc: func(ctx context.Context, number *big.Int) (*etypes.Block, error) {
+				return expectedBlock, nil
+			},
 
-		PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
-			return expectedNonce, nil
-		},
-	}
+			TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
+				return expectedReceipt, nil
+			},
 
-	watcher := Watcher{
-		interestedAddrs: &sync.Map{},
-		clients:         []EthClient{client1, client2},
-		cfg: config.Chain{
-			Chain: "ganache1",
-		},
-	}
+			SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
+				return expectedGasPrice, nil
+			},
 
-	blockNumber, err := watcher.getBlockNumber()
-	require.Equal(t, nil, err)
-	require.Equal(t, expectedBlockNumber, blockNumber)
+			PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
+				return expectedNonce, nil
+			},
+		}
 
-	block, err := watcher.getBlock(-1)
-	require.Equal(t, nil, err)
-	require.Equal(t, expectedBlock, block)
+		watcher := Watcher{
+			interestedAddrs: &sync.Map{},
+			clients:         []EthClient{client1, client2},
+			cfg: config.Chain{
+				Chain: "ganache1",
+			},
+		}
 
-	receipt, err := watcher.getTxReceipt(common.Hash{})
-	require.Equal(t, nil, err)
-	require.Equal(t, expectedReceipt, receipt)
+		blockNumber, err := watcher.getBlockNumber()
+		require.Equal(t, nil, err)
+		require.Equal(t, expectedBlockNumber, blockNumber)
 
-	gasPrice, err := watcher.getSuggestedGasPrice()
-	require.Equal(t, nil, err)
-	require.Equal(t, expectedGasPrice, gasPrice)
+		block, err := watcher.getBlock(-1)
+		require.Equal(t, nil, err)
+		require.Equal(t, expectedBlock, block)
 
-	nonce := uint64(watcher.GetNonce("0x123"))
-	require.Equal(t, expectedNonce, nonce)
+		receipt, err := watcher.getTxReceipt(common.Hash{})
+		require.Equal(t, nil, err)
+		require.Equal(t, expectedReceipt, receipt)
+
+		gasPrice, err := watcher.getSuggestedGasPrice()
+		require.Equal(t, nil, err)
+		require.Equal(t, expectedGasPrice, gasPrice)
+
+		nonce := uint64(watcher.GetNonce("0x123"))
+		require.Equal(t, expectedNonce, nonce)
+	})
+
+	t.Run("RPC fails if all clients returns error", func(t *testing.T) {
+		t.Parallel()
+
+		// Client1 does not work.
+		client1 := &MockEthClient{
+			BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+				return 0, fmt.Errorf("Cannot connect to RPC")
+			},
+		}
+
+		// Client2 works.
+		client2 := &MockEthClient{
+			BlockNumberFunc: func(ctx context.Context) (uint64, error) {
+				return 0, fmt.Errorf("Cannot connect to RPC")
+			},
+		}
+
+		watcher := Watcher{
+			interestedAddrs: &sync.Map{},
+			clients:         []EthClient{client1, client2},
+			cfg: config.Chain{
+				Chain: "ganache1",
+			},
+		}
+
+		blockNumber, err := watcher.getBlockNumber()
+		require.NotEqual(t, nil, err)
+		require.Equal(t, uint64(0), blockNumber)
+	})
 }
