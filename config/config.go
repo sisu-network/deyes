@@ -23,10 +23,10 @@ type ChainParams struct {
 }
 
 type Chain struct {
-	Chain      string   `toml:"chain"`
-	BlockTime  int      `toml:"block_time"`
+	Chain      string   `toml:"chain" json:"chain"`
+	BlockTime  int      `toml:"block_time" json:"block_time"`
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
-	Rpcs       []string `toml:"rpc_url"`
+	Rpcs       []string `toml:"rpcs" json:"rpcs"`
 }
 
 type Deyes struct {

@@ -61,7 +61,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs) *
 
 func (w *Watcher) init() {
 	log.Info("RPC endpoint for chain", w.cfg.Chain, "is", w.cfg.Rpcs[0])
-	w.clients = make([]*ethclient.Client, len(w.cfg.Rpcs))
+	w.clients = make([]*ethclient.Client, 0)
 
 	// Make sure at least one RPC is working
 	ok := false
