@@ -6,7 +6,7 @@ import (
 
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
-	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
+	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -65,7 +65,7 @@ func (p *Processor) Start() {
 		log.Info("Supported chain and config: ", chain, cfg)
 
 		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			watcher := ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
 			p.watchers[chain] = watcher
 			go watcher.Start()
 
@@ -79,7 +79,7 @@ func (p *Processor) Start() {
 	}
 }
 
-func (p *Processor) getEthClients(rpcs []string) []ethCore.EthClient {
+func (p *Processor) getEthClients(rpcs []string) []ethcore.EthClient {
 	clients := core.NewEthClients(rpcs)
 	if len(clients) == 0 {
 		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
@@ -138,7 +138,11 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {
-	watcher := tp.watchers[chain]
+	if !libchain.IsETHBasedChain(chain) {
+		return -1
+	}
+
+	watcher := tp.watchers[chain].(*ethcore.Watcher)
 	if watcher == nil {
 		return -1
 	}

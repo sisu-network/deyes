@@ -67,7 +67,6 @@ func (w *Watcher) init() {
 	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
 
 	log.Info("Watch address for chain ", w.cfg.Chain, ": ", addrs)
-
 	for _, addr := range addrs {
 		w.interestedAddrs.Store(addr, true)
 	}
@@ -116,10 +115,10 @@ func (w *Watcher) scanBlocks() {
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
-		if libchain.IsETHBasedChain(w.cfg.Chain) {
+		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
 			go func() {
 				gasPrice := w.GetGasPrice()
-				if gasPrice == 0 || (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+				if gasPrice == 0 {
 					w.updateGasPrice(context.Background())
 				}
 			}()

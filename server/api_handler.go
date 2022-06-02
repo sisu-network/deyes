@@ -1,6 +1,7 @@
 package server
 
 import (
+	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
 
@@ -44,7 +45,7 @@ func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
 	prices := make([]int64, len(chains))
 	for i, chain := range chains {
 		if libchain.IsETHBasedChain(chain) {
-			watcher := api.processor.GetWatcher(chain)
+			watcher := api.processor.GetWatcher(chain).(*ethcore.Watcher)
 			prices[i] = watcher.GetGasPrice()
 		} else {
 			prices[i] = 0
