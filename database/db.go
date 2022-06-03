@@ -26,8 +26,8 @@ type Database interface {
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
 	// Watch address
-	SaveWatchAddress(chain, address string)
-	LoadWatchAddresses(chain string) []string
+	SaveWatchAddress(chain, address string, txCount int)
+	LoadWatchAddresses(chain string) []*types.WatchAddress
 
 	// Token price
 	SaveTokenPrices(tokenPrices []*types.TokenPrice)
@@ -144,6 +144,8 @@ func (d *DefaultDatabase) doSqlMigration() error {
 // "golang-migrate/migrate" lib because there are some query in "golang-migrate/migrate" not
 // supported by sqlite3 in-memory (like SELECT DATABASE() or SELECT GET_LOCK()).
 func (d *DefaultDatabase) inMemoryMigration() error {
+	log.Verbose("Running in-memory migration...")
+
 	migrationDir, err := MigrationsTempDir()
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory for migrations: %w", err)
@@ -244,28 +246,34 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SaveWatchAddress(chain, address string) {
-	_, err := d.db.Exec("INSERT IGNORE INTO watch_address (chain, address) VALUES (?, ?)", chain, address)
+func (d *DefaultDatabase) SaveWatchAddress(chain, address string, txCount int) {
+	_, err := d.db.Exec("INSERT IGNORE INTO watch_address (chain, address, ctx_count) VALUES (?, ?, ?)", chain, address, txCount)
 	if err != nil {
 		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}
 }
 
-func (d *DefaultDatabase) LoadWatchAddresses(chain string) []string {
-	addrs := make([]string, 0)
-	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
+func (d *DefaultDatabase) LoadWatchAddresses(chain string) []*types.WatchAddress {
+	addrs := make([]*types.WatchAddress, 0)
+
+	rows, err := d.db.Query("SELECT address, tx_count FROM watch_address WHERE chain=?", chain)
 	if err != nil {
-		log.Error("Failed to load watch address for chain", chain, ". Error = ", err)
+		log.Error("Failed to load watch address for chain ", chain, ". Error = ", err)
 		return addrs
 	}
 
 	defer rows.Close()
 
 	for rows.Next() {
-		var addr string
-		err := rows.Scan(&addr)
+		var addr sql.NullString
+		var txCount int
+		err := rows.Scan(&addr, &txCount)
 		if err == nil {
-			addrs = append(addrs, addr)
+			addrs = append(addrs, &types.WatchAddress{
+				Chain:   chain,
+				Address: addr.String,
+				TxCount: txCount,
+			})
 		}
 	}
 

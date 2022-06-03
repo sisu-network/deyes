@@ -64,11 +64,11 @@ func (w *Watcher) init() {
 	w.setBlockHeight()
 
 	// Load watch addresses
-	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
+	watchAddrs := w.db.LoadWatchAddresses(w.cfg.Chain)
 
-	log.Info("Watch address for chain ", w.cfg.Chain, ": ", addrs)
-	for _, addr := range addrs {
-		w.interestedAddrs.Store(addr, true)
+	log.Info("Watch address for chain ", w.cfg.Chain, ": ", watchAddrs)
+	for _, watchAddr := range watchAddrs {
+		w.interestedAddrs.Store(watchAddr.Address, true)
 	}
 }
 
@@ -90,7 +90,7 @@ func (w *Watcher) setBlockHeight() {
 
 func (w *Watcher) AddWatchAddr(addr string) {
 	w.interestedAddrs.Store(addr, true)
-	w.db.SaveWatchAddress(w.cfg.Chain, addr)
+	w.db.SaveWatchAddress(w.cfg.Chain, addr, 0)
 }
 
 func (w *Watcher) Start() {
@@ -135,7 +135,6 @@ func (w *Watcher) scanBlocks() {
 		}
 
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
-
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
 			log.Error("cannot process block, err = ", err)
