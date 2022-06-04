@@ -4,7 +4,13 @@ import (
 	"context"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/echovl/cardano-go"
 )
+
+type CardanoClient interface {
+	GetBlockHeight() (int, error)
+	GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*cardano.Tx, error)
+}
 
 // A wrapper around cardano node client so that we can mock in watcher tests.
 type blockfrostClient struct {

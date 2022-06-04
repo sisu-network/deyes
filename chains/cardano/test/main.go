@@ -2,20 +2,23 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
-	"github.com/echovl/cardano-go/crypto"
 	"github.com/echovl/cardano-go/wallet"
 	adacore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
+
+	cardanobf "github.com/echovl/cardano-go/blockfrost"
 )
 
 const (
@@ -41,39 +44,29 @@ func getWallet() *wallet.Wallet {
 	return w
 }
 
-func getTx() *cardano.Tx {
-	txBuilder := cardano.NewTxBuilder(&cardano.ProtocolParams{})
-
-	receiver, err := cardano.NewAddress("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
-	sk, err := crypto.NewPrvKey("addr_skey")
-	if err != nil {
-		panic(err)
+func getApi() blockfrost.APIClient {
+	projectId := os.Getenv("PROJECT_ID")
+	if len(projectId) == 0 {
+		panic("project id is empty")
 	}
 
-	txInput, err := cardano.NewTxInput("txhash", 0, cardano.Coin(2000000))
-	if err != nil {
-		panic(err)
-	}
-	txOut, err := cardano.NewTxOutput(receiver, cardano.Coin(1300000))
-	if err != nil {
-		panic(err)
-	}
+	api := blockfrost.NewAPIClient(
+		blockfrost.APIClientOptions{
+			ProjectID: projectId,
+			Server:    "https://cardano-testnet.blockfrost.io/api/v0",
+		},
+	)
+	return api
+}
 
-	txBuilder.AddInputs(txInput)
-	txBuilder.AddOutputs(txOut)
-	txBuilder.SetTTL(100000)
-	txBuilder.SetFee(cardano.Coin(160000))
-
-	tx, err := txBuilder.Build()
-	if err != nil {
-		panic(err)
+func getCardanoNode() cardano.Node {
+	projectId := os.Getenv("PROJECT_ID")
+	if len(projectId) == 0 {
+		panic("project id is empty")
 	}
 
-	sk.Sign(tx.Bytes())
-
-	fmt.Println(tx.Hex())
-
-	return tx
+	node := cardanobf.NewNode(cardano.Testnet, projectId)
+	return node
 }
 
 func transfer(addrString string) {
@@ -84,7 +77,7 @@ func transfer(addrString string) {
 		panic(err)
 	}
 
-	txhash, err := w.Transfer(recipient, cardano.Coin(1000000))
+	txhash, err := w.Transfer(recipient, cardano.NewValue(cardano.Coin(1000000)))
 	if err != nil {
 		panic(err)
 	}
@@ -110,36 +103,17 @@ func submitTx(tx *cardano.Tx) {
 }
 
 func query() {
-	projectId := os.Getenv("PROJECT_ID")
-	if len(projectId) == 0 {
-		panic("project id is empty")
-	}
-
-	api := blockfrost.NewAPIClient(
-		blockfrost.APIClientOptions{
-			ProjectID: projectId, // Exclude to load from env:BLOCKFROST_PROJECT_ID
-			Server:    "https://cardano-testnet.blockfrost.io/api/v0",
-		},
-	)
-
+	api := getApi()
 	w := getWallet()
+
 	walletAddrs, err := w.Addresses()
 	addr := walletAddrs[0].Bech32()
 	fmt.Println("addr.Bech32() = ", addr)
-
 	addrUtxos, err := api.AddressUTXOs(context.Background(), addr, blockfrost.APIQueryParams{})
 	if err != nil {
 		panic(err)
 	}
-
 	fmt.Println("utxo txs = ", addrUtxos)
-
-	eparams, err := api.LatestEpochParameters(context.Background())
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("eparams = ", eparams.MinFeeA, eparams.MinFeeB, eparams.MinUtxo)
-
 	addrDetails, err := api.AddressDetails(context.Background(), "addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
 	if err != nil {
 		panic(err)
@@ -212,33 +186,151 @@ func testWatcher() {
 	}
 }
 
-func testTxMetadata() {
-	projectId := os.Getenv("PROJECT_ID")
-	if len(projectId) == 0 {
-		panic("project id is empty")
-	}
-
-	api := blockfrost.NewAPIClient(
-		blockfrost.APIClientOptions{
-			ProjectID: projectId, // Exclude to load from env:BLOCKFROST_PROJECT_ID
-			Server:    "https://cardano-mainnet.blockfrost.io/api/v0",
-		},
-	)
-
-	metaArr, err := api.TransactionMetadata(context.Background(), "191d2579d12394672b8a55fd2f57e48036d0a8650863fdb96ae6cd37ae1caf66")
+func getProtocolParams(bfParams blockfrost.EpochParameters) *cardano.ProtocolParams {
+	keyDeposit, err := strconv.Atoi(bfParams.KeyDeposit)
 	if err != nil {
 		panic(err)
 	}
 
-	for _, meta := range metaArr {
-		fmt.Println(meta.JsonMetadata)
+	minUtxo, err := strconv.Atoi(bfParams.MinUtxo)
+
+	return &cardano.ProtocolParams{
+		MinFeeA:          cardano.Coin(bfParams.MinFeeA),
+		MinFeeB:          cardano.Coin(bfParams.MinFeeB),
+		KeyDeposit:       cardano.Coin(keyDeposit),
+		CoinsPerUTXOWord: cardano.Coin(minUtxo),
 	}
+}
+
+func testTxHash() {
+	api := getApi()
+	bfParams, err := api.LatestEpochParameters(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	w := getWallet()
+	addrs, err := w.Addresses()
+	if err != nil {
+		panic(err)
+	}
+	senderAddr := addrs[0]
+	fmt.Println(senderAddr)
+
+	utxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), blockfrost.APIQueryParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("utxos = ", utxos)
+
+	protocolParams := getProtocolParams(bfParams)
+	txBuilder := cardano.NewTxBuilder(protocolParams)
+
+	receiver, err := cardano.NewAddress("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
+
+	txHash, err := cardano.NewHash32("bc82779c18b98f0f5628b0cae12af618020e5388258d3bcce936c380583298dc")
+	if err != nil {
+		panic(err)
+	}
+
+	txInput := cardano.NewTxInput(txHash, 0, cardano.NewValue(994171615))
+	txOut := cardano.NewTxOutput(receiver, cardano.NewValue(1000000))
+
+	txBuilder.AddInputs(txInput)
+	txBuilder.AddOutputs(txOut)
+	txBuilder.SetFee(cardano.Coin(1000000))
+
+	block, err := api.BlockLatest(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	txBuilder.SetTTL(uint64(block.Slot) + 1200)
+	// Sign transaction
+	key, _ := w.Keys()
+	txBuilder.Sign(key)
+
+	txBuilder.AddChangeIfNeeded(senderAddr)
+
+	tx, err := txBuilder.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	localHash, err := tx.Hash()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("localHash = ", localHash)
+
+	node := getCardanoNode()
+	hash, err := node.SubmitTx(tx)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("hash = ", hash)
+}
+
+func queryTxUtxo() {
+	api := getApi()
+
+	txUtxos, err := api.TransactionUTXOs(context.Background(), "6c9025b0fe319e1015665973e1d8bfc03d8dc7de0d211f82fb863df8b175a4aa")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, input := range txUtxos.Inputs {
+		for _, amount := range input.Amount {
+			fmt.Println("Amount: ", amount.Quantity, amount.Unit)
+		}
+	}
+
+	fmt.Println("=============")
+
+	asset, err := api.Asset(context.Background(), "6b8d07d69639e9413dd637a1a815a7323c69c86abbafb66dbfdb1aa7")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("asset = %s, policy = %s, name = %s, fingerprint = %s\n", asset.Asset, asset.PolicyId, asset.AssetName, asset.Fingerprint)
+	assets, err := api.AssetsByPolicy(context.Background(), "6b8d07d69639e9413dd637a1a815a7323c69c86abbafb66dbfdb1aa7")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, asset := range assets {
+		fmt.Printf("asset = %s, quantity = %s, metadata = %v\n", asset.Asset, asset.Quantity, asset.Metadata)
+		decode, err := hex.DecodeString(asset.Asset)
+		if err != nil {
+			fmt.Println("err = ", err)
+		} else {
+			fmt.Println("Decode = ", len(decode), decode)
+		}
+	}
+}
+
+func queryAddressTransaction() {
+	api := getApi()
+	txs, err := api.AddressTransactions(context.Background(), "addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy", blockfrost.APIQueryParams{
+		From: "3604437",
+		To:   "3604437",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("txs = ", txs)
 }
 
 func main() {
 	// query()
 	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
 	// testWatcher()
+	queryTxUtxo()
+	// testBlockfrostClient()
 
-	testTxMetadata()
+	// testTxHash()
+
+	// queryAddressTransaction()
 }

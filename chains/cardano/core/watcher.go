@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	NewBlockNotAvailable = fmt.Errorf("Block not found")
+	BlockNotFound = fmt.Errorf("Block not found")
 )
 
 type Watcher struct {
@@ -83,13 +83,13 @@ func (w *Watcher) scanChain() {
 	for {
 		// Get latest block
 		block, err := w.getLatestBlock()
-		if err != nil && err != NewBlockNotAvailable {
+		if err != nil && err != BlockNotFound {
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
 
 		// Block not available yet
-		if err == NewBlockNotAvailable {
+		if err == BlockNotFound {
 			w.blockTime = w.blockTime + w.cfg.AdjustTime
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
@@ -187,7 +187,7 @@ func (w *Watcher) getLatestBlock() (*blockfrost.Block, error) {
 	}
 
 	if block.Height == int(w.lastBlockHeight.Load()) {
-		return nil, NewBlockNotAvailable
+		return nil, BlockNotFound
 	}
 
 	return &block, nil
