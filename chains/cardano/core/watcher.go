@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -19,43 +18,41 @@ var (
 	BlockNotFound = fmt.Errorf("Block not found")
 )
 
+type CardanoClient interface {
+	IsHealthy() bool
+	LatestBlock() *blockfrost.Block
+	GetBlockHeight() (int, error)
+	GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
+}
+
 type Watcher struct {
 	cfg             config.Chain
 	db              database.Database
 	txsCh           chan *types.Txs
-	client          *blockfrostClient
+	client          CardanoClient
 	blockTime       int
 	lastBlockHeight atomic.Int32
 
 	// A map between an interested address to the number of transaction to it (according to our data).
-	interestedAddr map[string]int
+	interestedAddr map[string]bool
 	lock           *sync.RWMutex
 }
 
-func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs) *Watcher {
+func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs, client CardanoClient) *Watcher {
 	return &Watcher{
 		cfg:            cfg,
 		db:             db,
 		txsCh:          txsCh,
 		blockTime:      cfg.BlockTime,
-		interestedAddr: map[string]int{},
+		interestedAddr: map[string]bool{},
 		lock:           &sync.RWMutex{},
+		client:         client,
 	}
 }
 
 func (w *Watcher) init() {
-	// We use blockfrost for now
-	w.client = newAPIClient(blockfrost.APIClientOptions{
-		ProjectID: w.cfg.RpcSecret, // Exclude to load from env:BLOCKFROST_PROJECT_ID
-		Server:    w.cfg.Rpcs[0],
-	})
-
-	status, err := w.client.Health(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
-	if !status.IsHealthy {
+	healthy := w.client.IsHealthy()
+	if !healthy {
 		err := fmt.Errorf("Blockfrost is not healthy")
 		log.Error(err)
 		panic(err)
@@ -66,7 +63,7 @@ func (w *Watcher) init() {
 
 	w.lock.Lock()
 	for _, addr := range addrs {
-		w.interestedAddr[addr.Address] = addr.TxCount
+		w.interestedAddr[addr.Address] = true
 	}
 	w.lock.Unlock()
 }
@@ -100,7 +97,7 @@ func (w *Watcher) scanChain() {
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
 		// Make a copy of the w.interestedAddr map
-		copy := make(map[string]int)
+		copy := make(map[string]bool)
 		w.lock.RLock()
 		for addr, txCount := range w.interestedAddr {
 			copy[addr] = txCount
@@ -109,25 +106,26 @@ func (w *Watcher) scanChain() {
 
 		// Process each address in the intersted addr.
 		txArr := make([]*types.Tx, 0)
-		for addr, txCount := range copy {
-			txs, err := w.processAddr(addr, txCount)
+
+		utxos, err := w.client.GetNewTxs(block.Height, copy)
+		if err != nil {
+			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
+			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			continue
+		}
+
+		for _, utxo := range utxos {
+			bz, err := json.Marshal(utxo)
 			if err != nil {
-				log.Error(err)
+				log.Error("Cannot serialize utxo, err = ", err)
 				continue
 			}
 
-			for _, txutxo := range txs {
-				serialized, err := json.Marshal(txutxo)
-				if err != nil {
-					log.Critical("cannot marshal txutxo, err = ", err)
-					continue
-				}
-
-				txArr = append(txArr, &types.Tx{
-					Hash:       txutxo.Hash,
-					Serialized: serialized,
-				})
-			}
+			txArr = append(txArr, &types.Tx{
+				Hash:       utxo.Hash(),
+				Serialized: bz,
+				To:         utxo.Spender.String(),
+			})
 		}
 
 		txs := types.Txs{
@@ -144,58 +142,19 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) processAddr(addr string, lastTxCount int) ([]*blockfrost.TransactionUTXOs, error) {
-	addrDetails, err := w.client.AddressDetails(context.Background(), addr)
-	if err != nil {
-		return nil, err
-	}
-
-	txCount := addrDetails.TxCount
-	if txCount == lastTxCount {
-		// No new transaction
-		return make([]*blockfrost.TransactionUTXOs, 0), nil
-	}
-
-	if txCount < lastTxCount {
-		err := fmt.Errorf("Tx count is smaller than lastTxCount")
-		return nil, err
-	}
-
-	addrTxs, err := w.client.AddressTransactions(context.Background(), addr, blockfrost.APIQueryParams{
-		Count: txCount - lastTxCount,
-		Order: "desc",
-	})
-
-	txs := make([]*blockfrost.TransactionUTXOs, 0)
-
-	for _, addrTx := range addrTxs {
-		txUtxos, err := w.client.TransactionUTXOs(context.Background(), addrTx.TxHash)
-		if err != nil {
-			return nil, err
-		}
-
-		txs = append(txs, &txUtxos)
-	}
-
-	return txs, nil
-}
-
 func (w *Watcher) getLatestBlock() (*blockfrost.Block, error) {
-	block, err := w.client.BlockLatest(context.Background())
-	if err != nil {
-		return nil, err
-	}
+	block := w.client.LatestBlock()
 
 	if block.Height == int(w.lastBlockHeight.Load()) {
 		return nil, BlockNotFound
 	}
 
-	return &block, nil
+	return block, nil
 }
 
 func (w *Watcher) AddWatchAddr(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	w.interestedAddr[addr] = 0
+	w.interestedAddr[addr] = true
 }

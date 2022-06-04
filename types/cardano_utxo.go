@@ -1,6 +1,11 @@
 package types
 
-import "github.com/echovl/cardano-go"
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/echovl/cardano-go"
+)
 
 // Represents a utxo transaction from address A -> B in Cardano.
 type CardanoUtxo struct {
@@ -8,4 +13,8 @@ type CardanoUtxo struct {
 	Spender cardano.Address
 	Amount  *cardano.Value
 	Index   uint64
+}
+
+func (c *CardanoUtxo) Hash() string {
+	return fmt.Sprintf("%s__%s", c.TxHash, strconv.Itoa(int(c.Index)))
 }

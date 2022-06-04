@@ -9,6 +9,7 @@ import (
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/echovl/cardano-go"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/lib/log"
 )
 
 const (
@@ -33,6 +34,26 @@ func NewBlockfrostClient2(options blockfrost.APIClientOptions) CardanoClient {
 		bfAssetCache: make(map[string]*blockfrost.Asset),
 		lock:         &sync.RWMutex{},
 	}
+}
+
+func (b *BlockfrostClient2) IsHealthy() bool {
+	health, err := b.inner.Health(context.Background())
+	if err != nil {
+		log.Error("Blockfrost is not healthy")
+		return false
+	}
+
+	return health.IsHealthy
+}
+
+func (b *BlockfrostClient2) LatestBlock() *blockfrost.Block {
+	block, err := b.inner.BlockLatest(context.Background())
+	if err != nil {
+		log.Error("Failed to get latest cardano block, err = ", err)
+		return nil
+	}
+
+	return &block
 }
 
 func (b *BlockfrostClient2) GetBlockHeight() (int, error) {
