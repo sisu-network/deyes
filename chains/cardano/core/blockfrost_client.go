@@ -2,12 +2,13 @@ package core
 
 import (
 	"context"
+	"encoding/hex"
 	"strconv"
 	"sync"
 
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/echovl/cardano-go"
-	"github.com/sisu-network/lib/log"
+	"github.com/sisu-network/deyes/types"
 )
 
 const (
@@ -43,8 +44,7 @@ func (b *BlockfrostClient2) GetBlockHeight() (int, error) {
 	return block.Height, nil
 }
 
-func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*cardano.Tx, error) {
-	txs := make([]*cardano.Tx, 0)
+func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error) {
 	latestHeight, err := b.GetBlockHeight()
 	if err != nil {
 		return nil, err
@@ -55,6 +55,7 @@ func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string
 	}
 
 	added := make(map[string]bool)
+	utxos := make([]*types.CardanoUtxo, 0)
 
 	for addr := range interestedAddrs {
 		bfTxs, err := b.inner.AddressTransactions(context.Background(), addr, blockfrost.APIQueryParams{
@@ -72,152 +73,74 @@ func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string
 				continue
 			}
 			added[bfTx.TxHash] = true
-
-			bfTransactionContent, err := b.inner.Transaction(context.Background(), bfTx.TxHash)
-			if err != nil {
-				return nil, err
-			}
-
 			txUtxos, err := b.inner.TransactionUTXOs(context.Background(), bfTx.TxHash)
 			if err != nil {
 				return nil, err
 			}
 
-			fee, err := strconv.Atoi(bfTransactionContent.Fees)
+			for i, utxo := range txUtxos.Outputs {
+				cardanoAddr, err := cardano.NewAddress(addr)
+				if err != nil {
+					return nil, err
+				}
+
+				amount, err := b.getCardanoAmount(utxo.Amount)
+				if err != nil {
+					return nil, err
+				}
+
+				cardanoUtxo := &types.CardanoUtxo{
+					Spender: cardanoAddr,
+					TxHash:  cardano.Hash32(txUtxos.Hash),
+					Amount:  amount,
+					Index:   uint64(i),
+				}
+				utxos = append(utxos, cardanoUtxo)
+			}
+		}
+	}
+
+	return utxos, nil
+}
+
+func (b *BlockfrostClient2) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
+	amount := cardano.NewValue(0)
+	for _, a := range amounts {
+		if a.Unit == "lovelace" {
+			lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
 			if err != nil {
 				return nil, err
 			}
-
-			tx := &cardano.Tx{
-				Body: cardano.TxBody{
-					Inputs:  make([]*cardano.TxInput, 0),
-					Outputs: make([]*cardano.TxOutput, 0),
-					Fee:     cardano.Coin(fee),
-				},
-			}
-
-			// Recreate input
-			for _, input := range txUtxos.Inputs {
-				value, err := b.blockfrostAmountToMultiAsset(input.Amount)
-				if err != nil {
-					return nil, err
-				}
-
-				tx.Body.Inputs = append(tx.Body.Inputs, &cardano.TxInput{
-					TxHash: cardano.Hash32(input.TxHash),
-					Index:  uint64(input.OutputIndex),
-					Amount: value,
-				})
-			}
-
-			// Recreate output
-			for _, output := range txUtxos.Outputs {
-				addr, err := cardano.NewAddress(output.Address)
-				if err != nil {
-					return nil, err
-				}
-
-				value, err := b.blockfrostAmountToMultiAsset(output.Amount)
-				if err != nil {
-					return nil, err
-				}
-
-				tx.Body.Outputs = append(tx.Body.Outputs, &cardano.TxOutput{
-					Address: addr,
-					Amount:  value,
-				})
-			}
-
-			txs = append(txs, tx)
-		}
-	}
-
-	return txs, nil
-}
-
-func (b *BlockfrostClient2) blockfrostAmountToMultiAsset(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
-	if len(amounts) == 1 {
-		quantity, err := strconv.Atoi(amounts[0].Quantity)
-		if err != nil {
-			return nil, err
-		}
-
-		return cardano.NewValue(cardano.Coin(quantity)), nil
-	}
-
-	var coin cardano.Coin
-	multiAssets := cardano.NewMultiAsset()
-
-	for _, amount := range amounts {
-		if amount.Unit == UnitLovelace {
-			quantity, err := strconv.Atoi(amount.Quantity)
+			amount.Coin += cardano.Coin(lovelace)
+		} else {
+			unitBytes, err := hex.DecodeString(a.Unit)
 			if err != nil {
 				return nil, err
 			}
-
-			coin = cardano.Coin(quantity)
-			continue
+			policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
+			assetName := string(unitBytes[28:])
+			assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			currentAssets := amount.MultiAsset.Get(policyID)
+			if currentAssets != nil {
+				currentAssets.Set(
+					cardano.NewAssetName(assetName),
+					cardano.BigNum(assetValue),
+				)
+			} else {
+				amount.MultiAsset.Set(
+					policyID,
+					cardano.NewAssets().
+						Set(
+							cardano.NewAssetName(string(assetName)),
+							cardano.BigNum(assetValue),
+						),
+				)
+			}
 		}
-
-		bfAsset := b.getCachedAsset(amount.Unit)
-		assets, err := b.getAssetsFromPolicy(bfAsset.PolicyId)
-		if err != nil {
-			return nil, err
-		}
-
-		multiAssets.Set(cardano.NewPolicyIDFromHash(cardano.Hash28(amount.Unit)), assets)
 	}
 
-	return cardano.NewValueWithAssets(coin, multiAssets), nil
-}
-
-func (b *BlockfrostClient2) getAssetsFromPolicy(policyHash string) (*cardano.Assets, error) {
-	var assets *cardano.Assets
-	b.lock.RLock()
-	assets = b.policyAssets[policyHash]
-	b.lock.RUnlock()
-
-	if assets != nil {
-		return assets, nil
-	}
-
-	bfAssets, err := b.inner.AssetsByPolicy(context.Background(), policyHash)
-	if err != nil {
-		return nil, err
-	}
-
-	assets = cardano.NewAssets()
-	for _, bfAsset := range bfAssets {
-		val, err := strconv.Atoi(bfAsset.Quantity)
-		if err != nil {
-			log.Error(err)
-			val = 0
-		}
-
-		assets.Set(cardano.NewAssetName(bfAsset.Asset), cardano.BigNum(val))
-	}
-
-	return assets, nil
-}
-
-func (b *BlockfrostClient2) getCachedAsset(assetId string) *blockfrost.Asset {
-	b.lock.RLock()
-	asset := b.bfAssetCache[assetId]
-	b.lock.RUnlock()
-
-	if asset != nil {
-		return asset
-	}
-
-	a, err := b.inner.Asset(context.Background(), assetId)
-	if err != nil {
-		return nil
-	}
-	asset = &a
-
-	b.lock.Lock()
-	b.bfAssetCache[assetId] = asset
-	b.lock.Unlock()
-
-	return asset
+	return amount, nil
 }

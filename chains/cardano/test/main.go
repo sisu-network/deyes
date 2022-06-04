@@ -69,39 +69,6 @@ func getCardanoNode() cardano.Node {
 	return node
 }
 
-func transfer(addrString string) {
-	w := getWallet()
-
-	recipient, err := cardano.NewAddress(addrString)
-	if err != nil {
-		panic(err)
-	}
-
-	txhash, err := w.Transfer(recipient, cardano.NewValue(cardano.Coin(1000000)))
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("txhash = ", txhash)
-}
-
-func submitTx(tx *cardano.Tx) {
-	projectId := os.Getenv("PROJECT_ID")
-	if len(projectId) == 0 {
-		panic("project id is empty")
-	}
-
-	node := cgblockfrost.NewNode(cardano.Mainnet, "project-id")
-	tx.Hash()
-
-	txHash, err := node.SubmitTx(tx)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("Tx is submitted successfully. hash = ", txHash)
-}
-
 func query() {
 	api := getApi()
 	w := getWallet()
@@ -323,12 +290,35 @@ func queryAddressTransaction() {
 	fmt.Println("txs = ", txs)
 }
 
+func testBlockfrostClient() {
+	projectId := os.Getenv("PROJECT_ID")
+	if len(projectId) == 0 {
+		panic("project id is empty")
+	}
+
+	client := adacore.NewBlockfrostClient2(
+		blockfrost.APIClientOptions{
+			ProjectID: projectId,
+			Server:    "https://cardano-testnet.blockfrost.io/api/v0",
+		},
+	)
+
+	utxos, err := client.GetNewTxs(3604437, map[string]bool{"addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy": true})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, utxo := range utxos {
+		fmt.Println("utxo = ", utxo.Spender, utxo.Index, utxo.Amount)
+	}
+}
+
 func main() {
 	// query()
 	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
 	// testWatcher()
-	queryTxUtxo()
-	// testBlockfrostClient()
+	// queryTxUtxo()
+	testBlockfrostClient()
 
 	// testTxHash()
 

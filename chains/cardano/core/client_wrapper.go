@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/blockfrost/blockfrost-go"
-	"github.com/echovl/cardano-go"
+	"github.com/sisu-network/deyes/types"
 )
 
 type CardanoClient interface {
 	GetBlockHeight() (int, error)
-	GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*cardano.Tx, error)
+	GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
 }
 
 // A wrapper around cardano node client so that we can mock in watcher tests.
