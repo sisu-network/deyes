@@ -296,7 +296,7 @@ func testBlockfrostClient() {
 		panic("project id is empty")
 	}
 
-	client := adacore.NewBlockfrostClient2(
+	client := adacore.NewBlockfrostClient(
 		blockfrost.APIClientOptions{
 			ProjectID: projectId,
 			Server:    "https://cardano-testnet.blockfrost.io/api/v0",

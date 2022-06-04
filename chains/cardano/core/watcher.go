@@ -21,8 +21,8 @@ var (
 type CardanoClient interface {
 	IsHealthy() bool
 	LatestBlock() *blockfrost.Block
-	GetBlockHeight() (int, error)
-	GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
+	BlockHeight() (int, error)
+	NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
 }
 
 type Watcher struct {
@@ -107,7 +107,7 @@ func (w *Watcher) scanChain() {
 		// Process each address in the intersted addr.
 		txArr := make([]*types.Tx, 0)
 
-		utxos, err := w.client.GetNewTxs(block.Height, copy)
+		utxos, err := w.client.NewTxs(block.Height, copy)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)

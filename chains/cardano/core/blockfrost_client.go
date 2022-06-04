@@ -18,7 +18,7 @@ const (
 )
 
 // implements cardanoClient
-type BlockfrostClient2 struct {
+type BlockfrostClient struct {
 	inner blockfrost.APIClient
 
 	// cache assets
@@ -27,8 +27,8 @@ type BlockfrostClient2 struct {
 	lock         *sync.RWMutex
 }
 
-func NewBlockfrostClient2(options blockfrost.APIClientOptions) CardanoClient {
-	return &BlockfrostClient2{
+func NewBlockfrostClient(options blockfrost.APIClientOptions) CardanoClient {
+	return &BlockfrostClient{
 		inner:        blockfrost.NewAPIClient(options),
 		policyAssets: make(map[string]*cardano.Assets),
 		bfAssetCache: make(map[string]*blockfrost.Asset),
@@ -36,7 +36,7 @@ func NewBlockfrostClient2(options blockfrost.APIClientOptions) CardanoClient {
 	}
 }
 
-func (b *BlockfrostClient2) IsHealthy() bool {
+func (b *BlockfrostClient) IsHealthy() bool {
 	health, err := b.inner.Health(context.Background())
 	if err != nil {
 		log.Error("Blockfrost is not healthy")
@@ -46,7 +46,7 @@ func (b *BlockfrostClient2) IsHealthy() bool {
 	return health.IsHealthy
 }
 
-func (b *BlockfrostClient2) LatestBlock() *blockfrost.Block {
+func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 	block, err := b.inner.BlockLatest(context.Background())
 	if err != nil {
 		log.Error("Failed to get latest cardano block, err = ", err)
@@ -56,7 +56,7 @@ func (b *BlockfrostClient2) LatestBlock() *blockfrost.Block {
 	return &block
 }
 
-func (b *BlockfrostClient2) GetBlockHeight() (int, error) {
+func (b *BlockfrostClient) BlockHeight() (int, error) {
 	block, err := b.inner.BlockLatest(context.Background())
 	if err != nil {
 		return 0, err
@@ -65,8 +65,8 @@ func (b *BlockfrostClient2) GetBlockHeight() (int, error) {
 	return block.Height, nil
 }
 
-func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error) {
-	latestHeight, err := b.GetBlockHeight()
+func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error) {
+	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (b *BlockfrostClient2) GetNewTxs(fromHeight int, interestedAddrs map[string
 	return utxos, nil
 }
 
-func (b *BlockfrostClient2) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
+func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
 	amount := cardano.NewValue(0)
 	for _, a := range amounts {
 		if a.Unit == "lovelace" {

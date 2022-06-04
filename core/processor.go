@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
+	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
 	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
@@ -64,18 +66,28 @@ func (p *Processor) Start() {
 	for chain, cfg := range p.cfg.Chains {
 		log.Info("Supported chain and config: ", chain, cfg)
 
-		if libchain.IsETHBasedChain(chain) {
-			watcher := ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
-			p.watchers[chain] = watcher
-			go watcher.Start()
+		var watcher chains.Watcher
+		var dispatcher chains.Dispatcher
+		if libchain.IsETHBasedChain(chain) { // ETH chain
+			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
+		} else if libchain.IsCardanoChain(chain) { // Cardano chain
+			client := carcore.NewBlockfrostClient(
+				blockfrost.APIClientOptions{
+					ProjectID: cfg.RpcSecret,
+					Server:    "https://cardano-testnet.blockfrost.io/api/v0",
+				},
+			)
 
-			// Dispatcher
-			dispatcher := chains.NewEhtDispatcher(chain, cfg.Rpcs)
-			dispatcher.Start()
-			p.dispatchers[chain] = dispatcher
+			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
+
+		p.watchers[chain] = watcher
+		go watcher.Start()
+		p.dispatchers[chain] = dispatcher
+		dispatcher.Start()
 	}
 }
 

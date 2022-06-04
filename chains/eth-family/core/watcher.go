@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -43,7 +44,7 @@ type Watcher struct {
 	gasPriceGetters []GasPriceGetter
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) *Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) chains.Watcher {
 	w := &Watcher{
 		db:              db,
 		cfg:             cfg,

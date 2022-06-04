@@ -12,7 +12,7 @@ require (
 	github.com/golang/mock v1.3.1
 	github.com/logdna/logdna-go v1.0.2
 	github.com/mattn/go-sqlite3 v1.14.13
-	github.com/sisu-network/lib v0.0.1-alpha9.0.20220603173332-67069519eb64
+	github.com/sisu-network/lib v0.0.1-alpha9.0.20220604231101-08930647bd3f
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/atomic v1.9.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
