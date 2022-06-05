@@ -18,13 +18,6 @@ var (
 	BlockNotFound = fmt.Errorf("Block not found")
 )
 
-type CardanoClient interface {
-	IsHealthy() bool
-	LatestBlock() *blockfrost.Block
-	BlockHeight() (int, error)
-	NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
-}
-
 type Watcher struct {
 	cfg             config.Chain
 	db              database.Database

@@ -1,8 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strconv"
 	"sync"
 
@@ -19,7 +24,8 @@ const (
 
 // implements cardanoClient
 type BlockfrostClient struct {
-	inner blockfrost.APIClient
+	inner   blockfrost.APIClient
+	options blockfrost.APIClientOptions
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
@@ -36,6 +42,7 @@ func NewBlockfrostClient(options blockfrost.APIClientOptions) CardanoClient {
 	}
 }
 
+// IsHealthy implements CardanoClient
 func (b *BlockfrostClient) IsHealthy() bool {
 	health, err := b.inner.Health(context.Background())
 	if err != nil {
@@ -46,6 +53,7 @@ func (b *BlockfrostClient) IsHealthy() bool {
 	return health.IsHealthy
 }
 
+// LatestBlock implements CardanoClient
 func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 	block, err := b.inner.BlockLatest(context.Background())
 	if err != nil {
@@ -56,6 +64,7 @@ func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 	return &block
 }
 
+// BlockHeight implements CardanoClient
 func (b *BlockfrostClient) BlockHeight() (int, error) {
 	block, err := b.inner.BlockLatest(context.Background())
 	if err != nil {
@@ -65,6 +74,7 @@ func (b *BlockfrostClient) BlockHeight() (int, error) {
 	return block.Height, nil
 }
 
+// NewTxs implements CardanoClient
 func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
@@ -164,4 +174,41 @@ func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*car
 	}
 
 	return amount, nil
+}
+
+// SubmitTx implements CardanoClient
+func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+	// Copy from this https://github.com/echovl/cardano-go/blob/4936c872fbb1f1db4bf04f1242fc180b0fe9843f/blockfrost/blockfrost.go#L124
+	url := fmt.Sprintf("%s/tx/submit", b.options.Server)
+	txBytes := tx.Bytes()
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(txBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("project_id", b.options.ProjectID)
+	req.Header.Add("Content-Type", "application/cbor")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(string(respBody))
+	}
+
+	txHash, err := tx.Hash()
+	if err != nil {
+		return nil, err
+	}
+
+	return &txHash, nil
 }

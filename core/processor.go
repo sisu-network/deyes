@@ -80,6 +80,7 @@ func (p *Processor) Start() {
 			)
 
 			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, client)
+			dispatcher = carcore.NewDispatcher(client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}

@@ -12,7 +12,7 @@ import (
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
 	"github.com/echovl/cardano-go/wallet"
-	adacore "github.com/sisu-network/deyes/chains/cardano/core"
+	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -122,7 +122,10 @@ func testWatcher() {
 	}
 
 	txsCh := make(chan *types.Txs)
-	watcher := adacore.NewWatcher(chainCfg, dbInstance, txsCh)
+	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh, carcore.NewBlockfrostClient(blockfrost.APIClientOptions{
+		ProjectID: projectId,
+		Server:    chainCfg.Rpcs[0],
+	}))
 	watcher.Start()
 	watcher.AddWatchAddr("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
@@ -296,14 +299,14 @@ func testBlockfrostClient() {
 		panic("project id is empty")
 	}
 
-	client := adacore.NewBlockfrostClient(
+	client := carcore.NewBlockfrostClient(
 		blockfrost.APIClientOptions{
 			ProjectID: projectId,
 			Server:    "https://cardano-testnet.blockfrost.io/api/v0",
 		},
 	)
 
-	utxos, err := client.GetNewTxs(3604437, map[string]bool{"addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy": true})
+	utxos, err := client.NewTxs(3604437, map[string]bool{"addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy": true})
 	if err != nil {
 		panic(err)
 	}
