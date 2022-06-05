@@ -21,6 +21,7 @@ import (
 	cardanobf "github.com/echovl/cardano-go/blockfrost"
 )
 
+// Miscellaneous test for cardano watcher
 const (
 	// wallet address: addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t
 	Mnemonic = "art forum devote street sure rather head chuckle guard poverty release quote oak craft enemy"
@@ -97,17 +98,13 @@ func testWatcher() {
 
 	chainCfg := config.Chain{
 		Chain:      "cardano-testnet",
-		BlockTime:  10 * 1000,
-		AdjustTime: 1000,
+		BlockTime:  20 * 1000,
+		AdjustTime: 2000,
 		Rpcs:       []string{"https://cardano-testnet.blockfrost.io/api/v0"},
 		RpcSecret:  projectId,
 	}
 
 	cfg := config.Deyes{
-		PricePollFrequency: 1,
-		PriceOracleUrl:     "http://example.com",
-		PriceTokenList:     []string{"INVALID_TOKEN"},
-
 		DbHost:   "127.0.0.1",
 		DbSchema: "deyes",
 		InMemory: true,
@@ -129,11 +126,26 @@ func testWatcher() {
 	watcher.Start()
 	watcher.AddWatchAddr("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
+	go func() {
+		w := getWallet()
+		receiver, err := cardano.NewAddress("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
+		if err != nil {
+			panic(err)
+		}
+
+		hash, err := w.Transfer(receiver, cardano.NewValue(1000000))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Hash = ", hash.String())
+	}()
+
+	log.Info("listening to new txs...")
 	for {
 		select {
 		case txs := <-txsCh:
 			for _, tx := range txs.Arr {
-				fmt.Println("Tx hash = ", tx.Hash)
+				log.Info("Tx hash = ", tx.Hash)
 
 				txUtxos := new(blockfrost.TransactionUTXOs)
 				err := json.Unmarshal(tx.Serialized, txUtxos)
@@ -143,13 +155,13 @@ func testWatcher() {
 				}
 
 				for _, input := range txUtxos.Inputs {
-					fmt.Println(input.Address, input.Amount, input.TxHash)
+					log.Info(input.Address, input.Amount, input.TxHash)
 				}
-				fmt.Println()
+				log.Info()
 
-				fmt.Println("==========")
+				log.Info("==========")
 				for _, output := range txUtxos.Outputs {
-					fmt.Println(output.Address, output.Amount)
+					log.Info(output.Address, output.Amount)
 				}
 			}
 		}
@@ -319,11 +331,7 @@ func testBlockfrostClient() {
 func main() {
 	// query()
 	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
-	// testWatcher()
-	// queryTxUtxo()
-	testBlockfrostClient()
+	// testBlockfrostClient()
 
-	// testTxHash()
-
-	// queryAddressTransaction()
+	testWatcher()
 }

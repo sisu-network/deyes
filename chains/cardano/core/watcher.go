@@ -85,7 +85,6 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
-		log.Verbose("Block height = ", block.Height)
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
@@ -106,6 +105,8 @@ func (w *Watcher) scanChain() {
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
+
+		log.Verbose("Block height = ", block.Height, " utxos length = ", len(utxos))
 
 		for _, utxo := range utxos {
 			bz, err := json.Marshal(utxo)
