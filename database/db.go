@@ -26,7 +26,7 @@ type Database interface {
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
 	// Watch address
-	SaveWatchAddress(chain, address string, txCount int)
+	SaveWatchAddress(chain, address string) error
 	LoadWatchAddresses(chain string) []*types.WatchAddress
 
 	// Token price
@@ -228,7 +228,7 @@ func (d *DefaultDatabase) doSave(req *saveTxsRequest) error {
 			hash = hash[:256]
 		}
 
-		_, err := d.db.Exec("INSERT IGNORE INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)",
+		_, err := d.db.Exec("INSERT INTO transactions (chain, tx_hash, block_height, tx_bytes) VALUES (?, ?, ?, ?)",
 			chain, hash, blockHeight, tx.Serialized)
 		if err != nil {
 			return err
@@ -246,17 +246,19 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SaveWatchAddress(chain, address string, txCount int) {
-	_, err := d.db.Exec("INSERT IGNORE INTO watch_address (chain, address, ctx_count) VALUES (?, ?, ?)", chain, address, txCount)
+func (d *DefaultDatabase) SaveWatchAddress(chain, address string) error {
+	_, err := d.db.Exec("INSERT INTO watch_address (chain, address) VALUES (?, ?)", chain, address)
 	if err != nil {
 		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}
+
+	return err
 }
 
 func (d *DefaultDatabase) LoadWatchAddresses(chain string) []*types.WatchAddress {
 	addrs := make([]*types.WatchAddress, 0)
 
-	rows, err := d.db.Query("SELECT address, tx_count FROM watch_address WHERE chain=?", chain)
+	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
 	if err != nil {
 		log.Error("Failed to load watch address for chain ", chain, ". Error = ", err)
 		return addrs
@@ -266,13 +268,11 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []*types.WatchAddress
 
 	for rows.Next() {
 		var addr sql.NullString
-		var txCount int
-		err := rows.Scan(&addr, &txCount)
+		err := rows.Scan(&addr)
 		if err == nil {
 			addrs = append(addrs, &types.WatchAddress{
 				Chain:   chain,
 				Address: addr.String,
-				TxCount: txCount,
 			})
 		}
 	}
