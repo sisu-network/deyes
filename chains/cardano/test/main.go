@@ -5,14 +5,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
 	"github.com/echovl/cardano-go/wallet"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
+	"github.com/sisu-network/deyes/chains/cardano/utils"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -70,24 +73,18 @@ func getCardanoNode() cardano.Node {
 	return node
 }
 
-func query() {
-	api := getApi()
+func transfer(addr string, value int) {
 	w := getWallet()
-
-	walletAddrs, err := w.Addresses()
-	addr := walletAddrs[0].Bech32()
-	fmt.Println("addr.Bech32() = ", addr)
-	addrUtxos, err := api.AddressUTXOs(context.Background(), addr, blockfrost.APIQueryParams{})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("utxo txs = ", addrUtxos)
-	addrDetails, err := api.AddressDetails(context.Background(), "addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
+	receiver, err := cardano.NewAddress(addr)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("addrDetails = ", addrDetails.TxCount)
+	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Hash = ", hash.String())
 }
 
 func testWatcher() {
@@ -184,20 +181,11 @@ func getProtocolParams(bfParams blockfrost.EpochParameters) *cardano.ProtocolPar
 	}
 }
 
-func testTxHash() {
-	api := getApi()
+func constructTx(api blockfrost.APIClient, senderAddr cardano.Address) *cardano.TxBuilder {
 	bfParams, err := api.LatestEpochParameters(context.Background())
 	if err != nil {
 		panic(err)
 	}
-
-	w := getWallet()
-	addrs, err := w.Addresses()
-	if err != nil {
-		panic(err)
-	}
-	senderAddr := addrs[0]
-	fmt.Println(senderAddr)
 
 	utxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), blockfrost.APIQueryParams{})
 	if err != nil {
@@ -228,9 +216,27 @@ func testTxHash() {
 	}
 
 	txBuilder.SetTTL(uint64(block.Slot) + 1200)
+
+	return txBuilder
+}
+
+func getTestTx(w *wallet.Wallet) *cardano.Tx {
+	api := getApi()
+	if w == nil {
+		w = getWallet()
+	}
+	addrs, err := w.Addresses()
+	if err != nil {
+		panic(err)
+	}
+	senderAddr := addrs[0]
+	fmt.Println(senderAddr)
+
+	txBuilder := constructTx(api, senderAddr)
 	// Sign transaction
 	key, _ := w.Keys()
-	txBuilder.Sign(key)
+	_ = key
+	// txBuilder.Sign(key)
 
 	txBuilder.AddChangeIfNeeded(senderAddr)
 
@@ -245,6 +251,11 @@ func testTxHash() {
 	}
 	fmt.Println("localHash = ", localHash)
 
+	return tx
+}
+
+func testTxHash() {
+	tx := getTestTx(nil)
 	node := getCardanoNode()
 	hash, err := node.SubmitTx(tx)
 	if err != nil {
@@ -328,10 +339,80 @@ func testBlockfrostClient() {
 	}
 }
 
+func getAddressFromBytes(bz []byte) cardano.Address {
+	keyHash, err := cardano.Blake224Hash(bz)
+	if err != nil {
+		panic(err)
+	}
+
+	payment := cardano.StakeCredential{Type: cardano.KeyCredential, KeyHash: keyHash}
+	addr, err := cardano.NewEnterpriseAddress(cardano.Testnet, payment)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("addr = ", addr)
+	return addr
+}
+
+func randByteArray(n int) []byte {
+	rand.Seed(100)
+
+	bz := make([]byte, n)
+	for i := 0; i < n; i++ {
+		bz[i] = byte(rand.Intn(256))
+	}
+
+	return bz
+}
+
+func testSigning() {
+	api := getApi()
+	seed := randByteArray(32)
+	edwardsPrivate, edwardsPublic := edwards.PrivKeyFromSecret(seed)
+	bz := edwardsPublic.Serialize()
+
+	if pubkey, err := edwards.ParsePubKey(bz); err == nil {
+		if pubkey.X.Cmp(edwardsPublic.X) != 0 || pubkey.Y.Cmp(edwardsPublic.Y) != 0 {
+			panic("Key not equal")
+		}
+	} else {
+		panic(err)
+	}
+
+	sender := utils.GetAddressFromCardanoPubkey(bz)
+	txBuilder := constructTx(api, sender)
+	txBuilder.Sign(edwardsPrivate)
+
+	txBuilder.AddChangeIfNeeded(sender)
+
+	tx, err := txBuilder.Build()
+	if err != nil {
+		panic(err)
+	}
+	_ = tx
+
+	// tx := getTestTx(w)
+
+	// Replace the transaction witness
+	// localHash, err := tx.Hash()
+	// if localHash == nil {
+	// }
+	// msg := []byte(localHash[:])
+	// msg := []byte("this is a test")
+	// edwardsStruct, err := edwardsPrivate.Sign(msg)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// ok1 := edwards.Verify(edwardsPublic, msg, edwardsStruct.R, edwardsStruct.S)
+	// fmt.Println("ok1 = ", ok1)
+}
+
 func main() {
 	// query()
-	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
+	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
 	// testBlockfrostClient()
+	// testWatcher()
 
-	testWatcher()
+	testSigning()
 }

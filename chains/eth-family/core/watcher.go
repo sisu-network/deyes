@@ -91,7 +91,7 @@ func (w *Watcher) setBlockHeight() {
 
 func (w *Watcher) AddWatchAddr(addr string) {
 	w.interestedAddrs.Store(addr, true)
-	w.db.SaveWatchAddress(w.cfg.Chain, addr, 0)
+	w.db.SaveWatchAddress(w.cfg.Chain, addr)
 }
 
 func (w *Watcher) Start() {

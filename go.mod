@@ -4,7 +4,9 @@ go 1.18
 
 require (
 	github.com/BurntSushi/toml v0.4.1
+	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/blockfrost/blockfrost-go v0.1.0
+	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.2
 	github.com/echovl/cardano-go v0.1.13-0.20220603150626-4936c872fbb1
 	github.com/ethereum/go-ethereum v1.10.12
 	github.com/go-sql-driver/mysql v1.6.0
@@ -72,4 +74,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.12 => github.com/sisu-network/go-ethereum v1.10.12-sisu001
+replace (
+	github.com/echovl/cardano-go => ../cardano-go-fork
+	github.com/ethereum/go-ethereum v1.10.12 => github.com/sisu-network/go-ethereum v1.10.12-sisu001
+)
