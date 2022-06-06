@@ -355,8 +355,8 @@ func getAddressFromBytes(bz []byte) cardano.Address {
 	return addr
 }
 
-func randByteArray(n int) []byte {
-	rand.Seed(100)
+func randByteArray(n int, seed int) []byte {
+	rand.Seed(int64(seed))
 
 	bz := make([]byte, n)
 	for i := 0; i < n; i++ {
@@ -368,7 +368,7 @@ func randByteArray(n int) []byte {
 
 func testSigning() {
 	// api := getApi()
-	seed := randByteArray(32)
+	seed := randByteArray(32, 100)
 	edwardsPrivate, edwardsPublic := edwards.PrivKeyFromSecret(seed)
 	bz := edwardsPublic.Serialize()
 
