@@ -367,7 +367,7 @@ func randByteArray(n int) []byte {
 }
 
 func testSigning() {
-	api := getApi()
+	// api := getApi()
 	seed := randByteArray(32)
 	edwardsPrivate, edwardsPublic := edwards.PrivKeyFromSecret(seed)
 	bz := edwardsPublic.Serialize()
@@ -380,17 +380,20 @@ func testSigning() {
 		panic(err)
 	}
 
+	node := getCardanoNode()
 	sender := utils.GetAddressFromCardanoPubkey(bz)
-	txBuilder := constructTx(api, sender)
-	txBuilder.Sign(edwardsPrivate)
-
-	txBuilder.AddChangeIfNeeded(sender)
-
-	tx, err := txBuilder.Build()
+	log.Info("Sender = ", sender)
+	receiver, err := cardano.NewAddress("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z")
 	if err != nil {
 		panic(err)
 	}
-	_ = tx
+
+	hash, err := utils.Transfer(node, cardano.Testnet, edwardsPrivate, sender, receiver, cardano.NewValue(1e6))
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Transaction hash = ", hash)
 
 	// tx := getTestTx(w)
 
