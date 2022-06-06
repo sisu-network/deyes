@@ -59,7 +59,7 @@ func Transfer(node cardano.Node, network cardano.Network, key *edwards.PrivateKe
 		return nil, err
 	}
 
-	builder := cardano.NewTxBuilder(pparams)
+	builder := cardano.NewTxBuilderV2(pparams)
 
 	edwardsKeys := make([]*edwards.PrivateKey, len(pickedUtxos))
 	for i := range pickedUtxos {
@@ -94,5 +94,6 @@ func Transfer(node cardano.Node, network cardano.Network, key *edwards.PrivateKe
 	if err != nil {
 		return nil, err
 	}
+
 	return node.SubmitTx(tx)
 }

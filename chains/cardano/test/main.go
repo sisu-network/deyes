@@ -368,7 +368,7 @@ func randByteArray(n int, seed int) []byte {
 
 func testSigning() {
 	// api := getApi()
-	seed := randByteArray(32, 100)
+	seed := randByteArray(32, 98)
 	edwardsPrivate, edwardsPublic := edwards.PrivKeyFromSecret(seed)
 	bz := edwardsPublic.Serialize()
 
@@ -394,21 +394,6 @@ func testSigning() {
 	}
 
 	log.Info("Transaction hash = ", hash)
-
-	// tx := getTestTx(w)
-
-	// Replace the transaction witness
-	// localHash, err := tx.Hash()
-	// if localHash == nil {
-	// }
-	// msg := []byte(localHash[:])
-	// msg := []byte("this is a test")
-	// edwardsStruct, err := edwardsPrivate.Sign(msg)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// ok1 := edwards.Verify(edwardsPublic, msg, edwardsStruct.R, edwardsStruct.S)
-	// fmt.Println("ok1 = ", ok1)
 }
 
 func main() {
