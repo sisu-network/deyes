@@ -59,6 +59,8 @@ func (w *Watcher) init() {
 		w.interestedAddr[addr.Address] = true
 	}
 	w.lock.Unlock()
+
+	w.lastBlockHeight.Store(0)
 }
 
 func (w *Watcher) Start() {
@@ -106,7 +108,7 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
-		log.Verbose("Block height = ", block.Height, " utxos length = ", len(utxos))
+		log.Verbose("Filtered txs sizes = ", len(utxos), " on chain ", w.cfg.Chain)
 
 		for _, utxo := range utxos {
 			bz, err := json.Marshal(utxo)
@@ -138,6 +140,11 @@ func (w *Watcher) scanChain() {
 
 func (w *Watcher) getLatestBlock() (*blockfrost.Block, error) {
 	block := w.client.LatestBlock()
+
+	if block == nil {
+		err := fmt.Errorf("Cannot get latest block")
+		return nil, err
+	}
 
 	if block.Height == int(w.lastBlockHeight.Load()) {
 		return nil, BlockNotFound
