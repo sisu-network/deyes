@@ -35,6 +35,7 @@ type BlockfrostClient struct {
 
 func NewBlockfrostClient(options blockfrost.APIClientOptions) CardanoClient {
 	return &BlockfrostClient{
+		options:      options,
 		inner:        blockfrost.NewAPIClient(options),
 		policyAssets: make(map[string]*cardano.Assets),
 		bfAssetCache: make(map[string]*blockfrost.Asset),
@@ -178,6 +179,8 @@ func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*car
 
 // SubmitTx implements CardanoClient
 func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+	log.Debugf("tx = %+v\n", tx)
+	log.Debug("txWitnessSet = ", tx.WitnessSet)
 	// Copy from this https://github.com/echovl/cardano-go/blob/4936c872fbb1f1db4bf04f1242fc180b0fe9843f/blockfrost/blockfrost.go#L124
 	url := fmt.Sprintf("%s/tx/submit", b.options.Server)
 	txBytes := tx.Bytes()

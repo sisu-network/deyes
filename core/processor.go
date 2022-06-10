@@ -75,7 +75,7 @@ func (p *Processor) Start() {
 			client := carcore.NewBlockfrostClient(
 				blockfrost.APIClientOptions{
 					ProjectID: cfg.RpcSecret,
-					Server:    "https://cardano-testnet.blockfrost.io/api/v0",
+					Server:    blockfrost.CardanoTestNet,
 				},
 			)
 

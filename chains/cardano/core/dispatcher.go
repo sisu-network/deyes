@@ -6,6 +6,7 @@ import (
 	"github.com/echovl/cardano-go"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/lib/log"
 )
 
 type CardanoDispatcher struct {
@@ -26,6 +27,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 	// We are using json to marshal tx at the moment because the cbor's marshalling of tx is not ready yet.
 	err := json.Unmarshal(request.Tx, tx)
 	if err != nil {
+		log.Error("error when unmarshalling tx", err)
 		return &types.DispatchedTxResult{
 			Success: false,
 			Err:     err,
@@ -34,6 +36,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 
 	hash, err := d.client.SubmitTx(tx)
 	if err != nil {
+		log.Error("error when submitting tx: ", err)
 		return &types.DispatchedTxResult{
 			Success: false,
 			Err:     err,
