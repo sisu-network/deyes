@@ -7,7 +7,7 @@ require (
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/blockfrost/blockfrost-go v0.1.0
 	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.2
-	github.com/echovl/cardano-go v0.1.13-0.20220603150626-4936c872fbb1
+	github.com/echovl/cardano-go v0.1.14
 	github.com/ethereum/go-ethereum v1.10.12
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang-migrate/migrate v3.5.4+incompatible
