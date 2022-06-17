@@ -87,6 +87,8 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
+		log.Info("Block height for Cardano Scanner = ", block.Height)
+
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
@@ -98,29 +100,29 @@ func (w *Watcher) scanChain() {
 		}
 		w.lock.RUnlock()
 
-		// Process each address in the intersted addr.
+		// Process each address in the interested addr.
 		txArr := make([]*types.Tx, 0)
 
-		utxos, err := w.client.NewTxs(block.Height, copy)
+		txsIn, err := w.client.NewTxs(block.Height, copy)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
 
-		log.Verbose("Filtered txs sizes = ", len(utxos), " on chain ", w.cfg.Chain)
+		log.Verbose("Filtered txs sizes = ", len(txsIn), " on chain ", w.cfg.Chain)
 
-		for _, utxo := range utxos {
-			bz, err := json.Marshal(utxo)
+		for _, txIn := range txsIn {
+			bz, err := json.Marshal(txIn)
 			if err != nil {
 				log.Error("Cannot serialize utxo, err = ", err)
 				continue
 			}
 
 			txArr = append(txArr, &types.Tx{
-				Hash:       utxo.Hash(),
+				Hash:       txIn.TxHash.String(),
 				Serialized: bz,
-				To:         utxo.Spender.String(),
+				To:         txIn.Recipient.String(),
 			})
 		}
 

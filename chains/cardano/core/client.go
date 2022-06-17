@@ -10,6 +10,6 @@ type CardanoClient interface {
 	IsHealthy() bool
 	LatestBlock() *blockfrost.Block
 	BlockHeight() (int, error)
-	NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
+	NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
 }

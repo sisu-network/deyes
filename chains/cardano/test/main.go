@@ -329,13 +329,14 @@ func testBlockfrostClient() {
 		},
 	)
 
-	utxos, err := client.NewTxs(3604437, map[string]bool{"addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy": true})
+	txsIn, err := client.NewTxs(3637884, map[string]bool{"addr_test1qqdnqmpjwac5e8j8gf7gsa75p99rf07rsc63fju0w5kywj20aczxffwdmqewegjqzc24074fk6tqgydujpez0aslcd7srp9cvt": true})
 	if err != nil {
 		panic(err)
 	}
 
-	for _, utxo := range utxos {
-		fmt.Println("utxo = ", utxo.Spender, utxo.Index, utxo.Amount)
+	for _, txIn := range txsIn {
+		log.Infof("TxIn item = %+v\n", txIn)
+		log.Infof("additional info: %+v\n", txIn.TxAdditionInfo)
 	}
 }
 
@@ -399,8 +400,8 @@ func testSigning() {
 func main() {
 	// query()
 	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
-	// testBlockfrostClient()
-	// testWatcher()
+	testBlockfrostClient()
+	//testWatcher()
 
-	testSigning()
+	//testSigning()
 }
