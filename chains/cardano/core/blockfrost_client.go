@@ -60,7 +60,7 @@ func (b *BlockfrostClient) IsHealthy() bool {
 
 // LatestBlock implements CardanoClient
 func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
-	block, err := b.inner.BlockLatest(context.Background())
+	block, err := b.inner.BlockLatest(b.getContext())
 	if err != nil {
 		log.Error("Failed to get latest cardano block, err = ", err)
 		return nil
@@ -69,9 +69,19 @@ func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 	return &block
 }
 
+func (b *BlockfrostClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
+	block, err := b.inner.Block(b.getContext(), hashOrNumber)
+	if err != nil {
+		log.Errorf("Error when getting block for height/hash = %s, error = %v\n", hashOrNumber, err)
+		return nil, err
+	}
+
+	return &block, nil
+}
+
 // BlockHeight implements CardanoClient
 func (b *BlockfrostClient) BlockHeight() (int, error) {
-	block, err := b.inner.BlockLatest(context.Background())
+	block, err := b.inner.BlockLatest(b.getContext())
 	if err != nil {
 		return 0, err
 	}

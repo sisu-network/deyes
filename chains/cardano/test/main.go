@@ -80,7 +80,7 @@ func transfer(addr string, value int) {
 		panic(err)
 	}
 
-	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)))
+	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +130,7 @@ func testWatcher() {
 			panic(err)
 		}
 
-		hash, err := w.Transfer(receiver, cardano.NewValue(1000000))
+		hash, err := w.Transfer(receiver, cardano.NewValue(1000000), nil)
 		if err != nil {
 			panic(err)
 		}
@@ -340,6 +340,28 @@ func testBlockfrostClient() {
 	}
 }
 
+func transferWithMetadata(destChain, destToken, destRecipient, cardanoGwAddr string, value uint64) {
+	w := getWallet()
+	receiver, err := cardano.NewAddress(cardanoGwAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	metadata := cardano.Metadata{
+		0: map[string]interface{}{
+			"destination_chain":         destChain,
+			"destination_recipient":     destRecipient,
+			"destination_token_address": destToken,
+		},
+	}
+
+	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)), metadata)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Hash = ", hash.String())
+}
+
 func getAddressFromBytes(bz []byte) cardano.Address {
 	keyHash, err := cardano.Blake224Hash(bz)
 	if err != nil {
@@ -400,7 +422,12 @@ func testSigning() {
 func main() {
 	// query()
 	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
-	testBlockfrostClient()
+	transferWithMetadata("ganache1",
+		"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
+		"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
+		"addr_test1vq987lkjn3eh5pdj8rhg3qq2m24hhpecleytch2q8mk0nyqdmcvhx",
+		30_000_000)
+	//testBlockfrostClient()
 	//testWatcher()
 
 	//testSigning()

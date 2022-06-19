@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -73,8 +74,9 @@ func (w *Watcher) scanChain() {
 	log.Info("Start scanning chain: ", w.cfg.Chain)
 
 	for {
-		// Get latest block
-		block, err := w.getLatestBlock()
+		// Get next block to scan
+		// TODO: implement a mechanism to catchup with network if scan slowly
+		block, err := w.getNextBlock()
 		if err != nil && err != BlockNotFound {
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
@@ -123,6 +125,8 @@ func (w *Watcher) scanChain() {
 				Hash:       txIn.TxHash.String(),
 				Serialized: bz,
 				To:         txIn.Recipient.String(),
+				// TODO: is always true?
+				Success: true,
 			})
 		}
 
@@ -140,16 +144,16 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) getLatestBlock() (*blockfrost.Block, error) {
-	block := w.client.LatestBlock()
-
-	if block == nil {
-		err := fmt.Errorf("Cannot get latest block")
-		return nil, err
+func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
+	lastScanBlock := int(w.lastBlockHeight.Load())
+	nextBlock := lastScanBlock + 1
+	if lastScanBlock == 0 {
+		nextBlock = w.client.LatestBlock().Height
 	}
 
-	if block.Height == int(w.lastBlockHeight.Load()) {
-		return nil, BlockNotFound
+	block, err := w.client.GetBlock(strconv.Itoa(nextBlock))
+	if err != nil {
+		return nil, err
 	}
 
 	return block, nil
