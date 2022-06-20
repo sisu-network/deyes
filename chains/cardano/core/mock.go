@@ -10,8 +10,9 @@ type MockCardanoClient struct {
 	IsHealthyFunc   func() bool
 	LatestBlockFunc func() *blockfrost.Block
 	BlockHeightFunc func() (int, error)
-	NewTxsFunc      func(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error)
+	NewTxsFunc      func(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error)
 	SubmitTxFunc    func(tx *cardano.Tx) (*cardano.Hash32, error)
+	GetBlockFunc    func(hashOrNumber string) (*blockfrost.Block, error)
 }
 
 func (c *MockCardanoClient) IsHealthy() bool {
@@ -38,7 +39,7 @@ func (c *MockCardanoClient) BlockHeight() (int, error) {
 	return 0, nil
 }
 
-func (c *MockCardanoClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoUtxo, error) {
+func (c *MockCardanoClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error) {
 	if c.NewTxsFunc != nil {
 		return c.NewTxsFunc(fromHeight, interestedAddrs)
 	}
@@ -49,6 +50,14 @@ func (c *MockCardanoClient) NewTxs(fromHeight int, interestedAddrs map[string]bo
 func (c *MockCardanoClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 	if c.SubmitTxFunc != nil {
 		return c.SubmitTxFunc(tx)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
+	if c.GetBlockFunc != nil {
+		return c.GetBlockFunc(hashOrNumber)
 	}
 
 	return nil, nil
