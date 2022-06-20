@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -73,8 +74,9 @@ func (w *Watcher) scanChain() {
 	log.Info("Start scanning chain: ", w.cfg.Chain)
 
 	for {
-		// Get latest block
-		block, err := w.getLatestBlock()
+		// Get next block to scan
+		// TODO: implement a mechanism to catchup with network if scan slowly
+		block, err := w.getNextBlock()
 		if err != nil && err != BlockNotFound {
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
@@ -87,6 +89,8 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
+		log.Info("Block height for Cardano Scanner = ", block.Height)
+
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
@@ -98,29 +102,31 @@ func (w *Watcher) scanChain() {
 		}
 		w.lock.RUnlock()
 
-		// Process each address in the intersted addr.
+		// Process each address in the interested addr.
 		txArr := make([]*types.Tx, 0)
 
-		utxos, err := w.client.NewTxs(block.Height, copy)
+		txsIn, err := w.client.NewTxs(block.Height, copy)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
 
-		log.Verbose("Filtered txs sizes = ", len(utxos), " on chain ", w.cfg.Chain)
+		log.Verbose("Filtered txs sizes = ", len(txsIn), " on chain ", w.cfg.Chain)
 
-		for _, utxo := range utxos {
-			bz, err := json.Marshal(utxo)
+		for _, txIn := range txsIn {
+			bz, err := json.Marshal(txIn)
 			if err != nil {
 				log.Error("Cannot serialize utxo, err = ", err)
 				continue
 			}
 
 			txArr = append(txArr, &types.Tx{
-				Hash:       utxo.Hash(),
+				Hash:       txIn.TxHash.String(),
 				Serialized: bz,
-				To:         utxo.Spender.String(),
+				To:         txIn.Recipient.String(),
+				// TODO: is always true?
+				Success: true,
 			})
 		}
 
@@ -138,16 +144,16 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) getLatestBlock() (*blockfrost.Block, error) {
-	block := w.client.LatestBlock()
-
-	if block == nil {
-		err := fmt.Errorf("Cannot get latest block")
-		return nil, err
+func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
+	lastScanBlock := int(w.lastBlockHeight.Load())
+	nextBlock := lastScanBlock + 1
+	if lastScanBlock == 0 {
+		nextBlock = w.client.LatestBlock().Height
 	}
 
-	if block.Height == int(w.lastBlockHeight.Load()) {
-		return nil, BlockNotFound
+	block, err := w.client.GetBlock(strconv.Itoa(nextBlock))
+	if err != nil {
+		return nil, err
 	}
 
 	return block, nil

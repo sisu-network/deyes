@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"math/big"
 
 	"github.com/agl/ed25519/edwards25519"
@@ -79,4 +80,18 @@ func reverse(s *[32]byte) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
+}
+
+// MapToJSONStruct converts from map to struct, o should be a pointer
+func MapToJSONStruct(m map[string]interface{}, o interface{}) error {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(b, &o); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -23,6 +23,7 @@ func (d *CardanoDispatcher) Start() {
 }
 
 func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
+	log.Debug("Dispatching cardano transaction ...")
 	tx := &cardano.Tx{}
 	// We are using json to marshal tx at the moment because the cbor's marshalling of tx is not ready yet.
 	err := json.Unmarshal(request.Tx, tx)

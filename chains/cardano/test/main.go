@@ -80,7 +80,7 @@ func transfer(addr string, value int) {
 		panic(err)
 	}
 
-	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)))
+	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -130,7 +130,7 @@ func testWatcher() {
 			panic(err)
 		}
 
-		hash, err := w.Transfer(receiver, cardano.NewValue(1000000))
+		hash, err := w.Transfer(receiver, cardano.NewValue(1000000), nil)
 		if err != nil {
 			panic(err)
 		}
@@ -329,14 +329,37 @@ func testBlockfrostClient() {
 		},
 	)
 
-	utxos, err := client.NewTxs(3604437, map[string]bool{"addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy": true})
+	txsIn, err := client.NewTxs(3637884, map[string]bool{"addr_test1qqdnqmpjwac5e8j8gf7gsa75p99rf07rsc63fju0w5kywj20aczxffwdmqewegjqzc24074fk6tqgydujpez0aslcd7srp9cvt": true})
 	if err != nil {
 		panic(err)
 	}
 
-	for _, utxo := range utxos {
-		fmt.Println("utxo = ", utxo.Spender, utxo.Index, utxo.Amount)
+	for _, txIn := range txsIn {
+		log.Infof("TxIn item = %+v\n", txIn)
+		log.Infof("additional info: %+v\n", txIn.TxAdditionInfo)
 	}
+}
+
+func transferWithMetadata(destChain, destToken, destRecipient, cardanoGwAddr string, value uint64) {
+	w := getWallet()
+	receiver, err := cardano.NewAddress(cardanoGwAddr)
+	if err != nil {
+		panic(err)
+	}
+
+	metadata := cardano.Metadata{
+		0: map[string]interface{}{
+			"destination_chain":         destChain,
+			"destination_recipient":     destRecipient,
+			"destination_token_address": destToken,
+		},
+	}
+
+	hash, err := w.Transfer(receiver, cardano.NewValue(cardano.Coin(value)), metadata)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Hash = ", hash.String())
 }
 
 func getAddressFromBytes(bz []byte) cardano.Address {
@@ -399,8 +422,13 @@ func testSigning() {
 func main() {
 	// query()
 	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
-	// testBlockfrostClient()
-	// testWatcher()
+	transferWithMetadata("ganache1",
+		"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
+		"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
+		"addr_test1vq987lkjn3eh5pdj8rhg3qq2m24hhpecleytch2q8mk0nyqdmcvhx",
+		30_000_000)
+	//testBlockfrostClient()
+	//testWatcher()
 
-	testSigning()
+	//testSigning()
 }

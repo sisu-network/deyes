@@ -15,6 +15,28 @@ type CardanoUtxo struct {
 	Index   uint64
 }
 
+type CardanoTxInItem struct {
+	TxHash cardano.Hash32
+	// Recipient Cardano gateway address
+	Recipient      cardano.Address
+	TxAdditionInfo *TxAdditionInfo
+}
+
+type TxAdditionInfo struct {
+	// Get from transaction metadata
+	DestinationChain        string `json:"destination_chain,omitempty"`
+	DestinationRecipient    string `json:"destination_recipient,omitempty"`
+	DestinationTokenAddress string `json:"destination_token_address,omitempty"`
+
+	// Get from transaction output
+	Amount *cardano.Value `json:"amount,omitempty"`
+}
+
+func (tx *TxAdditionInfo) WithAmount(value *cardano.Value) *TxAdditionInfo {
+	tx.Amount = value
+	return tx
+}
+
 func (c *CardanoUtxo) Hash() string {
 	return fmt.Sprintf("%s__%s", c.TxHash, strconv.Itoa(int(c.Index)))
 }
