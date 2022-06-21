@@ -425,8 +425,8 @@ func main() {
 	transferWithMetadata("ganache1",
 		"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
 		"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
-		"addr_test1vq987lkjn3eh5pdj8rhg3qq2m24hhpecleytch2q8mk0nyqdmcvhx",
-		30_000_000)
+		"addr_test1vreuf989t90dp8xcnw6cvygn2e0dvgfv8d93mfc0kyw7udsjexejp",
+		3_000_000)
 	//testBlockfrostClient()
 	//testWatcher()
 

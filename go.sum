@@ -441,6 +441,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
 github.com/sirupsen/logrus v1.7.0 h1:ShrD1U9pZB12TX0cVy0DtePoCH97K8EtX+mg7ZARUtM=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
+github.com/sisu-network/cardano-go v0.1.13-0.20220620093220-4c0ff0e8ef58 h1:7vSHBMgjqchpAevKwKEuWy5mYTr/ZyomoI7YH3oDHa0=
+github.com/sisu-network/cardano-go v0.1.13-0.20220620093220-4c0ff0e8ef58/go.mod h1:gvo3faIs9dNVR0bRjIn8vQca8Pd6TpYWpxMiIV87lr4=
 github.com/sisu-network/go-ethereum v1.10.12-sisu001 h1:qwVcuRyvxQhEYOtHRJfhrYSMlEOBvce4lAfU5cPNXhw=
 github.com/sisu-network/go-ethereum v1.10.12-sisu001/go.mod h1:W3yfrFyL9C1pHcwY5hmRHVDaorTiQxhYBkKyu5mEDHw=
 github.com/sisu-network/lib v0.0.1-alpha9.0.20220604231101-08930647bd3f h1:tylEOiL6ZEshFrxy5Yrp1A6vU3ZHcnh0ZX4fn4RfYsg=

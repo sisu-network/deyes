@@ -72,7 +72,6 @@ func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 func (b *BlockfrostClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
 	block, err := b.inner.Block(b.getContext(), hashOrNumber)
 	if err != nil {
-		log.Errorf("Error when getting block for height/hash = %s, error = %v\n", hashOrNumber, err)
 		return nil, err
 	}
 

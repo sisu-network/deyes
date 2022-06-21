@@ -113,6 +113,9 @@ func (w *Watcher) scanChain() {
 		}
 
 		log.Verbose("Filtered txs sizes = ", len(txsIn), " on chain ", w.cfg.Chain)
+		if len(txsIn) == 0 {
+			continue
+		}
 
 		for _, txIn := range txsIn {
 			bz, err := json.Marshal(txIn)
