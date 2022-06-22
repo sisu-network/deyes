@@ -24,9 +24,9 @@ type CardanoTxInItem struct {
 
 type TxAdditionInfo struct {
 	// Get from transaction metadata
-	DestinationChain        string `json:"destination_chain,omitempty"`
-	DestinationRecipient    string `json:"destination_recipient,omitempty"`
-	DestinationTokenAddress string `json:"destination_token_address,omitempty"`
+	Chain        string `json:"chain,omitempty"`
+	Recipient    string `json:"recipient,omitempty"`
+	TokenAddress string `json:"token_address,omitempty"`
 
 	// Get from transaction output
 	Amount *cardano.Value `json:"amount,omitempty"`
