@@ -125,19 +125,20 @@ func (w *Watcher) scanChain() {
 				Hash:       txIn.TxHash.String(),
 				Serialized: bz,
 				To:         txIn.Recipient.String(),
-				// TODO: is always true?
-				Success: true,
+				Success:    true,
 			})
 		}
 
-		txs := types.Txs{
-			Chain: w.cfg.Chain,
-			Block: int64(block.Height),
-			Arr:   txArr,
-		}
+		if len(txArr) > 0 {
+			txs := types.Txs{
+				Chain: w.cfg.Chain,
+				Block: int64(block.Height),
+				Arr:   txArr,
+			}
 
-		// Broadcast the result
-		w.txsCh <- &txs
+			// Broadcast the result
+			w.txsCh <- &txs
+		}
 
 		// Sleep until next block
 		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)

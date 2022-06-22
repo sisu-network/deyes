@@ -419,14 +419,31 @@ func testSigning() {
 	log.Info("Transaction hash = ", hash)
 }
 
+func queryBalance() {
+	node := getCardanoNode()
+	addr, err := cardano.NewAddress("addr_test1vzxv7v8r5v3umgu9d3v3968sl603s2jkdqk58u6c2v9zmdqqdyvd7")
+	if err != nil {
+		panic(err)
+	}
+
+	value, err := utils.Balance(node, addr)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Balance = ", value)
+}
+
 func main() {
-	// query()
+	// queryBalance()
 	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
+
 	transferWithMetadata("ganache1",
 		"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
 		"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
 		"addr_test1vq987lkjn3eh5pdj8rhg3qq2m24hhpecleytch2q8mk0nyqdmcvhx",
 		30_000_000)
+
 	//testBlockfrostClient()
 	//testWatcher()
 
