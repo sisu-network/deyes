@@ -166,4 +166,5 @@ func (w *Watcher) AddWatchAddr(addr string) {
 	defer w.lock.Unlock()
 
 	w.interestedAddr[addr] = true
+	w.db.SaveWatchAddress(w.cfg.Chain, addr)
 }
