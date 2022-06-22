@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,17 +76,17 @@ func (w *Watcher) scanChain() {
 
 	for {
 		// Get next block to scan
-		// TODO: implement a mechanism to catchup with network if scan slowly
 		block, err := w.getNextBlock()
-		if err != nil && err != BlockNotFound {
-			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
-			continue
-		}
 
-		// Block not available yet
-		if err == BlockNotFound {
+		if err != nil {
 			w.blockTime = w.blockTime + w.cfg.AdjustTime
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			if !strings.Contains(err.Error(), "Not Found") {
+				// This error is not a Block not found error. Print the error here.
+				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", w.client.LatestBlock().Height, err)
+			} else {
+				log.Verbose("Block not found. We need to wait more. w.blockTime = ", w.blockTime)
+			}
 			continue
 		}
 

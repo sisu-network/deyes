@@ -72,7 +72,6 @@ func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 func (b *BlockfrostClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
 	block, err := b.inner.Block(b.getContext(), hashOrNumber)
 	if err != nil {
-		log.Errorf("Error when getting block for height/hash = %s, error = %v\n", hashOrNumber, err)
 		return nil, err
 	}
 
@@ -119,6 +118,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 			if added[bfTx.TxHash] {
 				continue
 			}
+
 			added[bfTx.TxHash] = true
 			txContent, err := b.inner.TransactionUTXOs(context.Background(), bfTx.TxHash)
 			if err != nil {
