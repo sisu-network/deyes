@@ -49,7 +49,7 @@ func getWallet() *wallet.Wallet {
 		panic(err)
 	}
 
-	fmt.Println("Address = ", addr.String())
+	log.Info("Address = ", addr.String())
 
 	return w
 }
@@ -90,7 +90,7 @@ func transfer(addr string, value int) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Hash = ", hash.String())
+	log.Info("Hash = ", hash.String())
 }
 
 func testWatcher() {
@@ -140,7 +140,7 @@ func testWatcher() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("Hash = ", hash.String())
+		log.Info("Hash = ", hash.String())
 	}()
 
 	log.Info("listening to new txs...")
@@ -197,7 +197,7 @@ func constructTx(api blockfrost.APIClient, senderAddr cardano.Address) *cardano.
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("utxos = ", utxos)
+	log.Info("utxos = ", utxos)
 
 	protocolParams := getProtocolParams(bfParams)
 	txBuilder := cardano.NewTxBuilder(protocolParams)
@@ -236,7 +236,7 @@ func getTestTx(w *wallet.Wallet) *cardano.Tx {
 		panic(err)
 	}
 	senderAddr := addrs[0]
-	fmt.Println(senderAddr)
+	log.Info(senderAddr)
 
 	txBuilder := constructTx(api, senderAddr)
 	// Sign transaction
@@ -255,7 +255,7 @@ func getTestTx(w *wallet.Wallet) *cardano.Tx {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("localHash = ", localHash)
+	log.Info("localHash = ", localHash)
 
 	return tx
 }
@@ -268,7 +268,7 @@ func testTxHash() {
 		panic(err)
 	}
 
-	fmt.Println("hash = ", hash)
+	log.Info("hash = ", hash)
 }
 
 func queryTxUtxo() {
@@ -281,11 +281,11 @@ func queryTxUtxo() {
 
 	for _, input := range txUtxos.Inputs {
 		for _, amount := range input.Amount {
-			fmt.Println("Amount: ", amount.Quantity, amount.Unit)
+			log.Info("Amount: ", amount.Quantity, amount.Unit)
 		}
 	}
 
-	fmt.Println("=============")
+	log.Info("=============")
 
 	asset, err := api.Asset(context.Background(), "6b8d07d69639e9413dd637a1a815a7323c69c86abbafb66dbfdb1aa7")
 	if err != nil {
@@ -302,9 +302,9 @@ func queryTxUtxo() {
 		fmt.Printf("asset = %s, quantity = %s, metadata = %v\n", asset.Asset, asset.Quantity, asset.Metadata)
 		decode, err := hex.DecodeString(asset.Asset)
 		if err != nil {
-			fmt.Println("err = ", err)
+			log.Error("err = ", err)
 		} else {
-			fmt.Println("Decode = ", len(decode), decode)
+			log.Info("Decode = ", len(decode), decode)
 		}
 	}
 }
@@ -319,7 +319,7 @@ func queryAddressTransaction() {
 		panic(err)
 	}
 
-	fmt.Println("txs = ", txs)
+	log.Info("txs = ", txs)
 }
 
 func testBlockfrostClient() {
@@ -381,7 +381,7 @@ func getAddressFromBytes(bz []byte) cardano.Address {
 		panic(err)
 	}
 
-	fmt.Println("addr = ", addr)
+	log.Info("addr = ", addr)
 	return addr
 }
 
@@ -452,7 +452,7 @@ func getMultiAsset(amt uint64) *cardano.MultiAsset {
 	}
 
 	policyID := cardano.NewPolicyIDFromHash(policyHash)
-	fmt.Println("policyID = ", policyID.String())
+	log.Info("policyID = ", policyID.String())
 
 	asset := cardano.NewAssets().Set(WrapADA, cardano.BigNum(amt*1_000_000))
 	return cardano.NewMultiAsset().Set(policyID, asset)
@@ -470,7 +470,7 @@ func transferMultiAsset(recipient string, amount uint64) {
 		panic(err)
 	}
 
-	fmt.Println("txHash = ", txHash)
+	log.Info("txHash = ", txHash)
 }
 
 func main() {
