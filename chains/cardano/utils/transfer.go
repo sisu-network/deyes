@@ -82,13 +82,12 @@ func Transfer(node cardano.Node, network cardano.Network, key *edwards.PrivateKe
 		return nil, err
 	}
 	builder.SetTTL(tip.Slot + 1200)
-	for _, key := range edwardsKeys {
-		builder.Sign(key)
-	}
+	// TODO: correct this
+	//for _, key := range edwardsKeys {
+	//	builder.Sign(key)
+	//}
 	changeAddress := pickedUtxos[0].Spender
-	if err = builder.AddChangeIfNeeded(changeAddress); err != nil {
-		return nil, err
-	}
+	builder.AddChangeIfNeeded(changeAddress)
 
 	tx, err := builder.Build()
 	if err != nil {

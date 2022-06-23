@@ -254,6 +254,14 @@ func (b *BlockfrostClient) getContext() context.Context {
 
 // SubmitTx implements CardanoClient
 func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+	for _, i := range tx.Body.Inputs {
+		log.Debugf("tx input = %+v\n", i)
+	}
+
+	for _, o := range tx.Body.Outputs {
+		log.Debugf("tx output = %+v\n", o)
+	}
+
 	log.Debugf("tx = %+v\n", tx)
 	log.Debug("txWitnessSet = ", tx.WitnessSet)
 	// Copy from this https://github.com/echovl/cardano-go/blob/4936c872fbb1f1db4bf04f1242fc180b0fe9843f/blockfrost/blockfrost.go#L124
