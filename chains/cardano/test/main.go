@@ -26,8 +26,11 @@ import (
 
 // Miscellaneous test for cardano watcher
 const (
-	// wallet address: addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t
 	Mnemonic = "art forum devote street sure rather head chuckle guard poverty release quote oak craft enemy"
+)
+
+var (
+	WrapADA = cardano.NewAssetName("WRAP_ADA")
 )
 
 func getWallet() *wallet.Wallet {
@@ -41,9 +44,12 @@ func getWallet() *wallet.Wallet {
 	client := wallet.NewClient(opts)
 
 	w, err := client.RestoreWallet("TestWallet", "pass", Mnemonic)
+	addr, err := w.AddAddress()
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Println("Address = ", addr.String())
 
 	return w
 }
@@ -435,18 +441,46 @@ func queryBalance() {
 	log.Info("Balance = ", value)
 }
 
+// Get WRAP_ADA (hex: 575241505f414441) token.
+// PolicyID (dc89700b3adf88f6b520aba2f3cfa4c26fa7a19bd8eadf430d73b9d4) got from there:
+// https://explorer.cardano-testnet.iohkdev.io/en/transaction?id=31c019b737edc7b54ae60a87f372f860715e8bb02b979ed853395ccbf4bf0209
+func getMultiAsset(amt uint64) *cardano.MultiAsset {
+	policyHash, err := cardano.NewHash28("dc89700b3adf88f6b520aba2f3cfa4c26fa7a19bd8eadf430d73b9d4")
+	if err != nil {
+		err := fmt.Errorf("error when parsing policyID hash: %v", err)
+		panic(err)
+	}
+
+	policyID := cardano.NewPolicyIDFromHash(policyHash)
+	fmt.Println("policyID = ", policyID.String())
+
+	asset := cardano.NewAssets().Set(WrapADA, cardano.BigNum(amt*1_000_000))
+	return cardano.NewMultiAsset().Set(policyID, asset)
+}
+
+func transferMultiAsset(recipient string, amount uint64) {
+	recipientAddr, err := cardano.NewAddress(recipient)
+	if err != nil {
+		panic(err)
+	}
+
+	w := getWallet()
+	txHash, err := w.Transfer(recipientAddr, cardano.NewValueWithAssets(1*1_000_000, getMultiAsset(1e3)), nil) // 10 ADA
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("txHash = ", txHash)
+}
+
 func main() {
-	// queryBalance()
-	// transfer("addr_test1vqxyzpun2fpqafvkxxxceu5r8yh4dccy6xdcynnchd4dr7qtjh44z", 10_000_000)
+	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy", 20_000_000)
+	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 10_000_000)
+	transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 1)
 
-	transferWithMetadata("ganache1",
-		"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
-		"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
-		"addr_test1vrwxrgqf9fplssrkc27k2zt0rm6d8as4v3q3zu34annh9dg4hnp4t",
-		1_000_000)
-
-	//testBlockfrostClient()
-	//testWatcher()
-
-	// testSigning()
+	// transferWithMetadata("ganache1",
+	// 	"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
+	// 	"0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
+	// 	"addr_test1vrwxrgqf9fplssrkc27k2zt0rm6d8as4v3q3zu34annh9dg4hnp4t",
+	// 	1_000_000)
 }
