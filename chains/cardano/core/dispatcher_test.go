@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/echovl/cardano-go"
@@ -23,7 +22,7 @@ func TestCardanoDispatcher_DeserializeTx(t *testing.T) {
 	tx.Body.Inputs = append(tx.Body.Inputs, txIn)
 	tx.Body.Outputs = append(tx.Body.Outputs, txOut)
 
-	bz, err := json.Marshal(tx)
+	bz, err := tx.MarshalCBOR()
 	require.Nil(t, err)
 
 	// Test serializing & deserializing tx.
