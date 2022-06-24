@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
+	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
-	ethCore "github.com/sisu-network/deyes/chains/eth-family/core"
+	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -64,22 +66,33 @@ func (p *Processor) Start() {
 	for chain, cfg := range p.cfg.Chains {
 		log.Info("Supported chain and config: ", chain, cfg)
 
-		if libchain.IsETHBasedChain(chain) {
-			watcher := ethCore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
-			p.watchers[chain] = watcher
-			go watcher.Start()
+		var watcher chains.Watcher
+		var dispatcher chains.Dispatcher
+		if libchain.IsETHBasedChain(chain) { // ETH chain
+			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
+		} else if libchain.IsCardanoChain(chain) { // Cardano chain
+			client := carcore.NewBlockfrostClient(
+				blockfrost.APIClientOptions{
+					ProjectID: cfg.RpcSecret,
+					Server:    blockfrost.CardanoTestNet,
+				},
+			)
 
-			// Dispatcher
-			dispatcher := chains.NewEhtDispatcher(chain, cfg.Rpcs)
-			dispatcher.Start()
-			p.dispatchers[chain] = dispatcher
+			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, client)
+			dispatcher = carcore.NewDispatcher(client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
+
+		p.watchers[chain] = watcher
+		go watcher.Start()
+		p.dispatchers[chain] = dispatcher
+		dispatcher.Start()
 	}
 }
 
-func (p *Processor) getEthClients(rpcs []string) []ethCore.EthClient {
+func (p *Processor) getEthClients(rpcs []string) []ethcore.EthClient {
 	clients := core.NewEthClients(rpcs)
 	if len(clients) == 0 {
 		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
@@ -138,7 +151,11 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {
-	watcher := tp.watchers[chain]
+	if !libchain.IsETHBasedChain(chain) {
+		return -1
+	}
+
+	watcher := tp.watchers[chain].(*ethcore.Watcher)
 	if watcher == nil {
 		return -1
 	}

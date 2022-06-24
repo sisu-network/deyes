@@ -86,7 +86,7 @@ func TestStartManager(t *testing.T) {
 
 		select {
 		case <-timeOut:
-			log.Debug("API is in maintain or token is not found")
+			log.Error("API is in maintain or token is not found")
 		case <-updateCh:
 			t.Fail()
 		}
