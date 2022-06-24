@@ -161,6 +161,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 					return nil, err
 				}
 
+				localInItems := make([]*types.CardanoTxInItem, 0)
 				policyIds := amt.MultiAsset.Keys()
 				for _, policyId := range policyIds {
 					fmt.Println("policyId = ", policyId.String())
@@ -171,7 +172,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 
 						fmt.Println("name, amount = ", name, amount)
 
-						txInItems = append(txInItems, &types.CardanoTxInItem{
+						localInItems = append(localInItems, &types.CardanoTxInItem{
 							TxHash:    txHash,
 							UtxoIndex: i,
 							To:        to,
@@ -182,6 +183,21 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 						})
 					}
 				}
+
+				// This is a transaction to send native ada.
+				if len(localInItems) == 0 && metadata.NativeAda == 1 {
+					localInItems = append(localInItems, &types.CardanoTxInItem{
+						TxHash:    txHash,
+						UtxoIndex: i,
+						To:        to,
+
+						Asset:    "ADA",
+						Amount:   uint64(amt.Coin),
+						Metadata: *metadata,
+					})
+				}
+
+				txInItems = append(txInItems, localInItems...)
 			}
 		}
 	}
