@@ -125,27 +125,27 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 				return nil, err
 			}
 
-			for _, output := range txContent.Outputs {
+			allMetadata, err := b.GetTransactionMetadata(bfTx.TxHash)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(allMetadata) == 0 {
+				log.Warn("Found transaction send to gateway without transaction metadata. TxHash = ", bfTx.TxHash)
+				continue
+			}
+
+			metadata, err := getTxInfoFromMetadata(allMetadata)
+			if err != nil {
+				return nil, err
+			}
+
+			for i, output := range txContent.Outputs {
 				if !strings.EqualFold(output.Address, addr) {
 					continue
 				}
 
-				allMetadata, err := b.GetTransactionMetadata(bfTx.TxHash)
-				if err != nil {
-					return nil, err
-				}
-
-				if len(allMetadata) == 0 {
-					log.Warn("Found transaction send to gateway without transaction metadata. TxHash = ", bfTx.TxHash)
-					continue
-				}
-
-				txAdditionInfo, err := getTxInfoFromMetadata(allMetadata)
-				if err != nil {
-					return nil, err
-				}
-
-				gatewayAddress, err := cardano.NewAddress(addr)
+				to, err := cardano.NewAddress(addr)
 				if err != nil {
 					return nil, err
 				}
@@ -161,12 +161,27 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 					return nil, err
 				}
 
-				txAdditionInfo = txAdditionInfo.WithAmount(amt)
-				txInItems = append(txInItems, &types.CardanoTxInItem{
-					TxHash:         txHash,
-					Recipient:      gatewayAddress,
-					TxAdditionInfo: txAdditionInfo,
-				})
+				policyIds := amt.MultiAsset.Keys()
+				for _, policyId := range policyIds {
+					fmt.Println("policyId = ", policyId.String())
+
+					assets := amt.MultiAsset.Get(policyId)
+					for _, name := range assets.Keys() {
+						amount := assets.Get(name)
+
+						fmt.Println("name, amount = ", name, amount)
+
+						txInItems = append(txInItems, &types.CardanoTxInItem{
+							TxHash:    txHash,
+							UtxoIndex: i,
+							To:        to,
+
+							Asset:    name.String(),
+							Amount:   uint64(amount),
+							Metadata: *metadata,
+						})
+					}
+				}
 			}
 		}
 	}
@@ -174,7 +189,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 	return txInItems, nil
 }
 
-func getTxInfoFromMetadata(txMetadata []blockfrost.TransactionMetadata) (*types.TxAdditionInfo, error) {
+func getTxInfoFromMetadata(txMetadata []blockfrost.TransactionMetadata) (*types.CardanoTxMetadata, error) {
 	// Noted: when creating a transaction with metadata, please attach metadata in label "0"
 	log.Debug("Label = ", txMetadata[0].Label)
 	txMetadatum, ok := txMetadata[0].JsonMetadata.(map[string]interface{})
@@ -184,7 +199,7 @@ func getTxInfoFromMetadata(txMetadata []blockfrost.TransactionMetadata) (*types.
 		return nil, err
 	}
 
-	txAdditionInfo := &types.TxAdditionInfo{}
+	txAdditionInfo := &types.CardanoTxMetadata{}
 	if err := utils.MapToJSONStruct(txMetadatum, txAdditionInfo); err != nil {
 		log.Error(err)
 		return nil, err

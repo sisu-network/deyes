@@ -17,24 +17,23 @@ type CardanoUtxo struct {
 
 type CardanoTxInItem struct {
 	TxHash cardano.Hash32
-	// Recipient Cardano gateway address
-	Recipient      cardano.Address
-	TxAdditionInfo *TxAdditionInfo
+	// To Cardano gateway address
+	To        cardano.Address
+	UtxoIndex int
+
+	// Info about the swap
+	Amount   uint64
+	Asset    string
+	Metadata CardanoTxMetadata
 }
 
-type TxAdditionInfo struct {
+type CardanoTxMetadata struct {
 	// Get from transaction metadata
-	Chain        string `json:"chain,omitempty"`
-	Recipient    string `json:"recipient,omitempty"`
-	TokenAddress string `json:"token_address,omitempty"`
-
-	// Get from transaction output
-	Amount *cardano.Value `json:"amount,omitempty"`
-}
-
-func (tx *TxAdditionInfo) WithAmount(value *cardano.Value) *TxAdditionInfo {
-	tx.Amount = value
-	return tx
+	Chain     string `json:"chain,omitempty"`
+	Recipient string `json:"recipient,omitempty"`
+	// NativeAda indicates if user wants to transfer ADA token cross chain since every multi-asset
+	// transaction requires some ADA in it.
+	NativeAda int `json:"native_ada,omitempty"`
 }
 
 func (c *CardanoUtxo) Hash() string {

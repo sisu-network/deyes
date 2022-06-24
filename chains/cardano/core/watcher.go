@@ -125,7 +125,7 @@ func (w *Watcher) scanChain() {
 			txArr = append(txArr, &types.Tx{
 				Hash:       txIn.TxHash.String(),
 				Serialized: bz,
-				To:         txIn.Recipient.String(),
+				To:         txIn.To.String(),
 				Success:    true,
 			})
 		}

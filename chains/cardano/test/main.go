@@ -43,7 +43,7 @@ func getWallet() *wallet.Wallet {
 	opts := &wallet.Options{Node: node}
 	client := wallet.NewClient(opts)
 
-	w, err := client.RestoreWallet("TestWallet", "pass", Mnemonic)
+	w, err := client.RestoreWallet("sisu", "12345678910", Mnemonic)
 	addr, err := w.AddAddress()
 	if err != nil {
 		panic(err)
@@ -226,51 +226,6 @@ func constructTx(api blockfrost.APIClient, senderAddr cardano.Address) *cardano.
 	return txBuilder
 }
 
-func getTestTx(w *wallet.Wallet) *cardano.Tx {
-	api := getApi()
-	if w == nil {
-		w = getWallet()
-	}
-	addrs, err := w.Addresses()
-	if err != nil {
-		panic(err)
-	}
-	senderAddr := addrs[0]
-	log.Info(senderAddr)
-
-	txBuilder := constructTx(api, senderAddr)
-	// Sign transaction
-	key, _ := w.Keys()
-	_ = key
-	// txBuilder.Sign(key)
-
-	txBuilder.AddChangeIfNeeded(senderAddr)
-
-	tx, err := txBuilder.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	localHash, err := tx.Hash()
-	if err != nil {
-		panic(err)
-	}
-	log.Info("localHash = ", localHash)
-
-	return tx
-}
-
-func testTxHash() {
-	tx := getTestTx(nil)
-	node := getCardanoNode()
-	hash, err := node.SubmitTx(tx)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Info("hash = ", hash)
-}
-
 func queryTxUtxo() {
 	api := getApi()
 
@@ -335,14 +290,13 @@ func testBlockfrostClient() {
 		},
 	)
 
-	txsIn, err := client.NewTxs(3637884, map[string]bool{"addr_test1qqdnqmpjwac5e8j8gf7gsa75p99rf07rsc63fju0w5kywj20aczxffwdmqewegjqzc24074fk6tqgydujpez0aslcd7srp9cvt": true})
+	txsIn, err := client.NewTxs(3654812, map[string]bool{"addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45": true})
 	if err != nil {
 		panic(err)
 	}
 
 	for _, txIn := range txsIn {
 		log.Infof("TxIn item = %+v\n", txIn)
-		log.Infof("additional info: %+v\n", txIn.TxAdditionInfo)
 	}
 }
 
@@ -355,9 +309,8 @@ func transferWithMetadata(destChain, destToken, destRecipient, cardanoGwAddr str
 
 	metadata := cardano.Metadata{
 		0: map[string]interface{}{
-			"chain":         destChain,
-			"recipient":     destRecipient,
-			"token_address": destToken,
+			"chain":     destChain,
+			"recipient": destRecipient,
 		},
 	}
 
@@ -463,9 +416,22 @@ func transferMultiAsset(recipient string, amount uint64) {
 	if err != nil {
 		panic(err)
 	}
-
 	w := getWallet()
-	txHash, err := w.Transfer(recipientAddr, cardano.NewValueWithAssets(1*1_000_000, getMultiAsset(1e3)), nil) // 10 ADA
+	addr, err := w.AddAddress()
+	if err != nil {
+		panic(err)
+	}
+	log.Verbose("Sender address = ", addr.String())
+
+	metadata := cardano.Metadata{
+		0: map[string]interface{}{
+			"chain":      "ganache1",
+			"recipient":  "0x215375950B138B9f5aDfaEb4dc172E8AD1dDe7f5",
+			"native_ada": 1,
+		},
+	}
+
+	txHash, err := w.Transfer(recipientAddr, cardano.NewValueWithAssets(cardano.Coin(amount), getMultiAsset(1e3)), metadata)
 	if err != nil {
 		panic(err)
 	}
@@ -474,9 +440,9 @@ func transferMultiAsset(recipient string, amount uint64) {
 }
 
 func main() {
-	// transfer("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy", 20_000_000)
-	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 10_000_000)
-	transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 1)
+	testBlockfrostClient()
+	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 3_000_000)
+	// transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 4_000_000)
 
 	// transferWithMetadata("ganache1",
 	// 	"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
