@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/cardano-community/koios-go-client"
 	"github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
@@ -300,6 +302,26 @@ func testBlockfrostClient() {
 	}
 }
 
+func testKoiosClient() {
+	client := carcore.NewKoiosClient(koios.Host(koios.TestnetHost))
+	if client == nil {
+		panic(errors.New("Fail to init client"))
+	}
+
+	isHealthy := client.IsHealthy()
+	fmt.Println("IsHealthy: ", isHealthy)
+
+	latestBlock := client.LatestBlock()
+	fmt.Println("Lastest Block: ", latestBlock)
+
+	blockHeight, err := client.BlockHeight()
+
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("BlockHeight: ", blockHeight)
+}
+
 func transferWithMetadata(destChain, destToken, destRecipient, cardanoGwAddr string, value uint64) {
 	w := getWallet()
 	receiver, err := cardano.NewAddress(cardanoGwAddr)
@@ -440,7 +462,8 @@ func transferMultiAsset(recipient string, amount uint64) {
 }
 
 func main() {
-	testBlockfrostClient()
+	// testBlockfrostClient()
+	testKoiosClient()
 	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 3_000_000)
 	// transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 4_000_000)
 
