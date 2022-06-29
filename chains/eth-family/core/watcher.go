@@ -198,6 +198,19 @@ func (w *Watcher) getLatestBlock() (*etypes.Block, error) {
 }
 
 func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
+	// Bug for ganache1 & ganache2: it's possible that chain's latest block is smaller than height
+	// but BlockByNumber function still returns correct value
+	if w.cfg.Chain == "ganache1" || w.cfg.Chain == "ganache2" {
+		blockNumber, err := w.clients[0].BlockNumber(context.Background())
+		if err != nil {
+			return nil, err
+		}
+
+		if blockNumber < uint64(height) {
+			return nil, ethereum.NotFound
+		}
+	}
+
 	for _, client := range w.clients {
 		blockNum := big.NewInt(height)
 		if height == -1 { // latest block
