@@ -127,7 +127,7 @@ func testWatcher() {
 		Server:    chainCfg.Rpcs[0],
 	}))
 	watcher.Start()
-	watcher.AddWatchAddr("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
+	watcher.SetGateway("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
 	go func() {
 		w := getWallet()
@@ -446,7 +446,7 @@ func testUtxos() {
 		panic(err)
 	}
 
-	fmt.Println(txHashes.Inputs[0].Address)
+	log.Info(txHashes.Inputs[0].Address)
 }
 
 func main() {

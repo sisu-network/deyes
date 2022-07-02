@@ -3,5 +3,6 @@ package chains
 type Watcher interface {
 	Start()
 
-	AddWatchAddr(addr string)
+	// AddWatchAddr(addr string)
+	SetGateway(addr string)
 }

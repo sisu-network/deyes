@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"testing"
 
 	libchain "github.com/sisu-network/lib/chain"
@@ -28,13 +27,12 @@ func TestProcessBlock(t *testing.T) {
 	}
 
 	watcher := Watcher{
-		interestedAddrs: &sync.Map{},
-		clients:         []EthClient{client},
+		clients: []EthClient{client},
 		cfg: config.Chain{
 			Chain: "ganache1",
 		},
 	}
-	watcher.interestedAddrs.Store(common.Address{1}.Hex(), true)
+	watcher.SetGateway(common.Address{1}.Hex())
 	trans := genTransactions(t)
 	hdr := etypes.Header{
 		Difficulty: big.NewInt(100),
@@ -127,8 +125,7 @@ func TestMultipleRpcs(t *testing.T) {
 		}
 
 		watcher := Watcher{
-			interestedAddrs: &sync.Map{},
-			clients:         []EthClient{client1, client2},
+			clients: []EthClient{client1, client2},
 			cfg: config.Chain{
 				Chain: "ganache1",
 			},
@@ -172,8 +169,7 @@ func TestMultipleRpcs(t *testing.T) {
 		}
 
 		watcher := Watcher{
-			interestedAddrs: &sync.Map{},
-			clients:         []EthClient{client1, client2},
+			clients: []EthClient{client1, client2},
 			cfg: config.Chain{
 				Chain: "ganache1",
 			},

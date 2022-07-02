@@ -27,6 +27,7 @@ type Watcher struct {
 	client          CardanoClient
 	blockTime       int
 	lastBlockHeight atomic.Int32
+	gateway         string
 
 	// A map between an interested address to the number of transaction to it (according to our data).
 	interestedAddr map[string]bool
@@ -53,14 +54,13 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	addrs := w.db.LoadWatchAddresses(w.cfg.Chain)
-	log.Info("Watch address for chain ", w.cfg.Chain, ": ", addrs)
-
-	w.lock.Lock()
-	for _, addr := range addrs {
-		w.interestedAddr[addr.Address] = true
+	var err error
+	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	if err != nil {
+		panic(err)
 	}
-	w.lock.Unlock()
+
+	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
 
 	w.lastBlockHeight.Store(0)
 }
@@ -161,10 +161,14 @@ func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
 	return block, nil
 }
 
-func (w *Watcher) AddWatchAddr(addr string) {
+func (w *Watcher) SetGateway(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	w.interestedAddr[addr] = true
-	w.db.SaveWatchAddress(w.cfg.Chain, addr)
+	err := w.db.SetGateway(w.cfg.Chain, addr)
+	if err == nil {
+		w.gateway = addr
+	} else {
+		log.Error("Failed to save gateway")
+	}
 }

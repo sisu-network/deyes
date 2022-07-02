@@ -28,9 +28,8 @@ func (api *ApiHandler) SetSisuReady(isReady bool) {
 	api.processor.SetSisuReady(isReady)
 }
 
-// Adds a list of address to watch on a specific chain.
-func (api *ApiHandler) AddWatchAddresses(chain string, addrs []string) {
-	api.processor.AddWatchAddresses(chain, addrs)
+func (api *ApiHandler) SetGateway(chain string, addr string) {
+	api.processor.SetGateway(chain, addr)
 }
 
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {

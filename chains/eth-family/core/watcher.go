@@ -28,31 +28,28 @@ type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 
 // TODO: Move this to the chains package.
 type Watcher struct {
-	cfg         config.Chain
-	clients     []EthClient
-	blockHeight int64
-	blockTime   int
-	db          database.Database
-	txsCh       chan *types.Txs
-	// A set of address we are interested in. Only send information about transaction to these
-	// addresses back to Sisu.
-	interestedAddrs *sync.Map
-
-	signers map[string]etypes.Signer
-
+	cfg             config.Chain
+	clients         []EthClient
+	blockHeight     int64
+	blockTime       int
+	db              database.Database
+	txsCh           chan *types.Txs
+	gateway         string
+	signers         map[string]etypes.Signer
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
+	lock            *sync.RWMutex
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) chains.Watcher {
 	w := &Watcher{
-		db:              db,
-		cfg:             cfg,
-		txsCh:           txsCh,
-		interestedAddrs: &sync.Map{},
-		blockTime:       cfg.BlockTime,
-		gasPrice:        atomic.NewInt64(0),
-		clients:         clients,
+		db:        db,
+		cfg:       cfg,
+		txsCh:     txsCh,
+		blockTime: cfg.BlockTime,
+		gasPrice:  atomic.NewInt64(0),
+		clients:   clients,
+		lock:      &sync.RWMutex{},
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -64,13 +61,13 @@ func (w *Watcher) init() {
 	// Set the block height for the watcher.
 	w.setBlockHeight()
 
-	// Load watch addresses
-	watchAddrs := w.db.LoadWatchAddresses(w.cfg.Chain)
-
-	log.Info("Watch address for chain ", w.cfg.Chain, ": ", watchAddrs)
-	for _, watchAddr := range watchAddrs {
-		w.interestedAddrs.Store(watchAddr.Address, true)
+	var err error
+	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	if err != nil {
+		panic(err)
 	}
+
+	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
 }
 
 func (w *Watcher) setBlockHeight() {
@@ -89,9 +86,16 @@ func (w *Watcher) setBlockHeight() {
 	log.Info("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
 }
 
-func (w *Watcher) AddWatchAddr(addr string) {
-	w.interestedAddrs.Store(addr, true)
-	w.db.SaveWatchAddress(w.cfg.Chain, addr)
+func (w *Watcher) SetGateway(addr string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	err := w.db.SetGateway(w.cfg.Chain, addr)
+	if err == nil {
+		w.gateway = addr
+	} else {
+		log.Error("Failed to save gateway")
+	}
 }
 
 func (w *Watcher) Start() {
@@ -297,22 +301,14 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 }
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
-	if tx.To() != nil {
-		_, ok := w.interestedAddrs.Load(tx.To().Hex())
-		if ok {
-			log.Verbose("Tx is accepted with TO address: ", tx.To().Hex(), " on chain ", w.cfg.Chain)
-			return true
-		}
+	if tx.To() != nil && tx.To().String() == w.gateway {
+		return true
 	}
 
 	// check from
 	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	if err == nil {
-		_, ok := w.interestedAddrs.Load(from.Hex())
-		if ok {
-			log.Verbose("Tx is accepted with FROM address: ", from.Hex(), " on chain ", w.cfg.Chain)
-			return true
-		}
+	if err == nil && from.Hex() == w.gateway {
+		return true
 	}
 
 	return false
