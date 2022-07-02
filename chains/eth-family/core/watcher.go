@@ -257,6 +257,8 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
+		// TODO: Confirm transaction using the hash of the tx.
+
 		// Only filter our interested transaction.
 		if !w.acceptTx(tx) {
 			continue
@@ -275,22 +277,11 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		receipt, err := w.getTxReceipt(tx.Hash())
-		if receipt == nil {
-			log.Errorf("cannot get receipt for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
-			continue
-		}
-
-		if receipt.Status == 0 {
-			log.Errorf("Tx is included in the blockchain but failed during execution. hash %s - chain %s", tx.Hash().String(), w.cfg.Chain)
-		}
-
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
-			To:         to,
 			From:       from.Hex(),
-			Success:    receipt.Status == 1,
+			To:         to,
 		})
 	}
 
@@ -302,12 +293,6 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 	if tx.To() != nil && tx.To().String() == w.gateway {
-		return true
-	}
-
-	// check from
-	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	if err == nil && from.Hex() == w.gateway {
 		return true
 	}
 

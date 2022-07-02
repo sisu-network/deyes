@@ -126,7 +126,6 @@ func (w *Watcher) scanChain() {
 				Hash:       txIn.Hash,
 				Serialized: bz,
 				To:         txIn.Address,
-				Success:    true,
 			})
 		}
 
