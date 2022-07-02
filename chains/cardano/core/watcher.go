@@ -123,9 +123,9 @@ func (w *Watcher) scanChain() {
 			}
 
 			txArr = append(txArr, &types.Tx{
-				Hash:       txIn.TxHash.String(),
+				Hash:       txIn.Hash,
 				Serialized: bz,
-				To:         txIn.To.String(),
+				To:         txIn.Address,
 				Success:    true,
 			})
 		}

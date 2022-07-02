@@ -439,8 +439,19 @@ func transferMultiAsset(recipient string, amount uint64) {
 	log.Info("txHash = ", txHash)
 }
 
+func testUtxos() {
+	api := getApi()
+	txHashes, err := api.TransactionUTXOs(context.Background(), "c3998f845e159598f566fe1418d86b22296953a83bda2a96eab411f9ff05a0c2")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(txHashes.Inputs[0].Address)
+}
+
 func main() {
-	testBlockfrostClient()
+	testUtxos()
+	// testBlockfrostClient()
 	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 3_000_000)
 	// transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 4_000_000)
 
