@@ -34,6 +34,7 @@ type Watcher struct {
 	blockTime       int
 	db              database.Database
 	txsCh           chan *types.Txs
+	chainAccount    string
 	gateway         string
 	signers         map[string]etypes.Signer
 	gasPrice        *atomic.Int64
@@ -84,6 +85,13 @@ func (w *Watcher) setBlockHeight() {
 	}
 
 	log.Info("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
+}
+
+func (w *Watcher) SetChainAccount(addr string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.chainAccount = addr
 }
 
 func (w *Watcher) SetGateway(addr string) {
@@ -292,7 +300,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 }
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
-	if tx.To() != nil && tx.To().String() == w.gateway {
+	if tx.To() != nil && (tx.To().String() == w.gateway || tx.To().String() == w.chainAccount) {
 		return true
 	}
 

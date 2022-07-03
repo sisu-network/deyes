@@ -29,4 +29,6 @@ func TestDefaultDatabase_SetGateway(t *testing.T) {
 	addr, err := db.GetGateway("eth")
 	require.Nil(t, err)
 	require.Equal(t, "addr0", addr)
+
+	// TODO: support replacing gateway in both mysql and sqlite.
 }

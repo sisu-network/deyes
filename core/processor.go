@@ -121,6 +121,11 @@ func (p *Processor) listen() {
 	}
 }
 
+func (tp *Processor) SetChainAccount(chain, addr string) {
+	watcher := tp.watchers[chain]
+	watcher.SetChainAccount(addr)
+}
+
 func (tp *Processor) SetGateway(chain, addr string) {
 	watcher := tp.watchers[chain]
 	watcher.SetGateway(addr)

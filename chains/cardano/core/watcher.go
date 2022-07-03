@@ -160,6 +160,10 @@ func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
 	return block, nil
 }
 
+func (w *Watcher) SetChainAccount(addr string) {
+	// Do nothing. In Cardano, the gateway is the same with chain account.
+}
+
 func (w *Watcher) SetGateway(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
