@@ -25,6 +25,10 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
+	// Chain Account
+	SetChainAccount(chain, address string) error
+	GetChainAccount(chain string) (string, error)
+
 	// Gateway address
 	SetGateway(chain, address string) error
 	GetGateway(chain string) (string, error)
@@ -246,8 +250,20 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
+func (d *DefaultDatabase) SetChainAccount(chain, address string) error {
+	return d.addWatchAddress(chain, address, "chain_account")
+}
+
+func (d *DefaultDatabase) GetChainAccount(chain string) (string, error) {
+	return d.getWatchAddress(chain, "chain_account")
+}
+
 func (d *DefaultDatabase) SetGateway(chain, address string) error {
-	_, err := d.db.Exec("INSERT OR REPLACE INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, "gateway")
+	return d.addWatchAddress(chain, address, "gateway")
+}
+
+func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
+	_, err := d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
 	if err != nil {
 		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}
@@ -256,7 +272,11 @@ func (d *DefaultDatabase) SetGateway(chain, address string) error {
 }
 
 func (d *DefaultDatabase) GetGateway(chain string) (string, error) {
-	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
+	return d.getWatchAddress(chain, "gateway")
+}
+
+func (d *DefaultDatabase) getWatchAddress(chain, typ string) (string, error) {
+	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=? and type=?", chain, typ)
 	if err != nil {
 		log.Error("Failed to load watch address for chain ", chain, ". Error = ", err)
 		return "", err

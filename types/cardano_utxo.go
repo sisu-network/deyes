@@ -9,11 +9,11 @@ type TxAmount struct {
 }
 
 type CardanoTransactionUtxo struct {
-	Hash     string            `json:"hash"`
-	Index    int               `json:"index"`
-	Address  string            `json:"Address"`
-	Amount   []TxAmount        `json:"amount"`
-	Metadata CardanoTxMetadata `json:"metadata"`
+	Hash     string             `json:"hash"`
+	Index    int                `json:"index"`
+	Address  string             `json:"Address"`
+	Amount   []TxAmount         `json:"amount"`
+	Metadata *CardanoTxMetadata `json:"metadata"`
 }
 
 type CardanoTxMetadata struct {

@@ -290,7 +290,7 @@ func testBlockfrostClient() {
 		},
 	)
 
-	txsIn, err := client.NewTxs(3654812, map[string]bool{"addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45": true})
+	txsIn, err := client.NewTxs(3654812, "addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45")
 	if err != nil {
 		panic(err)
 	}

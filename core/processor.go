@@ -9,6 +9,7 @@ import (
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
 	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -25,6 +26,7 @@ type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
 	priceUpdateCh chan []*types.TokenPrice
+	txTrackCh     chan *chainstypes.TrackUpdate
 	chain         string
 	blockTime     int
 	sisuClient    client.Client
@@ -58,6 +60,7 @@ func (p *Processor) Start() {
 	log.Info("tp.cfg.Chains = ", p.cfg.Chains)
 
 	p.txsCh = make(chan *types.Txs, 1000)
+	p.txTrackCh = make(chan *chainstypes.TrackUpdate, 1000)
 	p.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go p.listen()
@@ -69,7 +72,7 @@ func (p *Processor) Start() {
 		var watcher chains.Watcher
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) { // ETH chain
-			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
 			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) { // Cardano chain
 			client := carcore.NewBlockfrostClient(
@@ -110,6 +113,7 @@ func (p *Processor) listen() {
 			} else {
 				log.Warnf("txs: Sisu is not ready")
 			}
+
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
 			if p.sisuReady.Load() == true {
@@ -117,6 +121,9 @@ func (p *Processor) listen() {
 			} else {
 				log.Warnf("prices: Sisu is not ready")
 			}
+
+		case txTrackUpdate := <-p.txTrackCh:
+			p.sisuClient.ConfirmTx(txTrackUpdate)
 		}
 	}
 }
@@ -144,6 +151,9 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 
 	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
+
+	// If dispatching successful, add the tx to tracking.
+	tp.watchers[chain].TrackTx(request.Tx)
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {

@@ -32,7 +32,7 @@ func (api *ApiHandler) SetChainAccount(chain string, addr string) {
 	api.processor.SetChainAccount(chain, addr)
 }
 
-func (api *ApiHandler) SetGateway(chain string, addr string) {
+func (api *ApiHandler) SetGatewayAddress(chain string, addr string) {
 	api.processor.SetGateway(chain, addr)
 }
 

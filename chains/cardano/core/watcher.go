@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
 )
@@ -32,6 +34,7 @@ type Watcher struct {
 	// A map between an interested address to the number of transaction to it (according to our data).
 	interestedAddr map[string]bool
 	lock           *sync.RWMutex
+	txTrackCache   *lru.Cache
 }
 
 func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs, client CardanoClient) *Watcher {
@@ -43,6 +46,7 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs, c
 		interestedAddr: map[string]bool{},
 		lock:           &sync.RWMutex{},
 		client:         client,
+		txTrackCache:   lru.New(1000),
 	}
 }
 
@@ -95,18 +99,14 @@ func (w *Watcher) scanChain() {
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
-		// Make a copy of the w.interestedAddr map
-		copy := make(map[string]bool)
-		w.lock.RLock()
-		for addr, txCount := range w.interestedAddr {
-			copy[addr] = txCount
+		if len(w.gateway) == 0 {
+			log.Verbose("Gateway is still empty")
+			continue
 		}
-		w.lock.RUnlock()
 
 		// Process each address in the interested addr.
 		txArr := make([]*types.Tx, 0)
-
-		txsIn, err := w.client.NewTxs(block.Height, copy)
+		txsIn, err := w.client.NewTxs(block.Height, w.gateway)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
@@ -123,9 +123,10 @@ func (w *Watcher) scanChain() {
 			}
 
 			txArr = append(txArr, &types.Tx{
-				Hash:       txIn.Hash,
-				Serialized: bz,
-				To:         txIn.Address,
+				Hash:        txIn.Hash,
+				OutputIndex: txIn.Index,
+				Serialized:  bz,
+				To:          txIn.Address,
 			})
 		}
 
@@ -133,6 +134,7 @@ func (w *Watcher) scanChain() {
 			txs := types.Txs{
 				Chain: w.cfg.Chain,
 				Block: int64(block.Height),
+				Hash:  block.Hash,
 				Arr:   txArr,
 			}
 
@@ -174,4 +176,9 @@ func (w *Watcher) SetGateway(addr string) {
 	} else {
 		log.Error("Failed to save gateway")
 	}
+}
+
+func (w *Watcher) TrackTx(bz []byte) {
+	hash := utils.KeccakHash32Bytes(bz)
+	w.txTrackCache.Add(hash, true)
 }

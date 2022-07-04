@@ -11,6 +11,6 @@ type CardanoClient interface {
 	LatestBlock() *blockfrost.Block
 	GetBlock(hashOrNumber string) (*blockfrost.Block, error)
 	BlockHeight() (int, error)
-	NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTransactionUtxo, error)
+	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
 }

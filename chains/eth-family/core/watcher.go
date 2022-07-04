@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -18,10 +19,13 @@ import (
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
+
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
 const (
-	minGasPrice = 10_000_000_000
+	minGasPrice      = 10_000_000_000
+	TxTrackCacheSize = 1_000
 )
 
 type GasPriceGetter func(ctx context.Context) (*big.Int, error)
@@ -34,23 +38,28 @@ type Watcher struct {
 	blockTime       int
 	db              database.Database
 	txsCh           chan *types.Txs
+	txTrackCh       chan *chainstypes.TrackUpdate
 	chainAccount    string
 	gateway         string
 	signers         map[string]etypes.Signer
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
 	lock            *sync.RWMutex
+	txTrackCache    *lru.Cache
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) chains.Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
+	txTrackCh chan *chainstypes.TrackUpdate, clients []EthClient) chains.Watcher {
 	w := &Watcher{
-		db:        db,
-		cfg:       cfg,
-		txsCh:     txsCh,
-		blockTime: cfg.BlockTime,
-		gasPrice:  atomic.NewInt64(0),
-		clients:   clients,
-		lock:      &sync.RWMutex{},
+		db:           db,
+		cfg:          cfg,
+		txsCh:        txsCh,
+		txTrackCh:    txTrackCh,
+		blockTime:    cfg.BlockTime,
+		gasPrice:     atomic.NewInt64(0),
+		clients:      clients,
+		lock:         &sync.RWMutex{},
+		txTrackCache: lru.New(TxTrackCacheSize),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -64,6 +73,11 @@ func (w *Watcher) init() {
 
 	var err error
 	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	if err != nil {
+		panic(err)
+	}
+
+	w.chainAccount, err = w.db.GetChainAccount(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +105,12 @@ func (w *Watcher) SetChainAccount(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	w.chainAccount = addr
+	err := w.db.SetChainAccount(w.cfg.Chain, addr)
+	if err == nil {
+		w.chainAccount = addr
+	} else {
+		log.Error("Failed to save gateway")
+	}
 }
 
 func (w *Watcher) SetGateway(addr string) {
@@ -265,6 +284,19 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
+		hash := utils.KeccakHash32Bytes(bz)
+		if _, ok := w.txTrackCache.Get(hash); ok {
+			// This is a transction that we are tracking. Inform Sisu about this.
+			w.txTrackCh <- &chainstypes.TrackUpdate{
+				Chain:       w.cfg.Chain,
+				Bytes:       bz,
+				BlockHeight: block.Number().Int64(),
+				Result:      chainstypes.TrackResultConfirmed,
+			}
+
+			continue
+		}
+
 		// TODO: Confirm transaction using the hash of the tx.
 
 		// Only filter our interested transaction.
@@ -295,6 +327,8 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 
 	return &types.Txs{
 		Chain: w.cfg.Chain,
+		Block: block.Number().Int64(),
+		Hash:  block.Hash().String(),
 		Arr:   arr,
 	}, nil
 }
@@ -364,4 +398,9 @@ func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 	}
 
 	return gasPrice, nil
+}
+
+func (w *Watcher) TrackTx(bz []byte) {
+	hash := utils.KeccakHash32Bytes(bz)
+	w.txTrackCache.Add(hash, true)
 }

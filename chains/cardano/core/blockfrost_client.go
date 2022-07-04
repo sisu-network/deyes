@@ -88,7 +88,7 @@ func (b *BlockfrostClient) BlockHeight() (int, error) {
 }
 
 // NewTxs implements CardanoClient
-func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTransactionUtxo, error) {
+func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 			return nil, err
 		}
 
-		if !b.shouldIncludeTx(utxos, interestedAddrs) {
+		if !b.shouldIncludeTx(utxos, gateway) {
 			continue
 		}
 
@@ -121,12 +121,12 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 		}
 
 		for i, output := range utxos.Outputs {
-			if interestedAddrs[output.Address] {
+			if output.Address == gateway {
 				tx := &types.CardanoTransactionUtxo{
 					Hash:     string(txHash),
 					Index:    i,
 					Address:  output.Address,
-					Metadata: *metadata,
+					Metadata: metadata,
 					Amount:   make([]types.TxAmount, len(output.Amount)),
 				}
 
@@ -145,9 +145,9 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 	return txs, nil
 }
 
-func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, interestedAddrs map[string]bool) bool {
+func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, gateway string) bool {
 	for _, output := range utxos.Outputs {
-		if interestedAddrs[output.Address] {
+		if output.Address == gateway {
 			return true
 		}
 	}
