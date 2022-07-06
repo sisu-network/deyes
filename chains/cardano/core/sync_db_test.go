@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -9,7 +10,6 @@ import (
 )
 
 func TestIntegrationSyncDB(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 
 	cfg := PostgresConfig{
@@ -24,5 +24,12 @@ func TestIntegrationSyncDB(t *testing.T) {
 	require.NoError(t, err)
 
 	syncDB := NewSyncDBConnector(db)
-	syncDB.TransactionUTXOs(context.Background(), "\\xd02ef28bf0e05876d6d80b16993fdc9805402247691e24d0caed7c4c32bbe9f4")
+	utxos, err := syncDB.TransactionUTXOs(context.Background(), "\\x97228723b810ec31064a3b7bcd83138301295bacaa62385cd930774e8901fc68")
+	require.NoError(t, err)
+	for _, output := range utxos.Outputs {
+		fmt.Println("address = ", output.Address)
+		for _, amt := range output.Amount {
+			fmt.Println("unit = ", amt.Unit, " quantity = ", amt.Quantity)
+		}
+	}
 }

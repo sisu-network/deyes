@@ -53,53 +53,102 @@ func (s *SyncDB) BlockHeight() (int, error) {
 }
 
 func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error) {
-	txOutIds, err := s.GetTxOutIDs(ctx, hash)
+	res, err := s.GetTxOutIDs(ctx, hash)
 	if err != nil {
 		return blockfrost.TransactionUTXOs{}, err
 	}
 
-	arr := "("
-	for i, id := range txOutIds {
-		arr += strconv.Itoa(int(id))
-		if i != len(txOutIds)-1 {
-			arr += ","
-		}
-	}
-	arr += ")"
+	outputs := make([]struct {
+		Address string                `json:"address"`
+		Amount  []blockfrost.TxAmount `json:"amount"`
+	}, 0)
 
-	query := "SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id IN " + arr
-	rows, err := s.DB.Query(query)
-	if err != nil {
-		return blockfrost.TransactionUTXOs{}, err
-	}
-
-	for rows.Next() {
-		var quantity, maID sql.NullInt64
-		if err := rows.Scan(&quantity, &maID); err != nil {
+	for index, id := range res.Ids {
+		rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", id)
+		if err != nil {
 			return blockfrost.TransactionUTXOs{}, err
 		}
+
+		txAmounts := make([]blockfrost.TxAmount, 0)
+		for rows.Next() {
+			var quantity sql.NullString
+			var maID sql.NullInt64
+			if err := rows.Scan(&quantity, &maID); err != nil {
+				return blockfrost.TransactionUTXOs{}, err
+			}
+
+			maRow, err := s.DB.Query("SELECT encode(policy, 'hex'), encode(name, 'hex') FROM multi_asset where id = $1", maID.Int64)
+			if err != nil {
+				return blockfrost.TransactionUTXOs{}, err
+			}
+
+			maRow.Next()
+			var policy, maName sql.NullString
+			if err := maRow.Scan(&policy, &maName); err != nil {
+				return blockfrost.TransactionUTXOs{}, err
+			}
+			maRow.Close()
+
+			txAmount := blockfrost.TxAmount{
+				Quantity: quantity.String,
+				Unit:     maName.String + policy.String,
+			}
+			txAmounts = append(txAmounts, txAmount)
+		}
+		rows.Close()
+
+		txAmounts = append(txAmounts, blockfrost.TxAmount{
+			Quantity: strconv.FormatInt(res.Values[index], 10),
+			Unit:     "lovelace",
+		})
+
+		outputs = append(outputs, struct {
+			Address string                `json:"address"`
+			Amount  []blockfrost.TxAmount `json:"amount"`
+		}{
+			Address: res.Addresses[index],
+			Amount:  txAmounts,
+		})
 	}
 
-	return blockfrost.TransactionUTXOs{}, nil
+	return blockfrost.TransactionUTXOs{
+		Hash:    hash,
+		Outputs: outputs,
+	}, nil
 }
 
-func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) ([]int64, error) {
-	query := `SELECT id FROM tx_out WHERE tx_id = (SELECT id FROM tx WHERE hash = '` + hash + `')`
+type GetTxOutIDsResult struct {
+	Ids, Values []int64
+	Addresses   []string
+}
+
+func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) (GetTxOutIDsResult, error) {
+	query := `SELECT id, address, value FROM tx_out WHERE tx_id = (SELECT id FROM tx WHERE hash = '` + hash + `') ORDER BY id`
 	rows, err := s.DB.Query(query)
 	if err != nil {
-		return nil, err
+		return GetTxOutIDsResult{}, err
 	}
 
 	defer rows.Close()
-	ids := make([]int64, 0)
+	var (
+		ids, values []int64
+		addrs       []string
+	)
 	for rows.Next() {
-		var r sql.NullInt64
-		if err := rows.Scan(&r); err != nil {
-			return nil, err
+		var id, value sql.NullInt64
+		var address sql.NullString
+		if err := rows.Scan(&id, &address, &value); err != nil {
+			return GetTxOutIDsResult{}, err
 		}
 
-		ids = append(ids, r.Int64)
+		ids = append(ids, id.Int64)
+		addrs = append(addrs, address.String)
+		values = append(values, value.Int64)
 	}
 
-	return ids, nil
+	return GetTxOutIDsResult{
+		Ids:       ids,
+		Addresses: addrs,
+		Values:    values,
+	}, nil
 }
