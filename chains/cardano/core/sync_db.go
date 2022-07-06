@@ -152,3 +152,27 @@ func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) (GetTxOutIDsResult,
 		Values:    values,
 	}, nil
 }
+
+func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfrost.TransactionMetadata, error) {
+	query := `SELECT key, json FROM tx_metadata WHERE tx_id = (SELECT id FROM tx WHERE hash ='` + hash + `')`
+	rows, err := s.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	res := make([]blockfrost.TransactionMetadata, 0)
+	for rows.Next() {
+		var label, metadata sql.NullString
+		if err := rows.Scan(&label, &metadata); err != nil {
+			return nil, err
+		}
+
+		res = append(res, blockfrost.TransactionMetadata{
+			JsonMetadata: metadata.String,
+			Label:        label.String,
+		})
+	}
+
+	return res, nil
+}

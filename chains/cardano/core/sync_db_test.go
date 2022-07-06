@@ -10,6 +10,8 @@ import (
 )
 
 func TestIntegrationSyncDB(t *testing.T) {
+	t.Skip()
+
 	t.Parallel()
 
 	cfg := PostgresConfig{
@@ -24,12 +26,7 @@ func TestIntegrationSyncDB(t *testing.T) {
 	require.NoError(t, err)
 
 	syncDB := NewSyncDBConnector(db)
-	utxos, err := syncDB.TransactionUTXOs(context.Background(), "\\x97228723b810ec31064a3b7bcd83138301295bacaa62385cd930774e8901fc68")
+	meta, err := syncDB.TransactionMetadata(context.Background(), `\x1a2c7de4efa266d52dae95454c5671a47f45742b0fceb012a791755c3a75c2fc`)
 	require.NoError(t, err)
-	for _, output := range utxos.Outputs {
-		fmt.Println("address = ", output.Address)
-		for _, amt := range output.Amount {
-			fmt.Println("unit = ", amt.Unit, " quantity = ", amt.Quantity)
-		}
-	}
+	fmt.Println(meta)
 }
