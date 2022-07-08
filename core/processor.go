@@ -111,7 +111,7 @@ func (p *Processor) listen() {
 				log.Warnf("txs: Sisu is not ready")
 			}
 		case prices := <-p.priceUpdateCh:
-			log.Info("There is new token price update", prices)
+			log.Infof("There is new token price update: %+v\n", prices)
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateTokenPrices(prices)
 			} else {

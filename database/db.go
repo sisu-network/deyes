@@ -283,7 +283,7 @@ func (d *DefaultDatabase) LoadWatchAddresses(chain string) []*types.WatchAddress
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 	for _, tokenPrice := range tokenPrices {
 		_, err := d.db.Exec(
-			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
+			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
 			tokenPrice.Price,
