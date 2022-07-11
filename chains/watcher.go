@@ -12,5 +12,5 @@ type Watcher interface {
 	SetGateway(addr string)
 
 	// Track a particular tx whose binary form on that chain is bz
-	TrackTx(bz []byte)
+	TrackTx(txHash string)
 }

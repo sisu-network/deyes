@@ -25,6 +25,10 @@ const (
 	UnitLovelace    = "lovelace"
 )
 
+var (
+	MetadataNotFound = fmt.Errorf("Metadata not found")
+)
+
 // implements cardanoClient
 type BlockfrostClient struct {
 	inner   blockfrost.APIClient
@@ -116,7 +120,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.Card
 		}
 
 		metadata, err := b.GetTransactionMetadata(string(txHash))
-		if err != nil {
+		if err != nil && err != MetadataNotFound {
 			return nil, err
 		}
 
@@ -205,6 +209,10 @@ func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.Cardano
 	if err != nil {
 		log.Error("error when getting transaction metadata: ", err)
 		return nil, err
+	}
+
+	if len(txMetadata) == 0 {
+		return nil, MetadataNotFound
 	}
 
 	// Noted: when creating a transaction with metadata, please attach metadata in label "0"

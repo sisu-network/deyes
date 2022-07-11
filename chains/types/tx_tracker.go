@@ -12,4 +12,8 @@ type TrackUpdate struct {
 	Bytes       []byte
 	BlockHeight int64
 	Result      TrackResult
+	Hash        string
+
+	// For ETH
+	Nonce int64
 }

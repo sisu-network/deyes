@@ -82,7 +82,7 @@ func (p *Processor) Start() {
 				},
 			)
 
-			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, client)
+			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
 			dispatcher = carcore.NewDispatcher(client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
@@ -123,17 +123,20 @@ func (p *Processor) listen() {
 			}
 
 		case txTrackUpdate := <-p.txTrackCh:
+			log.Verbose("There is a tx to confirm with hash: ", txTrackUpdate.Hash)
 			p.sisuClient.ConfirmTx(txTrackUpdate)
 		}
 	}
 }
 
 func (tp *Processor) SetChainAccount(chain, addr string) {
+	log.Infof("Setting chain account, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]
 	watcher.SetChainAccount(addr)
 }
 
 func (tp *Processor) SetGateway(chain, addr string) {
+	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]
 	watcher.SetGateway(addr)
 }
@@ -153,7 +156,7 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	tp.sisuClient.PostDeploymentResult(result)
 
 	// If dispatching successful, add the tx to tracking.
-	tp.watchers[chain].TrackTx(request.Tx)
+	tp.watchers[chain].TrackTx(request.TxHash)
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {

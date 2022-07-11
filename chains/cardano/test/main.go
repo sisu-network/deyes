@@ -16,6 +16,7 @@ import (
 	"github.com/echovl/cardano-go/wallet"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -122,10 +123,12 @@ func testWatcher() {
 	}
 
 	txsCh := make(chan *types.Txs)
-	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh, carcore.NewBlockfrostClient(blockfrost.APIClientOptions{
-		ProjectID: projectId,
-		Server:    chainCfg.Rpcs[0],
-	}))
+	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh,
+		make(chan *chainstypes.TrackUpdate, 3),
+		carcore.NewBlockfrostClient(blockfrost.APIClientOptions{
+			ProjectID: projectId,
+			Server:    chainCfg.Rpcs[0],
+		}))
 	watcher.Start()
 	watcher.SetGateway("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 

@@ -284,20 +284,20 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		hash := utils.KeccakHash32Bytes(bz)
-		if _, ok := w.txTrackCache.Get(hash); ok {
+		fmt.Println("Txhash = ", tx.Hash().String())
+
+		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
 			// This is a transction that we are tracking. Inform Sisu about this.
 			w.txTrackCh <- &chainstypes.TrackUpdate{
 				Chain:       w.cfg.Chain,
 				Bytes:       bz,
-				BlockHeight: block.Number().Int64(),
+				Hash:        tx.Hash().String(),
+				BlockHeight: int64(block.NumberU64()),
 				Result:      chainstypes.TrackResultConfirmed,
 			}
 
 			continue
 		}
-
-		// TODO: Confirm transaction using the hash of the tx.
 
 		// Only filter our interested transaction.
 		if !w.acceptTx(tx) {
@@ -326,10 +326,10 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 	}
 
 	return &types.Txs{
-		Chain: w.cfg.Chain,
-		Block: block.Number().Int64(),
-		Hash:  block.Hash().String(),
-		Arr:   arr,
+		Chain:     w.cfg.Chain,
+		Block:     block.Number().Int64(),
+		BlockHash: block.Hash().String(),
+		Arr:       arr,
 	}, nil
 }
 
@@ -400,7 +400,7 @@ func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 	return gasPrice, nil
 }
 
-func (w *Watcher) TrackTx(bz []byte) {
-	hash := utils.KeccakHash32Bytes(bz)
-	w.txTrackCache.Add(hash, true)
+func (w *Watcher) TrackTx(txHash string) {
+	log.Verbose("Tracking tx: ", txHash)
+	w.txTrackCache.Add(txHash, true)
 }
