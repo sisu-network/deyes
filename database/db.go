@@ -263,7 +263,12 @@ func (d *DefaultDatabase) SetGateway(chain, address string) error {
 }
 
 func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
-	_, err := d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
+	var err error
+	if d.cfg.InMemory {
+		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, typ)
+	} else {
+		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
+	}
 	if err != nil {
 		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}

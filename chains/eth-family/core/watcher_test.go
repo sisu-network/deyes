@@ -8,17 +8,35 @@ import (
 
 	libchain "github.com/sisu-network/lib/chain"
 
+	chainstypes "github.com/sisu-network/deyes/chains/types"
+
+	"github.com/sisu-network/deyes/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/database"
 	"github.com/stretchr/testify/require"
 )
+
+func getTestDb() database.Database {
+	db := database.NewDb(&config.Deyes{InMemory: true, DbHost: "localhost"})
+	err := db.Init()
+	if err != nil {
+		panic(err)
+	}
+
+	return db
+}
 
 func TestProcessBlock(t *testing.T) {
 	t.Parallel()
 
 	client := &MockEthClient{
+		PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
+			return 0, nil
+		},
 		TransactionReceiptFunc: func(ctx context.Context, txHash common.Hash) (*etypes.Receipt, error) {
 			return &etypes.Receipt{
 				Status: 1,
@@ -26,12 +44,12 @@ func TestProcessBlock(t *testing.T) {
 		},
 	}
 
-	watcher := Watcher{
-		clients: []EthClient{client},
-		cfg: config.Chain{
-			Chain: "ganache1",
-		},
+	db := getTestDb()
+	cfg := config.Chain{
+		Chain: "ganache1",
 	}
+	watcher := NewWatcher(db, cfg, make(chan *types.Txs), make(chan *chainstypes.TrackUpdate),
+		[]EthClient{client}).(*Watcher)
 	watcher.SetGateway(common.Address{1}.Hex())
 	trans := genTransactions(t)
 	hdr := etypes.Header{
