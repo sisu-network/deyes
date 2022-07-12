@@ -16,6 +16,7 @@ import (
 	"github.com/echovl/cardano-go/wallet"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -122,12 +123,14 @@ func testWatcher() {
 	}
 
 	txsCh := make(chan *types.Txs)
-	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh, carcore.NewBlockfrostClient(blockfrost.APIClientOptions{
-		ProjectID: projectId,
-		Server:    chainCfg.Rpcs[0],
-	}))
+	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh,
+		make(chan *chainstypes.TrackUpdate, 3),
+		carcore.NewBlockfrostClient(blockfrost.APIClientOptions{
+			ProjectID: projectId,
+			Server:    chainCfg.Rpcs[0],
+		}))
 	watcher.Start()
-	watcher.AddWatchAddr("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
+	watcher.SetGateway("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
 	go func() {
 		w := getWallet()
@@ -290,7 +293,7 @@ func testBlockfrostClient() {
 		},
 	)
 
-	txsIn, err := client.NewTxs(3654812, map[string]bool{"addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45": true})
+	txsIn, err := client.NewTxs(3654812, "addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45")
 	if err != nil {
 		panic(err)
 	}
@@ -439,8 +442,19 @@ func transferMultiAsset(recipient string, amount uint64) {
 	log.Info("txHash = ", txHash)
 }
 
+func testUtxos() {
+	api := getApi()
+	txHashes, err := api.TransactionUTXOs(context.Background(), "c3998f845e159598f566fe1418d86b22296953a83bda2a96eab411f9ff05a0c2")
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info(txHashes.Inputs[0].Address)
+}
+
 func main() {
-	testBlockfrostClient()
+	testUtxos()
+	// testBlockfrostClient()
 	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 3_000_000)
 	// transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 4_000_000)
 

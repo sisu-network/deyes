@@ -28,6 +28,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 		log.Error("error when unmarshalling tx: ", err)
 		return &types.DispatchedTxResult{
 			Success: false,
+			Chain:   request.Chain,
 			Err:     err,
 		}
 	}
@@ -41,6 +42,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 		log.Error("error when submitting tx: ", err)
 		return &types.DispatchedTxResult{
 			Success: false,
+			Chain:   request.Chain,
 			Err:     err,
 		}
 	}
@@ -49,6 +51,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 
 	return &types.DispatchedTxResult{
 		Success: true,
+		Chain:   request.Chain,
 		TxHash:  hash.String(),
 	}
 }

@@ -25,9 +25,13 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
-	// Watch address
-	SaveWatchAddress(chain, address string) error
-	LoadWatchAddresses(chain string) []*types.WatchAddress
+	// Chain Account
+	SetChainAccount(chain, address string) error
+	GetChainAccount(chain string) (string, error)
+
+	// Gateway address
+	SetGateway(chain, address string) error
+	GetGateway(chain string) (string, error)
 
 	// Token price
 	SaveTokenPrices(tokenPrices []*types.TokenPrice)
@@ -246,8 +250,25 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SaveWatchAddress(chain, address string) error {
-	_, err := d.db.Exec("INSERT INTO watch_address (chain, address) VALUES (?, ?)", chain, address)
+func (d *DefaultDatabase) SetChainAccount(chain, address string) error {
+	return d.addWatchAddress(chain, address, "chain_account")
+}
+
+func (d *DefaultDatabase) GetChainAccount(chain string) (string, error) {
+	return d.getWatchAddress(chain, "chain_account")
+}
+
+func (d *DefaultDatabase) SetGateway(chain, address string) error {
+	return d.addWatchAddress(chain, address, "gateway")
+}
+
+func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
+	var err error
+	if d.cfg.InMemory {
+		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, typ)
+	} else {
+		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
+	}
 	if err != nil {
 		log.Error(fmt.Sprintf("cannot insert watch address with chain %s and address %s.", chain, address), "Err =", err)
 	}
@@ -255,29 +276,31 @@ func (d *DefaultDatabase) SaveWatchAddress(chain, address string) error {
 	return err
 }
 
-func (d *DefaultDatabase) LoadWatchAddresses(chain string) []*types.WatchAddress {
-	addrs := make([]*types.WatchAddress, 0)
+func (d *DefaultDatabase) GetGateway(chain string) (string, error) {
+	return d.getWatchAddress(chain, "gateway")
+}
 
-	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=?", chain)
+func (d *DefaultDatabase) getWatchAddress(chain, typ string) (string, error) {
+	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=? and type=?", chain, typ)
 	if err != nil {
 		log.Error("Failed to load watch address for chain ", chain, ". Error = ", err)
-		return addrs
+		return "", err
 	}
 
 	defer rows.Close()
 
-	for rows.Next() {
+	if rows.Next() {
 		var addr sql.NullString
-		err := rows.Scan(&addr)
-		if err == nil {
-			addrs = append(addrs, &types.WatchAddress{
-				Chain:   chain,
-				Address: addr.String,
-			})
+		err = rows.Scan(&addr)
+
+		if err != nil {
+			return "", err
 		}
+
+		return addr.String, nil
 	}
 
-	return addrs
+	return "", nil
 }
 
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {

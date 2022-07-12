@@ -1,6 +1,9 @@
 package core
 
-import "github.com/sisu-network/deyes/types"
+import (
+	chainstypes "github.com/sisu-network/deyes/chains/types"
+	"github.com/sisu-network/deyes/types"
+)
 
 type MockClient struct {
 	TryDialFunc              func()
@@ -8,6 +11,7 @@ type MockClient struct {
 	BroadcastTxsFunc         func(txs *types.Txs) error
 	PostDeploymentResultFunc func(result *types.DispatchedTxResult) error
 	UpdateTokenPricesFunc    func(prices []*types.TokenPrice) error
+	ConfirmTxFunc            func(txTrack *chainstypes.TrackUpdate) error
 }
 
 func (c *MockClient) TryDial() {
@@ -43,6 +47,14 @@ func (c *MockClient) PostDeploymentResult(result *types.DispatchedTxResult) erro
 func (c *MockClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
 	if c.UpdateTokenPricesFunc != nil {
 		return c.UpdateTokenPricesFunc(prices)
+	}
+
+	return nil
+}
+
+func (c *MockClient) ConfirmTx(txTrack *chainstypes.TrackUpdate) error {
+	if c.ConfirmTxFunc != nil {
+		return c.ConfirmTxFunc(txTrack)
 	}
 
 	return nil
