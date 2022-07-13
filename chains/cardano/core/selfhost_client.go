@@ -42,7 +42,7 @@ func NewSelfHostClient(cfg PostgresConfig, submitURL string) *SelfHostClient {
 	return c
 }
 
-func connectDB(cfg PostgresConfig) (*sql.DB, error) {
+func ConnectDB(cfg PostgresConfig) (*sql.DB, error) {
 	dbSrc := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DbName)
@@ -55,7 +55,7 @@ func connectDB(cfg PostgresConfig) (*sql.DB, error) {
 }
 
 func (s *SelfHostClient) connectDB() {
-	db, err := connectDB(s.Cfg)
+	db, err := ConnectDB(s.Cfg)
 	if err != nil {
 		panic(err)
 	}

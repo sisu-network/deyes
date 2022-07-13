@@ -21,6 +21,15 @@ import (
 
 var _ CardanoClient = (*BlockfrostClient)(nil)
 
+type Provider interface {
+	Health(ctx context.Context) (blockfrost.Health, error)
+	BlockLatest(ctx context.Context) (blockfrost.Block, error)
+	Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error)
+	AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error)
+	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
+	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
+}
+
 const (
 	ParamsOrderDesc = "desc"
 	UnitLovelace    = "lovelace"
@@ -28,8 +37,8 @@ const (
 
 // implements cardanoClient
 type BlockfrostClient struct {
-	inner   blockfrost.APIClient
-	options blockfrost.APIClientOptions
+	inner       Provider
+	submitTxURL string
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
@@ -37,10 +46,10 @@ type BlockfrostClient struct {
 	lock         *sync.RWMutex
 }
 
-func NewBlockfrostClient(options blockfrost.APIClientOptions) *BlockfrostClient {
+func NewBlockfrostClient(inner Provider, submitTxURL string) *BlockfrostClient {
 	return &BlockfrostClient{
-		options:      options,
-		inner:        blockfrost.NewAPIClient(options),
+		inner:        inner,
+		submitTxURL:  submitTxURL,
 		policyAssets: make(map[string]*cardano.Assets),
 		bfAssetCache: make(map[string]*blockfrost.Asset),
 		lock:         &sync.RWMutex{},
@@ -89,13 +98,13 @@ func (b *BlockfrostClient) BlockHeight() (int, error) {
 }
 
 // NewTxs implements CardanoClient
-func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error) {
+func (b *BlockfrostClient) NewTxs(height int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
 	}
 
-	if latestHeight < fromHeight {
+	if latestHeight < height {
 		return nil, BlockNotFound
 	}
 
@@ -105,8 +114,8 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 	for addr := range interestedAddrs {
 		bfTxs, err := b.inner.AddressTransactions(b.getContext(), addr, blockfrost.APIQueryParams{
 			Order: ParamsOrderDesc,
-			From:  strconv.Itoa(fromHeight),
-			To:    strconv.Itoa(fromHeight),
+			From:  strconv.Itoa(height),
+			To:    strconv.Itoa(height),
 		})
 
 		if err != nil {
@@ -190,10 +199,9 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, interestedAddrs map[string]boo
 						TxHash:    txHash,
 						UtxoIndex: i,
 						To:        to,
-
-						Asset:    "ADA",
-						Amount:   uint64(amt.Coin),
-						Metadata: *metadata,
+						Asset:     "ADA",
+						Amount:    uint64(amt.Coin),
+						Metadata:  *metadata,
 					})
 				}
 
@@ -295,15 +303,14 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 
 	log.Debugf("tx = %+v\n", tx)
 	// Copy from this https://github.com/echovl/cardano-go/blob/4936c872fbb1f1db4bf04f1242fc180b0fe9843f/blockfrost/blockfrost.go#L124
-	url := fmt.Sprintf("%s/tx/submit", b.options.Server)
 	txBytes := tx.Bytes()
 
+	url := b.submitTxURL
 	req, err := http.NewRequest("POST", url, bytes.NewReader(txBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("project_id", b.options.ProjectID)
 	req.Header.Add("Content-Type", "application/cbor")
 
 	resp, err := http.DefaultClient.Do(req)

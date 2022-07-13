@@ -3,10 +3,13 @@ package core
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
 )
+
+var _ Provider = (*SyncDB)(nil)
 
 type SyncDB struct {
 	DB *sql.DB
@@ -14,6 +17,76 @@ type SyncDB struct {
 
 func NewSyncDBConnector(db *sql.DB) *SyncDB {
 	return &SyncDB{DB: db}
+}
+
+func (s *SyncDB) Health(ctx context.Context) (blockfrost.Health, error) {
+	return blockfrost.Health{IsHealthy: true}, nil
+}
+
+func (s *SyncDB) BlockLatest(ctx context.Context) (blockfrost.Block, error) {
+	rows, err := s.DB.Query("SELECT block_no FROM block ORDER BY id DESC LIMIT 1")
+	if err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	defer rows.Close()
+	rows.Next()
+	var height sql.NullInt64
+	if err := rows.Scan(&height); err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	return blockfrost.Block{Height: int(height.Int64)}, nil
+}
+
+func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error) {
+	num, err := strconv.Atoi(hashOrNumber)
+	if err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	rows, err := s.DB.Query("select id from block where block_no = $1", num)
+	if err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	if !rows.Next() {
+		err := fmt.Errorf("block %d not found", num)
+		return blockfrost.Block{}, err
+	}
+
+	return blockfrost.Block{Height: num}, nil
+}
+
+func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error) {
+	from, err := strconv.Atoi(query.From)
+	if err != nil {
+		return nil, err
+	}
+
+	dbQuery := "select encode(hash, 'hex') from tx where block_id = (select id from block where block_no = $1) and id in (select tx_id from tx_out where address = $2)"
+	rows, err := s.DB.Query(dbQuery, from, address)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	txs := make([]string, 0)
+	for rows.Next() {
+		var rc sql.NullString
+		if err := rows.Scan(&rc); err != nil {
+			return nil, err
+		}
+
+		txs = append(txs, rc.String)
+	}
+
+	res := make([]blockfrost.AddressTransactions, 0, len(txs))
+	for _, tx := range txs {
+		res = append(res, blockfrost.AddressTransactions{TxHash: tx})
+	}
+
+	return res, nil
 }
 
 func (s *SyncDB) BlockTransactions(ctx context.Context, height int64) ([]string, error) {
