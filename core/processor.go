@@ -8,6 +8,7 @@ import (
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
 	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -24,6 +25,7 @@ type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
 	priceUpdateCh chan []*types.TokenPrice
+	txTrackCh     chan *chainstypes.TrackUpdate
 	chain         string
 	blockTime     int
 	sisuClient    client.Client
@@ -57,6 +59,7 @@ func (p *Processor) Start() {
 	log.Info("tp.cfg.Chains = ", p.cfg.Chains)
 
 	p.txsCh = make(chan *types.Txs, 1000)
+	p.txTrackCh = make(chan *chainstypes.TrackUpdate, 1000)
 	p.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go p.listen()
@@ -68,7 +71,7 @@ func (p *Processor) Start() {
 		var watcher chains.Watcher
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) { // ETH chain
-			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.getEthClients(cfg.Rpcs))
+			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
 			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) { // Cardano chain
 			synDbConfig := carcore.PostgresConfig{
@@ -88,7 +91,7 @@ func (p *Processor) Start() {
 				"http://143.198.98.1:8090/api/submit/tx",
 			)
 
-			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, client)
+			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
 			dispatcher = carcore.NewDispatcher(client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
@@ -119,6 +122,7 @@ func (p *Processor) listen() {
 			} else {
 				log.Warnf("txs: Sisu is not ready")
 			}
+
 		case prices := <-p.priceUpdateCh:
 			log.Info("There is new token price update", prices)
 			if p.sisuReady.Load() == true {
@@ -126,22 +130,24 @@ func (p *Processor) listen() {
 			} else {
 				log.Warnf("prices: Sisu is not ready")
 			}
+
+		case txTrackUpdate := <-p.txTrackCh:
+			log.Verbose("There is a tx to confirm with hash: ", txTrackUpdate.Hash)
+			p.sisuClient.ConfirmTx(txTrackUpdate)
 		}
 	}
 }
 
-func (tp *Processor) AddWatchAddresses(chain string, addrs []string) {
-	log.Verbose("Received watch address from sisu: ", chain, addrs)
-
+func (tp *Processor) SetChainAccount(chain, addr string) {
+	log.Infof("Setting chain account, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]
-	if watcher != nil {
-		for _, addr := range addrs {
-			log.Info("Adding watched addr ", addr, " for chain ", chain)
-			watcher.AddWatchAddr(addr)
-		}
-	} else {
-		log.Critical("Watcher is nil")
-	}
+	watcher.SetChainAccount(addr)
+}
+
+func (tp *Processor) SetGateway(chain, addr string) {
+	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
+	watcher := tp.watchers[chain]
+	watcher.SetGateway(addr)
 }
 
 func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
@@ -157,6 +163,9 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 
 	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
+
+	// If dispatching successful, add the tx to tracking.
+	tp.watchers[chain].TrackTx(request.TxHash)
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {

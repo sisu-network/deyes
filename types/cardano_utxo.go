@@ -1,30 +1,19 @@
 package types
 
-import (
-	"fmt"
-	"strconv"
+type TxAmount struct {
+	// The quantity of the unit
+	Quantity string `json:"quantity"`
 
-	"github.com/echovl/cardano-go"
-)
-
-// Represents a utxo transaction from address A -> B in Cardano.
-type CardanoUtxo struct {
-	TxHash  cardano.Hash32
-	Spender cardano.Address
-	Amount  *cardano.Value
-	Index   uint64
+	// The unit of the value
+	Unit string `json:"unit"`
 }
 
-type CardanoTxInItem struct {
-	TxHash cardano.Hash32
-	// To Cardano gateway address
-	To        cardano.Address
-	UtxoIndex int
-
-	// Info about the swap
-	Amount   uint64
-	Asset    string
-	Metadata CardanoTxMetadata
+type CardanoTransactionUtxo struct {
+	Hash     string             `json:"hash"`
+	Index    int                `json:"index"`
+	Address  string             `json:"Address"`
+	Amount   []TxAmount         `json:"amount"`
+	Metadata *CardanoTxMetadata `json:"metadata"`
 }
 
 type CardanoTxMetadata struct {
@@ -34,8 +23,4 @@ type CardanoTxMetadata struct {
 	// NativeAda indicates if user wants to transfer ADA token cross chain since every multi-asset
 	// transaction requires some ADA in it.
 	NativeAda int `json:"native_ada,omitempty"`
-}
-
-func (c *CardanoUtxo) Hash() string {
-	return fmt.Sprintf("%s__%s", c.TxHash, strconv.Itoa(int(c.Index)))
 }

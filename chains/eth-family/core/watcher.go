@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -18,41 +19,47 @@ import (
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
+
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
 const (
-	minGasPrice = 10_000_000_000
+	minGasPrice      = 10_000_000_000
+	TxTrackCacheSize = 1_000
 )
 
 type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 
 // TODO: Move this to the chains package.
 type Watcher struct {
-	cfg         config.Chain
-	clients     []EthClient
-	blockHeight int64
-	blockTime   int
-	db          database.Database
-	txsCh       chan *types.Txs
-	// A set of address we are interested in. Only send information about transaction to these
-	// addresses back to Sisu.
-	interestedAddrs *sync.Map
-
-	signers map[string]etypes.Signer
-
+	cfg             config.Chain
+	clients         []EthClient
+	blockHeight     int64
+	blockTime       int
+	db              database.Database
+	txsCh           chan *types.Txs
+	txTrackCh       chan *chainstypes.TrackUpdate
+	chainAccount    string
+	gateway         string
+	signers         map[string]etypes.Signer
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
+	lock            *sync.RWMutex
+	txTrackCache    *lru.Cache
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs, clients []EthClient) chains.Watcher {
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
+	txTrackCh chan *chainstypes.TrackUpdate, clients []EthClient) chains.Watcher {
 	w := &Watcher{
-		db:              db,
-		cfg:             cfg,
-		txsCh:           txsCh,
-		interestedAddrs: &sync.Map{},
-		blockTime:       cfg.BlockTime,
-		gasPrice:        atomic.NewInt64(0),
-		clients:         clients,
+		db:           db,
+		cfg:          cfg,
+		txsCh:        txsCh,
+		txTrackCh:    txTrackCh,
+		blockTime:    cfg.BlockTime,
+		gasPrice:     atomic.NewInt64(0),
+		clients:      clients,
+		lock:         &sync.RWMutex{},
+		txTrackCache: lru.New(TxTrackCacheSize),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -64,13 +71,18 @@ func (w *Watcher) init() {
 	// Set the block height for the watcher.
 	w.setBlockHeight()
 
-	// Load watch addresses
-	watchAddrs := w.db.LoadWatchAddresses(w.cfg.Chain)
-
-	log.Info("Watch address for chain ", w.cfg.Chain, ": ", watchAddrs)
-	for _, watchAddr := range watchAddrs {
-		w.interestedAddrs.Store(watchAddr.Address, true)
+	var err error
+	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	if err != nil {
+		panic(err)
 	}
+
+	w.chainAccount, err = w.db.GetChainAccount(w.cfg.Chain)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
 }
 
 func (w *Watcher) setBlockHeight() {
@@ -89,9 +101,28 @@ func (w *Watcher) setBlockHeight() {
 	log.Info("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
 }
 
-func (w *Watcher) AddWatchAddr(addr string) {
-	w.interestedAddrs.Store(addr, true)
-	w.db.SaveWatchAddress(w.cfg.Chain, addr)
+func (w *Watcher) SetChainAccount(addr string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	err := w.db.SetChainAccount(w.cfg.Chain, addr)
+	if err == nil {
+		w.chainAccount = addr
+	} else {
+		log.Error("Failed to save gateway")
+	}
+}
+
+func (w *Watcher) SetGateway(addr string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	err := w.db.SetGateway(w.cfg.Chain, addr)
+	if err == nil {
+		w.gateway = addr
+	} else {
+		log.Error("Failed to save gateway")
+	}
 }
 
 func (w *Watcher) Start() {
@@ -253,6 +284,21 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
+		fmt.Println("Txhash = ", tx.Hash().String())
+
+		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
+			// This is a transction that we are tracking. Inform Sisu about this.
+			w.txTrackCh <- &chainstypes.TrackUpdate{
+				Chain:       w.cfg.Chain,
+				Bytes:       bz,
+				Hash:        tx.Hash().String(),
+				BlockHeight: int64(block.NumberU64()),
+				Result:      chainstypes.TrackResultConfirmed,
+			}
+
+			continue
+		}
+
 		// Only filter our interested transaction.
 		if !w.acceptTx(tx) {
 			continue
@@ -271,48 +317,25 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		receipt, err := w.getTxReceipt(tx.Hash())
-		if receipt == nil {
-			log.Errorf("cannot get receipt for tx %s on chain %s", tx.Hash().String(), w.cfg.Chain)
-			continue
-		}
-
-		if receipt.Status == 0 {
-			log.Errorf("Tx is included in the blockchain but failed during execution. hash %s - chain %s", tx.Hash().String(), w.cfg.Chain)
-		}
-
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
 			Serialized: bz,
-			To:         to,
 			From:       from.Hex(),
-			Success:    receipt.Status == 1,
+			To:         to,
 		})
 	}
 
 	return &types.Txs{
-		Chain: w.cfg.Chain,
-		Arr:   arr,
+		Chain:     w.cfg.Chain,
+		Block:     block.Number().Int64(),
+		BlockHash: block.Hash().String(),
+		Arr:       arr,
 	}, nil
 }
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
-	if tx.To() != nil {
-		_, ok := w.interestedAddrs.Load(tx.To().Hex())
-		if ok {
-			log.Verbose("Tx is accepted with TO address: ", tx.To().Hex(), " on chain ", w.cfg.Chain)
-			return true
-		}
-	}
-
-	// check from
-	from, err := w.getFromAddress(w.cfg.Chain, tx)
-	if err == nil {
-		_, ok := w.interestedAddrs.Load(from.Hex())
-		if ok {
-			log.Verbose("Tx is accepted with FROM address: ", from.Hex(), " on chain ", w.cfg.Chain)
-			return true
-		}
+	if tx.To() != nil && (tx.To().String() == w.gateway || tx.To().String() == w.chainAccount) {
+		return true
 	}
 
 	return false
@@ -375,4 +398,9 @@ func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 	}
 
 	return gasPrice, nil
+}
+
+func (w *Watcher) TrackTx(txHash string) {
+	log.Verbose("Tracking tx: ", txHash)
+	w.txTrackCache.Add(txHash, true)
 }

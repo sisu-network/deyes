@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/blockfrost/blockfrost-go"
@@ -28,6 +27,7 @@ type Provider interface {
 	AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error)
 	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
 	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
+	BlockTransactions(ctx context.Context, height string) ([]blockfrost.Transaction, error)
 }
 
 const (
@@ -35,10 +35,15 @@ const (
 	UnitLovelace    = "lovelace"
 )
 
+var (
+	MetadataNotFound = fmt.Errorf("Metadata not found")
+)
+
 // implements cardanoClient
 type BlockfrostClient struct {
 	inner       Provider
 	submitTxURL string
+	secret      string
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
@@ -98,138 +103,71 @@ func (b *BlockfrostClient) BlockHeight() (int, error) {
 }
 
 // NewTxs implements CardanoClient
-func (b *BlockfrostClient) NewTxs(height int, interestedAddrs map[string]bool) ([]*types.CardanoTxInItem, error) {
+func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
 	}
 
-	if latestHeight < height {
+	if latestHeight < fromHeight {
 		return nil, BlockNotFound
 	}
 
-	added := make(map[string]bool)
-	txInItems := make([]*types.CardanoTxInItem, 0)
+	txs := make([]*types.CardanoTransactionUtxo, 0)
 
-	for addr := range interestedAddrs {
-		bfTxs, err := b.inner.AddressTransactions(b.getContext(), addr, blockfrost.APIQueryParams{
-			Order: ParamsOrderDesc,
-			From:  strconv.Itoa(height),
-			To:    strconv.Itoa(height),
-		})
+	txHashes, err := b.inner.BlockTransactions(context.Background(), fmt.Sprintf("%d", fromHeight))
+	if err != nil {
+		return nil, err
+	}
 
+	for _, txHash := range txHashes {
+		utxos, err := b.inner.TransactionUTXOs(context.Background(), string(txHash))
 		if err != nil {
 			return nil, err
 		}
 
-		for _, bfTx := range bfTxs {
-			log.Debug("bfTx hash = ", bfTx.TxHash)
-			if added[bfTx.TxHash] {
-				continue
-			}
+		if !b.shouldIncludeTx(utxos, gateway) {
+			continue
+		}
 
-			added[bfTx.TxHash] = true
-			txContent, err := b.inner.TransactionUTXOs(context.Background(), bfTx.TxHash)
-			if err != nil {
-				return nil, err
-			}
+		metadata, err := b.GetTransactionMetadata(string(txHash))
+		if err != nil && err != MetadataNotFound {
+			return nil, err
+		}
 
-			allMetadata, err := b.GetTransactionMetadata(bfTx.TxHash)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(allMetadata) == 0 {
-				log.Warn("Found transaction send to gateway without transaction metadata. TxHash = ", bfTx.TxHash)
-				continue
-			}
-
-			metadata, err := getTxInfoFromMetadata(allMetadata)
-			if err != nil {
-				return nil, err
-			}
-
-			for i, output := range txContent.Outputs {
-				if !strings.EqualFold(output.Address, addr) {
-					continue
+		for i, output := range utxos.Outputs {
+			if output.Address == gateway {
+				tx := &types.CardanoTransactionUtxo{
+					Hash:     string(txHash),
+					Index:    i,
+					Address:  output.Address,
+					Metadata: metadata,
+					Amount:   make([]types.TxAmount, len(output.Amount)),
 				}
 
-				to, err := cardano.NewAddress(addr)
-				if err != nil {
-					return nil, err
-				}
-
-				amt, err := b.getCardanoAmount(output.Amount)
-				if err != nil {
-					return nil, err
-				}
-
-				txHash, err := cardano.NewHash32(bfTx.TxHash)
-				if err != nil {
-					log.Error("error when parse bfTx hash to cardano tx hash: ", err)
-					return nil, err
-				}
-
-				localInItems := make([]*types.CardanoTxInItem, 0)
-				policyIds := amt.MultiAsset.Keys()
-				for _, policyId := range policyIds {
-					fmt.Println("policyId = ", policyId.String())
-
-					assets := amt.MultiAsset.Get(policyId)
-					for _, name := range assets.Keys() {
-						amount := assets.Get(name)
-
-						fmt.Println("name, amount = ", name, amount)
-
-						localInItems = append(localInItems, &types.CardanoTxInItem{
-							TxHash:    txHash,
-							UtxoIndex: i,
-							To:        to,
-
-							Asset:    name.String(),
-							Amount:   uint64(amount),
-							Metadata: *metadata,
-						})
+				for j, amount := range output.Amount {
+					tx.Amount[j] = types.TxAmount{
+						Quantity: amount.Quantity,
+						Unit:     amount.Unit,
 					}
 				}
 
-				// This is a transaction to send native ada.
-				if len(localInItems) == 0 && metadata.NativeAda == 1 {
-					localInItems = append(localInItems, &types.CardanoTxInItem{
-						TxHash:    txHash,
-						UtxoIndex: i,
-						To:        to,
-						Asset:     "ADA",
-						Amount:    uint64(amt.Coin),
-						Metadata:  *metadata,
-					})
-				}
-
-				txInItems = append(txInItems, localInItems...)
+				txs = append(txs, tx)
 			}
 		}
 	}
 
-	return txInItems, nil
+	return txs, nil
 }
 
-func getTxInfoFromMetadata(txMetadata []blockfrost.TransactionMetadata) (*types.CardanoTxMetadata, error) {
-	// Noted: when creating a transaction with metadata, please attach metadata in label "0"
-	log.Debug("Label = ", txMetadata[0].Label)
-	txMetadatum, ok := txMetadata[0].JsonMetadata.(map[string]interface{})
-	if !ok {
-		err := fmt.Errorf("unknown tx metadatum type. Expected map[string]interface{}, got: %T", txMetadata[0].JsonMetadata)
-		log.Error(err)
-		return nil, err
+func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, gateway string) bool {
+	for _, output := range utxos.Outputs {
+		if output.Address == gateway {
+			return true
+		}
 	}
 
-	txAdditionInfo := &types.CardanoTxMetadata{}
-	if err := utils.MapToJSONStruct(txMetadatum, txAdditionInfo); err != nil {
-		log.Error(err)
-		return nil, err
-	}
-
-	return txAdditionInfo, nil
+	return false
 }
 
 func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
@@ -277,14 +215,33 @@ func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*car
 	return amount, nil
 }
 
-func (b *BlockfrostClient) GetTransactionMetadata(txHash string) ([]blockfrost.TransactionMetadata, error) {
+func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.CardanoTxMetadata, error) {
 	txMetadata, err := b.inner.TransactionMetadata(b.getContext(), txHash)
 	if err != nil {
 		log.Error("error when getting transaction metadata: ", err)
 		return nil, err
 	}
 
-	return txMetadata, nil
+	if len(txMetadata) == 0 {
+		return nil, MetadataNotFound
+	}
+
+	// Noted: when creating a transaction with metadata, please attach metadata in label "0"
+	log.Debug("Label = ", txMetadata[0].Label)
+	txMetadatum, ok := txMetadata[0].JsonMetadata.(map[string]interface{})
+	if !ok {
+		err := fmt.Errorf("unknown tx metadatum type. Expected map[string]interface{}, got: %T", txMetadata[0].JsonMetadata)
+		log.Error(err)
+		return nil, err
+	}
+
+	txAdditionInfo := &types.CardanoTxMetadata{}
+	if err := utils.MapToJSONStruct(txMetadatum, txAdditionInfo); err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return txAdditionInfo, nil
 }
 
 func (b *BlockfrostClient) getContext() context.Context {
@@ -311,6 +268,7 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 		return nil, err
 	}
 
+	req.Header.Add("project_id", b.secret)
 	req.Header.Add("Content-Type", "application/cbor")
 
 	resp, err := http.DefaultClient.Do(req)

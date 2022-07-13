@@ -89,21 +89,26 @@ func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query 
 	return res, nil
 }
 
-func (s *SyncDB) BlockTransactions(ctx context.Context, height int64) ([]string, error) {
-	rows, err := s.DB.Query("SELECT encode(hash, 'hex') FROM tx WHERE block_id in (SELECT id FROM block WHERE block_no = $1)", height)
+func (s *SyncDB) BlockTransactions(_ context.Context, height string) ([]blockfrost.Transaction, error) {
+	h, err := strconv.Atoi(height)
 	if err != nil {
-		return []string{}, err
+		return []blockfrost.Transaction{}, err
+	}
+
+	rows, err := s.DB.Query("SELECT encode(hash, 'hex') FROM tx WHERE block_id in (SELECT id FROM block WHERE block_no = $1)", h)
+	if err != nil {
+		return []blockfrost.Transaction{}, err
 	}
 
 	defer rows.Close()
-	txs := make([]string, 0)
+	txs := make([]blockfrost.Transaction, 0)
 	for rows.Next() {
 		var rc sql.NullString
 		if err := rows.Scan(&rc); err != nil {
-			return []string{}, err
+			return []blockfrost.Transaction{}, err
 		}
 
-		txs = append(txs, rc.String)
+		txs = append(txs, blockfrost.Transaction(rc.String))
 	}
 
 	return txs, nil
