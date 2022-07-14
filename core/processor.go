@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
+	"github.com/blockfrost/blockfrost-go"
 	"sync/atomic"
 
-	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
@@ -75,11 +75,34 @@ func (p *Processor) Start() {
 			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
 			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) { // Cardano chain
-			client := carcore.NewBlockfrostClient(
-				blockfrost.APIClientOptions{
+			var (
+				provider  carcore.Provider
+				submitURL string
+			)
+
+			if cfg.ClientType == config.ClientTypeBlockFrost && len(cfg.RpcSecret) > 0 {
+				log.Info("Use Blockfrost API client")
+				provider = blockfrost.NewAPIClient(blockfrost.APIClientOptions{
 					ProjectID: cfg.RpcSecret,
 					Server:    blockfrost.CardanoTestNet,
-				},
+				})
+				submitURL = blockfrost.CardanoTestNet + "/tx/submit"
+			} else if cfg.ClientType == config.ClientTypeSelfHost {
+				log.Info("Use Self-host client")
+				db, err := carcore.ConnectDB(cfg.SyncDB)
+				if err != nil {
+					panic(err)
+				}
+
+				provider = carcore.NewSyncDBConnector(db)
+				submitURL = cfg.SyncDB.SubmitURL
+			} else {
+				panic(fmt.Errorf("unknown cardano client type: %s", cfg.ClientType))
+			}
+			client := carcore.NewBlockfrostClient(
+				provider,
+				submitURL,
+				cfg.RpcSecret, // only used for Blockfrost API
 			)
 
 			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)

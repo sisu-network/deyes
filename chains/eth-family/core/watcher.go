@@ -287,7 +287,7 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 		fmt.Println("Txhash = ", tx.Hash().String())
 
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
-			// This is a transction that we are tracking. Inform Sisu about this.
+			// This is a transaction that we are tracking. Inform Sisu about this.
 			w.txTrackCh <- &chainstypes.TrackUpdate{
 				Chain:       w.cfg.Chain,
 				Bytes:       bz,

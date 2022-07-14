@@ -3,12 +3,10 @@ package core
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/blockfrost/blockfrost-go"
@@ -19,6 +17,16 @@ import (
 )
 
 var _ CardanoClient = (*BlockfrostClient)(nil)
+
+type Provider interface {
+	Health(ctx context.Context) (blockfrost.Health, error)
+	BlockLatest(ctx context.Context) (blockfrost.Block, error)
+	Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error)
+	AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error)
+	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
+	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
+	BlockTransactions(ctx context.Context, height string) ([]blockfrost.Transaction, error)
+}
 
 const (
 	ParamsOrderDesc = "desc"
@@ -31,8 +39,9 @@ var (
 
 // implements cardanoClient
 type BlockfrostClient struct {
-	inner   blockfrost.APIClient
-	options blockfrost.APIClientOptions
+	inner       Provider
+	submitTxURL string
+	secret      string
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
@@ -40,10 +49,11 @@ type BlockfrostClient struct {
 	lock         *sync.RWMutex
 }
 
-func NewBlockfrostClient(options blockfrost.APIClientOptions) *BlockfrostClient {
+func NewBlockfrostClient(inner Provider, submitTxURL, secret string) *BlockfrostClient {
 	return &BlockfrostClient{
-		options:      options,
-		inner:        blockfrost.NewAPIClient(options),
+		inner:        inner,
+		secret:       secret,
+		submitTxURL:  submitTxURL,
 		policyAssets: make(map[string]*cardano.Assets),
 		bfAssetCache: make(map[string]*blockfrost.Asset),
 		lock:         &sync.RWMutex{},
@@ -104,12 +114,12 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.Card
 
 	txs := make([]*types.CardanoTransactionUtxo, 0)
 
-	txHahes, err := b.inner.BlockTransactions(context.Background(), fmt.Sprintf("%d", fromHeight))
+	txHashes, err := b.inner.BlockTransactions(context.Background(), fmt.Sprintf("%d", fromHeight))
 	if err != nil {
 		return nil, err
 	}
 
-	for _, txHash := range txHahes {
+	for _, txHash := range txHashes {
 		utxos, err := b.inner.TransactionUTXOs(context.Background(), string(txHash))
 		if err != nil {
 			return nil, err
@@ -159,51 +169,6 @@ func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, ga
 	return false
 }
 
-func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
-	amount := cardano.NewValue(0)
-	for _, a := range amounts {
-		if a.Unit == "lovelace" {
-			lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
-			if err != nil {
-				log.Error("error when parsing lovelace unit: ", err)
-				return nil, err
-			}
-			amount.Coin += cardano.Coin(lovelace)
-		} else {
-			unitBytes, err := hex.DecodeString(a.Unit)
-			if err != nil {
-				log.Error("error when decode multi-asset unit: ", err)
-				return nil, err
-			}
-			policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
-			assetName := string(unitBytes[28:])
-			assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
-			if err != nil {
-				log.Error("error when parsing multi-asset value: ", err)
-				return nil, err
-			}
-			currentAssets := amount.MultiAsset.Get(policyID)
-			if currentAssets != nil {
-				currentAssets.Set(
-					cardano.NewAssetName(assetName),
-					cardano.BigNum(assetValue),
-				)
-			} else {
-				amount.MultiAsset.Set(
-					policyID,
-					cardano.NewAssets().
-						Set(
-							cardano.NewAssetName(string(assetName)),
-							cardano.BigNum(assetValue),
-						),
-				)
-			}
-		}
-	}
-
-	return amount, nil
-}
-
 func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.CardanoTxMetadata, error) {
 	txMetadata, err := b.inner.TransactionMetadata(b.getContext(), txHash)
 	if err != nil {
@@ -249,15 +214,16 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 
 	log.Debugf("tx = %+v\n", tx)
 	// Copy from this https://github.com/echovl/cardano-go/blob/4936c872fbb1f1db4bf04f1242fc180b0fe9843f/blockfrost/blockfrost.go#L124
-	url := fmt.Sprintf("%s/tx/submit", b.options.Server)
 	txBytes := tx.Bytes()
 
+	url := b.submitTxURL
 	req, err := http.NewRequest("POST", url, bytes.NewReader(txBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("project_id", b.options.ProjectID)
+	// This header is only used for Blockfrost.io call
+	req.Header.Add("project_id", b.secret)
 	req.Header.Add("Content-Type", "application/cbor")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -271,7 +237,7 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return nil, errors.New(string(respBody))
 	}
 
