@@ -3,20 +3,20 @@ package core
 import (
 	"context"
 	"fmt"
+	"github.com/sisu-network/deyes/config"
 	"testing"
 
-	"github.com/blockfrost/blockfrost-go"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
 
 func TestIntegrationSyncDB(t *testing.T) {
-	//t.Skip()
+	t.Skip()
 
 	t.Parallel()
 
-	cfg := PostgresConfig{
-		Host:     "143.198.98.1",
+	cfg := config.SyncDbConfig{
+		Host:     "hide",
 		Port:     5432,
 		User:     "sisu",
 		Password: "sisu",
@@ -27,11 +27,14 @@ func TestIntegrationSyncDB(t *testing.T) {
 	require.NoError(t, err)
 
 	syncDB := NewSyncDBConnector(db)
-	//meta, err := syncDB.TransactionMetadata(context.Background(), `\x1a2c7de4efa266d52dae95454c5671a47f45742b0fceb012a791755c3a75c2fc`)
-	//require.NoError(t, err)
-	//fmt.Println(meta)
-
-	txs, err := syncDB.AddressTransactions(context.Background(), "addr_test1qrj8mcevhx4s7q7uxe9yx6fsl3e5vxcshl9j5kvj33n2gmrdh0u8y9amknkkkuqd8rxf9yanp7dexxw0w52c9rqmlz7swaf0ur", blockfrost.APIQueryParams{From: "3702442"})
+	utxos, err := syncDB.TransactionUTXOs(context.Background(), "e61fbf283d12890ff50e9e466175573209773b4abe58b7c33e1449ba08c02a74")
 	require.NoError(t, err)
-	fmt.Println(txs)
+	for _, o := range utxos.Outputs {
+		fmt.Println(o.Address)
+	}
+
+	metadata, err := syncDB.TransactionMetadata(context.Background(), "ded242b05f506e870681a780562fa39fdab4bfd0a24fb275a3e4b4ef0a4d15a1")
+	for _, m := range metadata {
+		fmt.Println(m.JsonMetadata)
+	}
 }

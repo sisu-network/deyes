@@ -22,12 +22,24 @@ type ChainParams struct {
 	Interval                 int64
 }
 
+type SyncDbConfig struct {
+	Host      string `toml:"host" json:"host,omitempty"`
+	Port      int    `toml:"port" json:"port,omitempty"`
+	User      string `toml:"user" json:"user,omitempty"`
+	Password  string `toml:"password" json:"password,omitempty"`
+	DbName    string `toml:"db_name" json:"db_name,omitempty"`
+	SubmitURL string `toml:"submit_url" json:"submit_url,omitempty"`
+}
+
 type Chain struct {
 	Chain      string   `toml:"chain" json:"chain"`
 	BlockTime  int      `toml:"block_time" json:"block_time"`
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
 	RpcSecret  string   `toml:"rpc_secret" json:"rpc_secret"`
+
+	// SyncDB config
+	SyncDB SyncDbConfig `toml:"sync_db" json:"sync_db"`
 }
 
 type Deyes struct {

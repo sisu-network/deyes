@@ -3,12 +3,10 @@ package core
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"sync"
 
 	"github.com/blockfrost/blockfrost-go"
@@ -170,51 +168,6 @@ func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, ga
 	return false
 }
 
-func (b *BlockfrostClient) getCardanoAmount(amounts []blockfrost.TxAmount) (*cardano.Value, error) {
-	amount := cardano.NewValue(0)
-	for _, a := range amounts {
-		if a.Unit == "lovelace" {
-			lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
-			if err != nil {
-				log.Error("error when parsing lovelace unit: ", err)
-				return nil, err
-			}
-			amount.Coin += cardano.Coin(lovelace)
-		} else {
-			unitBytes, err := hex.DecodeString(a.Unit)
-			if err != nil {
-				log.Error("error when decode multi-asset unit: ", err)
-				return nil, err
-			}
-			policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
-			assetName := string(unitBytes[28:])
-			assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
-			if err != nil {
-				log.Error("error when parsing multi-asset value: ", err)
-				return nil, err
-			}
-			currentAssets := amount.MultiAsset.Get(policyID)
-			if currentAssets != nil {
-				currentAssets.Set(
-					cardano.NewAssetName(assetName),
-					cardano.BigNum(assetValue),
-				)
-			} else {
-				amount.MultiAsset.Set(
-					policyID,
-					cardano.NewAssets().
-						Set(
-							cardano.NewAssetName(string(assetName)),
-							cardano.BigNum(assetValue),
-						),
-				)
-			}
-		}
-	}
-
-	return amount, nil
-}
-
 func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.CardanoTxMetadata, error) {
 	txMetadata, err := b.inner.TransactionMetadata(b.getContext(), txHash)
 	if err != nil {
@@ -268,6 +221,7 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 		return nil, err
 	}
 
+	// This header is only used for Blockfrost.io call
 	req.Header.Add("project_id", b.secret)
 	req.Header.Add("Content-Type", "application/cbor")
 
@@ -282,7 +236,7 @@ func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 		return nil, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return nil, errors.New(string(respBody))
 	}
 

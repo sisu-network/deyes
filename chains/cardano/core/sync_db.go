@@ -3,10 +3,14 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/sisu-network/deyes/config"
+
+	_ "github.com/lib/pq"
 )
 
 var _ Provider = (*SyncDB)(nil)
@@ -17,6 +21,18 @@ type SyncDB struct {
 
 func NewSyncDBConnector(db *sql.DB) *SyncDB {
 	return &SyncDB{DB: db}
+}
+
+func ConnectDB(cfg config.SyncDbConfig) (*sql.DB, error) {
+	dbSrc := fmt.Sprintf("host=%s port=%d user=%s "+
+		"password=%s dbname=%s sslmode=disable",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DbName)
+	db, err := sql.Open("postgres", dbSrc)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 func (s *SyncDB) Health(ctx context.Context) (blockfrost.Health, error) {
@@ -131,6 +147,7 @@ func (s *SyncDB) BlockHeight() (int, error) {
 }
 
 func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error) {
+	hash = "\\x" + hash
 	res, err := s.GetTxOutIDs(ctx, hash)
 	if err != nil {
 		return blockfrost.TransactionUTXOs{}, err
@@ -169,7 +186,7 @@ func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (blockfrost.
 
 			txAmount := blockfrost.TxAmount{
 				Quantity: quantity.String,
-				Unit:     maName.String + policy.String,
+				Unit:     policy.String + maName.String,
 			}
 			txAmounts = append(txAmounts, txAmount)
 		}
@@ -232,6 +249,7 @@ func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) (GetTxOutIDsResult,
 }
 
 func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfrost.TransactionMetadata, error) {
+	hash = "\\x" + hash
 	query := `SELECT key, json FROM tx_metadata WHERE tx_id = (SELECT id FROM tx WHERE hash ='` + hash + `')`
 	rows, err := s.DB.Query(query)
 	if err != nil {
@@ -246,10 +264,18 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfro
 			return nil, err
 		}
 
-		res = append(res, blockfrost.TransactionMetadata{
-			JsonMetadata: metadata.String,
-			Label:        label.String,
-		})
+		m := map[string]interface{}{}
+		if err := json.Unmarshal([]byte(metadata.String), &m); err == nil {
+			res = append(res, blockfrost.TransactionMetadata{
+				JsonMetadata: m,
+				Label:        label.String,
+			})
+		} else {
+			res = append(res, blockfrost.TransactionMetadata{
+				JsonMetadata: metadata.String,
+				Label:        label.String,
+			})
+		}
 	}
 
 	return res, nil
