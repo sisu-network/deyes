@@ -100,6 +100,7 @@ func (p *Processor) Start() {
 			client := carcore.NewBlockfrostClient(
 				provider,
 				submitURL,
+				cfg.RpcSecret, // only used for Blockfrost API
 			)
 
 			watcher = carcore.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)

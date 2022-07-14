@@ -49,9 +49,10 @@ type BlockfrostClient struct {
 	lock         *sync.RWMutex
 }
 
-func NewBlockfrostClient(inner Provider, submitTxURL string) *BlockfrostClient {
+func NewBlockfrostClient(inner Provider, submitTxURL, secret string) *BlockfrostClient {
 	return &BlockfrostClient{
 		inner:        inner,
+		secret:       secret,
 		submitTxURL:  submitTxURL,
 		policyAssets: make(map[string]*cardano.Assets),
 		bfAssetCache: make(map[string]*blockfrost.Asset),
