@@ -18,9 +18,9 @@ func TestIntegrationSyncDB(t *testing.T) {
 	cfg := config.SyncDbConfig{
 		Host:     "hide",
 		Port:     5432,
-		User:     "sisu",
-		Password: "sisu",
-		DbName:   "cexplorer",
+		User:     "hide",
+		Password: "hide",
+		DbName:   "hide",
 	}
 
 	db, err := ConnectDB(cfg)
