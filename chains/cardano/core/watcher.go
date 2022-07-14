@@ -91,7 +91,7 @@ func (w *Watcher) scanChain() {
 				// This error is not a Block not found error. Print the error here.
 				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", w.client.LatestBlock().Height, err)
 			} else {
-				log.Verbose("Block %d not found. We need to wait more. w.blockTime = ",
+				log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
 					w.client.LatestBlock().Height, w.blockTime)
 			}
 			continue
