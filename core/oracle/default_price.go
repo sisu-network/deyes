@@ -2,6 +2,7 @@ package oracle
 
 import (
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 )
 
 var (
@@ -19,7 +20,7 @@ func getDefaultTokenPriceList() []*types.TokenPrice {
 		tokenPrice := &types.TokenPrice{
 			Id:       token,
 			PublicId: token,
-			Price:    price,
+			Price:    utils.FloatToWei(price),
 		}
 
 		prices = append(prices, tokenPrice)

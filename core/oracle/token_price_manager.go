@@ -11,6 +11,7 @@ import (
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 	"github.com/sisu-network/lib/log"
 )
 
@@ -71,7 +72,7 @@ func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 						tokenPrice = &types.TokenPrice{
 							Id:       token,
 							PublicId: token,
-							Price:    value.Quote.Usd.Value,
+							Price:    utils.FloatToWei(value.Quote.Usd.Value),
 						}
 						break
 					}
@@ -84,7 +85,7 @@ func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 						tokenPrice = &types.TokenPrice{
 							Id:       token,
 							PublicId: token,
-							Price:    value,
+							Price:    utils.FloatToWei(value),
 						}
 					}
 				}
