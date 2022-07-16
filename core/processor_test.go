@@ -9,6 +9,7 @@ import (
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -105,8 +106,8 @@ func TestProcessor(t *testing.T) {
 		processor.Start()
 
 		prices := []*types.TokenPrice{
-			{Id: "ETH", PublicId: "ETH", Price: 2410.875945408672},
-			{Id: "BTC", PublicId: "BTC", Price: 36367.076791144566},
+			{Id: "ETH", PublicId: "ETH", Price: utils.FloatToWei(2410.875945408672)},
+			{Id: "BTC", PublicId: "BTC", Price: utils.FloatToWei(36367.076791144566)},
 		}
 
 		processor.priceUpdateCh <- prices

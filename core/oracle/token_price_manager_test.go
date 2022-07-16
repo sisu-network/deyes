@@ -49,6 +49,7 @@ func TestStartManager(t *testing.T) {
 
 		priceManager := NewTokenPriceManager(cfg, dbInstance, mockNetwork)
 		go priceManager.Start(updateCh)
+		defer priceManager.Stop()
 
 		result := <-updateCh
 

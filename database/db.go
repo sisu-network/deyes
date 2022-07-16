@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path/filepath"
 	"sort"
@@ -328,9 +329,13 @@ func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
 	}
 
 	for rows.Next() {
-		var nullableId, nullablePublicId sql.NullString
-		var price float64
-		rows.Scan(&nullableId, &nullablePublicId, &price)
+		var nullablePrice, nullableId, nullablePublicId sql.NullString
+		rows.Scan(&nullableId, &nullablePublicId, &nullablePrice)
+
+		price, ok := new(big.Int).SetString(nullablePrice.String, 10)
+		if !ok {
+			return make([]*types.TokenPrice, 0)
+		}
 
 		prices = append(prices, &types.TokenPrice{
 			Id:       nullableId.String,
