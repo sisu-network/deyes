@@ -125,14 +125,9 @@ func (w *Watcher) scanChain() {
 				continue
 			}
 
-			txArr = append(txArr, &types.Tx{
-				Hash:        utils.KeccakHash32(fmt.Sprintf("%s__%d", txIn.Hash, txIn.Index)),
-				OutputIndex: txIn.Index,
-				Serialized:  bz,
-				To:          txIn.Address,
-			})
-
 			if _, ok := w.txTrackCache.Get(txIn.Hash); ok {
+				log.Verbose("Confirming cardano tx with hash = ", txIn.Hash)
+
 				// This is a transction that we are tracking. Inform Sisu about this.
 				w.txTrackCh <- &chainstypes.TrackUpdate{
 					Chain:       w.cfg.Chain,
@@ -144,6 +139,13 @@ func (w *Watcher) scanChain() {
 
 				continue
 			}
+
+			txArr = append(txArr, &types.Tx{
+				Hash:        utils.KeccakHash32(fmt.Sprintf("%s__%d", txIn.Hash, txIn.Index)),
+				OutputIndex: txIn.Index,
+				Serialized:  bz,
+				To:          txIn.Address,
+			})
 		}
 
 		if len(txArr) > 0 {
@@ -186,8 +188,6 @@ func (w *Watcher) SetGateway(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	log.Info("Setting gateway = ", addr)
-
 	err := w.db.SetGateway(w.cfg.Chain, addr)
 	if err == nil {
 		w.gateway = addr
@@ -197,5 +197,6 @@ func (w *Watcher) SetGateway(addr string) {
 }
 
 func (w *Watcher) TrackTx(txHash string) {
+	fmt.Println("Cardano tracking tx: ", txHash)
 	w.txTrackCache.Add(txHash, true)
 }
