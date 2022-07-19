@@ -26,6 +26,8 @@ type Provider interface {
 	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
 	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
 	BlockTransactions(ctx context.Context, height string) ([]blockfrost.Transaction, error)
+	LatestEpochParameters(ctx context.Context) (blockfrost.EpochParameters, error)
+	AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error)
 }
 
 const (

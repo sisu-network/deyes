@@ -3,11 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
-	"github.com/sisu-network/deyes/config"
 	"testing"
 
-	_ "github.com/lib/pq"
+	"github.com/blockfrost/blockfrost-go"
+	"github.com/sisu-network/deyes/config"
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/lib/pq"
 )
 
 func TestIntegrationSyncDB(t *testing.T) {
@@ -15,26 +17,15 @@ func TestIntegrationSyncDB(t *testing.T) {
 
 	t.Parallel()
 
-	cfg := config.SyncDbConfig{
-		Host:     "hide",
-		Port:     5432,
-		User:     "hide",
-		Password: "hide",
-		DbName:   "hide",
-	}
+	cfg := config.SyncDbConfig{}
 
 	db, err := ConnectDB(cfg)
 	require.NoError(t, err)
 
 	syncDB := NewSyncDBConnector(db)
-	utxos, err := syncDB.TransactionUTXOs(context.Background(), "e61fbf283d12890ff50e9e466175573209773b4abe58b7c33e1449ba08c02a74")
+	utxos, err := syncDB.AddressUTXOs(context.Background(), "addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy", blockfrost.APIQueryParams{To: "3719135"})
 	require.NoError(t, err)
-	for _, o := range utxos.Outputs {
-		fmt.Println(o.Address)
-	}
-
-	metadata, err := syncDB.TransactionMetadata(context.Background(), "ded242b05f506e870681a780562fa39fdab4bfd0a24fb275a3e4b4ef0a4d15a1")
-	for _, m := range metadata {
-		fmt.Println(m.JsonMetadata)
+	for _, u := range utxos {
+		fmt.Printf("%+v\n", u)
 	}
 }
