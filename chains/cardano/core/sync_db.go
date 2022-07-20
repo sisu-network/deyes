@@ -339,7 +339,7 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 		return nil, err
 	}
 
-	txQuery := "select id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
+	txQuery := "select id, encode(hash, 'hex'), block_id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
 	rows, err := s.DB.Query(txQuery, to, address)
 	if err != nil {
 		return nil, err
@@ -347,13 +347,26 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 	defer rows.Close()
 
 	txIDs := make([]int64, 0)
+	txInfoMap := make(map[int]struct {
+		TxHash  string
+		BlockId int
+	})
+
 	for rows.Next() {
-		var rc sql.NullInt64
-		if err := rows.Scan(&rc); err != nil {
+		var id, blockID sql.NullInt64
+		var hash sql.NullString
+		if err := rows.Scan(&id, &hash, &blockID); err != nil {
 			return nil, err
 		}
 
-		txIDs = append(txIDs, rc.Int64)
+		txIDs = append(txIDs, id.Int64)
+		txInfoMap[int(id.Int64)] = struct {
+			TxHash  string
+			BlockId int
+		}{
+			TxHash:  hash.String,
+			BlockId: int(blockID.Int64),
+		}
 	}
 
 	str := buildQueryFromIntArray(txIDs)
@@ -461,16 +474,45 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 			Quantity: txOut.Value,
 		})
 
+		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockId)
+		if err != nil {
+			return nil, err
+		}
+
 		res = append(res, blockfrost.AddressUTXO{
-			TxHash:      "",
+			TxHash:      txInfoMap[txOut.TxID].TxHash,
 			OutputIndex: txOut.Index,
 			Amount:      addressAmounts,
-			Block:       "",
-			DataHash:    "",
+			Block:       block.Hash,
 		})
 	}
 
 	return res, nil
+}
+
+func (s *SyncDB) GetBlockByID(_ context.Context, id int) (blockfrost.Block, error) {
+	query := "select encode(hash, 'hex'), block_no, slot_no, epoch_no from block where id = $1 limit 1"
+	row, err := s.DB.Query(query, id)
+	if err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	row.Next()
+	var (
+		blockNumber, slot, epoch sql.NullInt64
+		blockHash                sql.NullString
+	)
+
+	if err := row.Scan(&blockHash, &blockNumber, &slot, &epoch); err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	return blockfrost.Block{
+		Height: int(blockNumber.Int64),
+		Hash:   blockHash.String,
+		Slot:   int(slot.Int64),
+		Epoch:  int(epoch.Int64),
+	}, nil
 }
 
 func buildQueryFromIntArray(arr []int64) string {
