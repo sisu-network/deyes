@@ -16,7 +16,16 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
-var _ CardanoClient = (*BlockfrostClient)(nil)
+type CardanoClient interface {
+	IsHealthy() bool
+	LatestBlock() *blockfrost.Block
+	GetBlock(hashOrNumber string) (*blockfrost.Block, error)
+	BlockHeight() (int, error)
+	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
+	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
+}
+
+var _ CardanoClient = (*DefaultCardanoClient)(nil)
 
 type Provider interface {
 	Health(ctx context.Context) (blockfrost.Health, error)
@@ -39,8 +48,8 @@ var (
 	MetadataNotFound = fmt.Errorf("Metadata not found")
 )
 
-// implements cardanoClient
-type BlockfrostClient struct {
+// DefaultCardanoClient implements CardanoClient
+type DefaultCardanoClient struct {
 	inner       Provider
 	submitTxURL string
 	secret      string
@@ -51,8 +60,8 @@ type BlockfrostClient struct {
 	lock         *sync.RWMutex
 }
 
-func NewBlockfrostClient(inner Provider, submitTxURL, secret string) *BlockfrostClient {
-	return &BlockfrostClient{
+func NewDefaultCardanoClient(inner Provider, submitTxURL, secret string) *DefaultCardanoClient {
+	return &DefaultCardanoClient{
 		inner:        inner,
 		secret:       secret,
 		submitTxURL:  submitTxURL,
@@ -63,7 +72,7 @@ func NewBlockfrostClient(inner Provider, submitTxURL, secret string) *Blockfrost
 }
 
 // IsHealthy implements CardanoClient
-func (b *BlockfrostClient) IsHealthy() bool {
+func (b *DefaultCardanoClient) IsHealthy() bool {
 	health, err := b.inner.Health(context.Background())
 	if err != nil {
 		log.Error("Blockfrost is not healthy")
@@ -74,7 +83,7 @@ func (b *BlockfrostClient) IsHealthy() bool {
 }
 
 // LatestBlock implements CardanoClient
-func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
+func (b *DefaultCardanoClient) LatestBlock() *blockfrost.Block {
 	block, err := b.inner.BlockLatest(b.getContext())
 	if err != nil {
 		log.Error("Failed to get latest cardano block, err = ", err)
@@ -84,7 +93,7 @@ func (b *BlockfrostClient) LatestBlock() *blockfrost.Block {
 	return &block
 }
 
-func (b *BlockfrostClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
+func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
 	block, err := b.inner.Block(b.getContext(), hashOrNumber)
 	if err != nil {
 		return nil, err
@@ -94,7 +103,7 @@ func (b *BlockfrostClient) GetBlock(hashOrNumber string) (*blockfrost.Block, err
 }
 
 // BlockHeight implements CardanoClient
-func (b *BlockfrostClient) BlockHeight() (int, error) {
+func (b *DefaultCardanoClient) BlockHeight() (int, error) {
 	block, err := b.inner.BlockLatest(b.getContext())
 	if err != nil {
 		return 0, err
@@ -104,7 +113,7 @@ func (b *BlockfrostClient) BlockHeight() (int, error) {
 }
 
 // NewTxs implements CardanoClient
-func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error) {
+func (b *DefaultCardanoClient) NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
@@ -161,7 +170,7 @@ func (b *BlockfrostClient) NewTxs(fromHeight int, gateway string) ([]*types.Card
 	return txs, nil
 }
 
-func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, gateway string) bool {
+func (b *DefaultCardanoClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, gateway string) bool {
 	for _, output := range utxos.Outputs {
 		if output.Address == gateway {
 			return true
@@ -171,7 +180,7 @@ func (b *BlockfrostClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, ga
 	return false
 }
 
-func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.CardanoTxMetadata, error) {
+func (b *DefaultCardanoClient) GetTransactionMetadata(txHash string) (*types.CardanoTxMetadata, error) {
 	txMetadata, err := b.inner.TransactionMetadata(b.getContext(), txHash)
 	if err != nil {
 		log.Error("error when getting transaction metadata: ", err)
@@ -200,12 +209,12 @@ func (b *BlockfrostClient) GetTransactionMetadata(txHash string) (*types.Cardano
 	return txAdditionInfo, nil
 }
 
-func (b *BlockfrostClient) getContext() context.Context {
+func (b *DefaultCardanoClient) getContext() context.Context {
 	return context.Background()
 }
 
 // SubmitTx implements CardanoClient
-func (b *BlockfrostClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+func (b *DefaultCardanoClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 	for _, i := range tx.Body.Inputs {
 		log.Debugf("tx input = %+v\n", i)
 	}

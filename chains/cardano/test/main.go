@@ -129,7 +129,7 @@ func testWatcher() {
 	txsCh := make(chan *types.Txs)
 	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh,
 		make(chan *chainstypes.TrackUpdate, 3),
-		carcore.NewBlockfrostClient(provider, blockfrost.CardanoTestNet+"/tx/submit", projectId))
+		carcore.NewDefaultCardanoClient(provider, blockfrost.CardanoTestNet+"/tx/submit", projectId))
 	watcher.Start()
 	watcher.SetGateway("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
@@ -292,7 +292,7 @@ func testBlockfrostClient() {
 		Server:    blockfrost.CardanoTestNet,
 	})
 
-	client := carcore.NewBlockfrostClient(
+	client := carcore.NewDefaultCardanoClient(
 		provider, blockfrost.CardanoTestNet+"/tx/submit", projectId,
 	)
 
@@ -471,7 +471,7 @@ func testWatcherSyncDB() {
 
 	syncDB := carcore.NewSyncDBConnector(db)
 
-	cardanoClient := carcore.NewBlockfrostClient(syncDB, "", "")
+	cardanoClient := carcore.NewDefaultCardanoClient(syncDB, "", "")
 	txs, err := cardanoClient.NewTxs(3704374, "addr_test1vqfrdtmc7kvcpfyl8ula54ycqrh9kvml2wrxf9n28s2slrqk7awga")
 	if err != nil {
 		panic(err)

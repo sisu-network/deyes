@@ -99,7 +99,7 @@ func (p *Processor) Start() {
 			} else {
 				panic(fmt.Errorf("unknown cardano client type: %s", cfg.ClientType))
 			}
-			client := carcore.NewBlockfrostClient(
+			client := carcore.NewDefaultCardanoClient(
 				provider,
 				submitURL,
 				cfg.RpcSecret, // only used for Blockfrost API
