@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/config"
@@ -356,8 +357,8 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 	}
 
 	str := buildQueryFromIntArray(txIDs)
-	txOutQuery := "select id, tx_id, index, address, value from tx_out where tx_id in " + str + " and address = '" + address + "'"
-	rows, err = s.DB.Query(txOutQuery)
+	txOutQuery := "select id, tx_id, index, address, value from tx_out where tx_id in " + str + " and address = $1"
+	rows, err = s.DB.Query(txOutQuery, address)
 	if err != nil {
 		return nil, err
 	}
@@ -473,15 +474,12 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 }
 
 func buildQueryFromIntArray(arr []int64) string {
-	str := "("
-	for idx, element := range arr {
-		str = str + strconv.Itoa(int(element))
-		if idx < len(arr)-1 {
-			str = str + ","
-		} else {
-			str = str + ")"
-		}
+	strArr := make([]string, 0, len(arr))
+	for _, element := range arr {
+		strArr = append(strArr, strconv.Itoa(int(element)))
 	}
 
-	return str
+	res := strings.Join(strArr, ",")
+	res = "(" + res + ")"
+	return res
 }

@@ -29,3 +29,11 @@ func TestIntegrationSyncDB(t *testing.T) {
 		fmt.Printf("%+v\n", u)
 	}
 }
+
+func TestBuildQueryFromString(t *testing.T) {
+	t.Parallel()
+
+	arr := []int64{1, 2, 3, 4}
+	str := buildQueryFromIntArray(arr)
+	require.Equal(t, "(1,2,3,4)", str)
+}
