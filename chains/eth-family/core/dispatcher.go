@@ -101,6 +101,8 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 			continue
 		}
 
+		fmt.Println("Trying rpc ", d.rpcs[i])
+
 		client := d.clients[i]
 		if err := client.SendTransaction(context.Background(), tx); err != nil {
 			// It is possible that another node has deployed the same transaction. We check if the tx has
