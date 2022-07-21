@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
@@ -98,15 +99,17 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 }
 
 func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {
-	for i := range d.clients {
-		if !d.healthy[i] {
-			log.Verbose("%s is not healthy", d.rpcs[i])
+	// Shuffle rpcs so that we will use different healthy rpc
+	clients, healthy, rpcs := d.shuffle()
+
+	for i := range clients {
+		if !healthy[i] {
+			log.Verbose("%s is not healthy", rpcs[i])
 			continue
 		}
 
-		log.Verbose("Trying rpc ", d.rpcs[i])
-
-		client := d.clients[i]
+		log.Verbose("Trying rpc ", rpcs[i])
+		client := clients[i]
 		if err := client.SendTransaction(context.Background(), tx); err != nil {
 			// It is possible that another node has deployed the same transaction. We check if the tx has
 			// been included into the blockchain or not.
@@ -126,4 +129,35 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 	}
 
 	return fmt.Errorf("cannot dispatch eth tx")
+}
+
+func (d *EthDispatcher) shuffle() ([]*ethclient.Client, []bool, []string) {
+	n := len(d.clients)
+
+	clients := make([]*ethclient.Client, n)
+	healthy := make([]bool, n)
+	rpcs := make([]string, n)
+
+	copy(clients, d.clients)
+	copy(healthy, d.healthy)
+	copy(rpcs, d.rpcs)
+
+	for i := 0; i < 20; i++ {
+		x := rand.Intn(n)
+		y := rand.Intn(n)
+
+		tmpClient := clients[x]
+		clients[x] = clients[y]
+		clients[y] = tmpClient
+
+		tmpHealth := healthy[x]
+		healthy[x] = healthy[y]
+		healthy[y] = tmpHealth
+
+		tmpRpc := rpcs[x]
+		rpcs[x] = rpcs[y]
+		rpcs[y] = tmpRpc
+	}
+
+	return clients, healthy, rpcs
 }
