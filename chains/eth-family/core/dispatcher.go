@@ -26,7 +26,8 @@ func NewEhtDispatcher(chain string, rpcs []string) chains.Dispatcher {
 	return &EthDispatcher{
 		chain:   chain,
 		rpcs:    rpcs,
-		healthy: make([]bool, 0),
+		healthy: make([]bool, len(rpcs)),
+		clients: make([]*ethclient.Client, len(rpcs)),
 	}
 }
 
@@ -37,6 +38,9 @@ func (d *EthDispatcher) Start() {
 func (d *EthDispatcher) dial() {
 	var err error
 	for i := range d.rpcs {
+		if d.clients[i] != nil {
+			d.clients[i].Close()
+		}
 		d.clients[i], err = ethclient.Dial(d.rpcs[0])
 		if err != nil {
 			log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[0])
