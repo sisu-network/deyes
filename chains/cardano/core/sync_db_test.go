@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -19,15 +20,17 @@ func TestIntegrationSyncDB(t *testing.T) {
 
 	cfg := config.SyncDbConfig{}
 
+	str, err := json.Marshal(&cfg)
+	require.NoError(t, err)
+	fmt.Println(string(str))
+
 	db, err := ConnectDB(cfg)
 	require.NoError(t, err)
 
 	syncDB := NewSyncDBConnector(db)
-	utxos, err := syncDB.AddressUTXOs(context.Background(), "addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy", blockfrost.APIQueryParams{To: "3719135"})
+	utxos, err := syncDB.AddressUTXOs(context.Background(), "addr_test1vrfdtdcy8tu8000jprfclp8dz9d6pgl2984fvtzhnqafx7qmmg0l4", blockfrost.APIQueryParams{To: "18446744073709551615"})
 	require.NoError(t, err)
-	for _, u := range utxos {
-		fmt.Printf("%+v\n", u)
-	}
+	require.NotEmpty(t, utxos)
 }
 
 func TestBuildQueryFromString(t *testing.T) {

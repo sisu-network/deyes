@@ -335,6 +335,17 @@ type TxIn struct {
 	TxOutIndex int
 }
 
+type Tx struct {
+	ID      int
+	Hash    string
+	BlockID int
+}
+
+type TxInfo struct {
+	TxHash  string
+	BlockID int
+}
+
 // AddressUTXOs queries address's utxos at specific block height
 func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error) {
 	to, err := strconv.ParseUint(query.To, 10, 64)
@@ -342,40 +353,16 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 		return nil, err
 	}
 
-	txQuery := "select id, encode(hash, 'hex'), block_id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
-
-	var tTo int
+	maxBlock := int(to)
+	// check overflow here because postgresql only support int32 type
 	if to > math.MaxInt32 {
-		tTo = math.MaxInt32
+		maxBlock = math.MaxInt32
 	}
 
-	rows, err := s.DB.Query(txQuery, tTo, address)
+	txIDs, txInfoMap, err := s.getAddressTxsUntilMaxBlock(address, maxBlock)
 	if err != nil {
 		return nil, err
 	}
-	txIDs := make([]int64, 0)
-	txInfoMap := make(map[int]struct {
-		TxHash  string
-		BlockId int
-	})
-
-	for rows.Next() {
-		var id, blockID sql.NullInt64
-		var hash sql.NullString
-		if err := rows.Scan(&id, &hash, &blockID); err != nil {
-			return nil, err
-		}
-
-		txIDs = append(txIDs, id.Int64)
-		txInfoMap[int(id.Int64)] = struct {
-			TxHash  string
-			BlockId int
-		}{
-			TxHash:  hash.String,
-			BlockId: int(blockID.Int64),
-		}
-	}
-	rows.Close()
 
 	if len(txIDs) == 0 {
 		return nil, nil
@@ -409,44 +396,12 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 	res := make([]blockfrost.AddressUTXO, 0)
 
 	for _, txOut := range unusedTxOuts {
-		rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
+		addressAmounts, err := s.getAddressAmountFromTxOut(txOut)
 		if err != nil {
 			return nil, err
 		}
 
-		addressAmounts := make([]blockfrost.AddressAmount, 0)
-		for rows.Next() {
-			var quantity sql.NullString
-			var maID sql.NullInt64
-			if err := rows.Scan(&quantity, &maID); err != nil {
-				return nil, err
-			}
-
-			maRow, err := s.DB.Query("SELECT encode(policy, 'hex'), encode(name, 'hex') FROM multi_asset where id = $1", maID.Int64)
-			if err != nil {
-				return nil, err
-			}
-
-			maRow.Next()
-			var policy, maName sql.NullString
-			if err := maRow.Scan(&policy, &maName); err != nil {
-				return nil, err
-			}
-			maRow.Close()
-
-			amount := blockfrost.AddressAmount{
-				Quantity: quantity.String,
-				Unit:     policy.String + maName.String,
-			}
-			addressAmounts = append(addressAmounts, amount)
-		}
-		rows.Close()
-		addressAmounts = append(addressAmounts, blockfrost.AddressAmount{
-			Unit:     "lovelace",
-			Quantity: txOut.Value,
-		})
-
-		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockId)
+		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockID)
 		if err != nil {
 			return nil, err
 		}
@@ -460,6 +415,76 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 	}
 
 	return res, nil
+}
+
+func (s *SyncDB) getAddressTxsUntilMaxBlock(address string, maxBlock int) ([]int64, map[int]TxInfo, error) {
+	txQuery := "select id, encode(hash, 'hex'), block_id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
+	rows, err := s.DB.Query(txQuery, maxBlock, address)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	txIDs := make([]int64, 0)
+	txInfoMap := make(map[int]TxInfo)
+
+	for rows.Next() {
+		var id, blockID sql.NullInt64
+		var hash sql.NullString
+		if err := rows.Scan(&id, &hash, &blockID); err != nil {
+			return nil, nil, err
+		}
+
+		txIDs = append(txIDs, id.Int64)
+		txInfoMap[int(id.Int64)] = TxInfo{
+			TxHash:  hash.String,
+			BlockID: int(blockID.Int64),
+		}
+	}
+	rows.Close()
+
+	return txIDs, txInfoMap, nil
+}
+
+func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]blockfrost.AddressAmount, error) {
+	rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	addressAmounts := make([]blockfrost.AddressAmount, 0)
+	for rows.Next() {
+		var quantity sql.NullString
+		var maID sql.NullInt64
+		if err := rows.Scan(&quantity, &maID); err != nil {
+			return nil, err
+		}
+
+		maRow, err := s.DB.Query("SELECT encode(policy, 'hex'), encode(name, 'hex') FROM multi_asset where id = $1", maID.Int64)
+		if err != nil {
+			return nil, err
+		}
+
+		maRow.Next()
+		var policy, maName sql.NullString
+		if err := maRow.Scan(&policy, &maName); err != nil {
+			return nil, err
+		}
+		maRow.Close()
+
+		amount := blockfrost.AddressAmount{
+			Quantity: quantity.String,
+			Unit:     policy.String + maName.String,
+		}
+		addressAmounts = append(addressAmounts, amount)
+	}
+	defer rows.Close()
+
+	addressAmounts = append(addressAmounts, blockfrost.AddressAmount{
+		Unit:     "lovelace",
+		Quantity: txOut.Value,
+	})
+
+	return addressAmounts, nil
 }
 
 func (s *SyncDB) getTxOutByTxID(address string, txIDs []int64) ([]TxOut, error) {
