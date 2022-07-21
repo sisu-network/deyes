@@ -100,10 +100,11 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {
 	for i := range d.clients {
 		if !d.healthy[i] {
+			log.Verbose("%s is not healthy", d.rpcs[i])
 			continue
 		}
 
-		fmt.Println("Trying rpc ", d.rpcs[i])
+		log.Verbose("Trying rpc ", d.rpcs[i])
 
 		client := d.clients[i]
 		if err := client.SendTransaction(context.Background(), tx); err != nil {
