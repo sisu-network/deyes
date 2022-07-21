@@ -41,12 +41,14 @@ func (d *EthDispatcher) dial() {
 		if d.clients[i] != nil {
 			d.clients[i].Close()
 		}
-		d.clients[i], err = ethclient.Dial(d.rpcs[0])
+		d.clients[i], err = ethclient.Dial(d.rpcs[i])
 		if err != nil {
-			log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[0])
+			log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[i])
 			d.healthy[i] = false
+			log.Infof("RPC %s is NOT healthy", d.rpcs[i])
 		} else {
 			d.healthy[i] = true
+			log.Infof("RPC %s is healthy", d.rpcs[i])
 		}
 	}
 }
