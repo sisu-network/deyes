@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/blockfrost/blockfrost-go"
 	"sync/atomic"
 
+	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"

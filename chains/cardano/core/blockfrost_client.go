@@ -18,7 +18,7 @@ import (
 
 type CardanoClient interface {
 	IsHealthy() bool
-	LatestBlock() *blockfrost.Block
+	LatestBlock() (*blockfrost.Block, error)
 	GetBlock(hashOrNumber string) (*blockfrost.Block, error)
 	BlockHeight() (int, error)
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
@@ -83,14 +83,14 @@ func (b *DefaultCardanoClient) IsHealthy() bool {
 }
 
 // LatestBlock implements CardanoClient
-func (b *DefaultCardanoClient) LatestBlock() *blockfrost.Block {
+func (b *DefaultCardanoClient) LatestBlock() (*blockfrost.Block, error) {
 	block, err := b.inner.BlockLatest(b.getContext())
 	if err != nil {
 		log.Error("Failed to get latest cardano block, err = ", err)
-		return nil
+		return nil, err
 	}
 
-	return &block
+	return &block, nil
 }
 
 func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {

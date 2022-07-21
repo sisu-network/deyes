@@ -9,7 +9,10 @@ import (
 	"strings"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/sisu-network/deyes/config"
+
+	_ "github.com/lib/pq"
 )
 
 var _ Provider = (*SyncDB)(nil)
@@ -334,18 +337,22 @@ type TxIn struct {
 
 // AddressUTXOs queries address's utxos at specific block height
 func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error) {
-	to, err := strconv.Atoi(query.To)
+	to, err := strconv.ParseUint(query.To, 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
 	txQuery := "select id, encode(hash, 'hex'), block_id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
-	rows, err := s.DB.Query(txQuery, to, address)
+
+	var tTo int
+	if to > math.MaxInt32 {
+		tTo = math.MaxInt32
+	}
+
+	rows, err := s.DB.Query(txQuery, tTo, address)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	txIDs := make([]int64, 0)
 	txInfoMap := make(map[int]struct {
 		TxHash  string
@@ -368,56 +375,21 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 			BlockId: int(blockID.Int64),
 		}
 	}
+	rows.Close()
 
-	str := buildQueryFromIntArray(txIDs)
-	txOutQuery := "select id, tx_id, index, address, value from tx_out where tx_id in " + str + " and address = $1"
-	rows, err = s.DB.Query(txOutQuery, address)
+	if len(txIDs) == 0 {
+		return nil, nil
+	}
+
+	txOuts, err := s.getTxOutByTxID(address, txIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	txOuts := make([]TxOut, 0)
-	for rows.Next() {
-		var (
-			id, txId, index sql.NullInt64
-			address, value  sql.NullString
-		)
-
-		if err := rows.Scan(&id, &txId, &index, &address, &value); err != nil {
-			return nil, err
-		}
-
-		txOuts = append(txOuts, TxOut{
-			ID:      int(id.Int64),
-			TxID:    int(txId.Int64),
-			Index:   int(index.Int64),
-			Address: address.String,
-			Value:   value.String,
-		})
-	}
-	rows.Close()
-
-	txInQuery := "select id, tx_in_id, tx_out_id, tx_out_index from tx_in where tx_out_id in " + str
-	rows, err = s.DB.Query(txInQuery)
+	txIns, err := s.getTxInByTxID(txIDs)
 	if err != nil {
 		return nil, err
 	}
-
-	txIns := make([]TxIn, 0)
-	for rows.Next() {
-		var id, txInID, txOutID, txOutIndex sql.NullInt64
-		if err := rows.Scan(&id, &txInID, &txOutID, &txOutIndex); err != nil {
-			return nil, err
-		}
-
-		txIns = append(txIns, TxIn{
-			ID:         int(id.Int64),
-			TxInID:     int(txInID.Int64),
-			TxOutID:    int(txOutID.Int64),
-			TxOutIndex: int(txOutIndex.Int64),
-		})
-	}
-	rows.Close()
 
 	unusedTxOuts := make([]TxOut, 0)
 	for _, txOut := range txOuts {
@@ -488,6 +460,65 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 	}
 
 	return res, nil
+}
+
+func (s *SyncDB) getTxOutByTxID(address string, txIDs []int64) ([]TxOut, error) {
+	str := buildQueryFromIntArray(txIDs)
+	txOutQuery := "select id, tx_id, index, address, value from tx_out where tx_id in " + str + " and address = $1"
+	rows, err := s.DB.Query(txOutQuery, address)
+	if err != nil {
+		return nil, err
+	}
+
+	txOuts := make([]TxOut, 0)
+	for rows.Next() {
+		var (
+			id, txId, index sql.NullInt64
+			address, value  sql.NullString
+		)
+
+		if err := rows.Scan(&id, &txId, &index, &address, &value); err != nil {
+			return nil, err
+		}
+
+		txOuts = append(txOuts, TxOut{
+			ID:      int(id.Int64),
+			TxID:    int(txId.Int64),
+			Index:   int(index.Int64),
+			Address: address.String,
+			Value:   value.String,
+		})
+	}
+	defer rows.Close()
+
+	return txOuts, nil
+}
+
+func (s *SyncDB) getTxInByTxID(txIDs []int64) ([]TxIn, error) {
+	str := buildQueryFromIntArray(txIDs)
+	txInQuery := "select id, tx_in_id, tx_out_id, tx_out_index from tx_in where tx_out_id in " + str
+	rows, err := s.DB.Query(txInQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	txIns := make([]TxIn, 0)
+	for rows.Next() {
+		var id, txInID, txOutID, txOutIndex sql.NullInt64
+		if err := rows.Scan(&id, &txInID, &txOutID, &txOutIndex); err != nil {
+			return nil, err
+		}
+
+		txIns = append(txIns, TxIn{
+			ID:         int(id.Int64),
+			TxInID:     int(txInID.Int64),
+			TxOutID:    int(txOutID.Int64),
+			TxOutIndex: int(txOutIndex.Int64),
+		})
+	}
+	defer rows.Close()
+
+	return txIns, nil
 }
 
 func (s *SyncDB) GetBlockByID(_ context.Context, id int) (blockfrost.Block, error) {
