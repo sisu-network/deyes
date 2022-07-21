@@ -114,6 +114,7 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 			}
 
 			log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+			return nil
 		}
 	}
 
