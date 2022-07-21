@@ -115,7 +115,9 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 				log.Error("cannot dispatch tx, from = ", from, " chain = ", chain)
 				log.Error("cannot dispatch tx, err = ", err)
 				log.Error("cannot dispatch tx, err2 = ", err2)
-				return err
+
+				d.healthy[i] = false
+				continue
 			}
 
 			log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
