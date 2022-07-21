@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -15,25 +16,34 @@ import (
 )
 
 type EthDispatcher struct {
-	chain  string
-	rpcs   []string
-	client *ethclient.Client
+	chain   string
+	rpcs    []string
+	clients []*ethclient.Client
+	healthy []bool
 }
 
 func NewEhtDispatcher(chain string, rpcs []string) chains.Dispatcher {
 	return &EthDispatcher{
-		chain: chain,
-		rpcs:  rpcs,
+		chain:   chain,
+		rpcs:    rpcs,
+		healthy: make([]bool, 0),
 	}
 }
 
 func (d *EthDispatcher) Start() {
+	d.dial()
+}
+
+func (d *EthDispatcher) dial() {
 	var err error
-	d.client, err = ethclient.Dial(d.rpcs[0])
-	if err != nil {
-		log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[0])
-		// TODO: Add retry mechanism here.
-		return
+	for i := range d.rpcs {
+		d.clients[i], err = ethclient.Dial(d.rpcs[0])
+		if err != nil {
+			log.Error("Cannot dial chain", d.chain, "at endpoint", d.rpcs[0])
+			d.healthy[i] = false
+		} else {
+			d.healthy[i] = true
+		}
 	}
 }
 
@@ -59,27 +69,49 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		log.Info("Deploying address = ", addr, " for chain ", request.Chain)
 	}
 
-	if err := d.client.SendTransaction(context.Background(), tx); err != nil {
-		// It is possible that another node has deployed the same transaction. We check if the tx has
-		// been included into the blockchain or not.
-		_, _, err2 := d.client.TransactionByHash(context.Background(), tx.Hash())
-		if err2 != nil {
-			log.Error("cannot dispatch tx, from = ", from, " chain = ", request.Chain)
-			log.Error("cannot dispatch tx, err = ", err)
-			log.Error("cannot dispatch tx, err2 = ", err2)
-			return types.NewDispatchTxError(err)
+	err = d.tryDispatchTx(tx, request.Chain, from)
+	if err != nil {
+		// Try to connect again.
+		d.dial()
+		err = d.tryDispatchTx(tx, request.Chain, from) // try second time
+	}
+
+	if err == nil {
+		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
+			"txHash =", tx.Hash())
+		return &types.DispatchedTxResult{
+			Success:                 true,
+			DeployedAddr:            addr,
+			Chain:                   request.Chain,
+			TxHash:                  request.TxHash,
+			IsEthContractDeployment: request.IsEthContractDeployment,
+		}
+	}
+
+	return types.NewDispatchTxError(err)
+}
+
+func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {
+	for i := range d.clients {
+		if !d.healthy[i] {
+			continue
 		}
 
-		log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+		client := d.clients[i]
+		if err := client.SendTransaction(context.Background(), tx); err != nil {
+			// It is possible that another node has deployed the same transaction. We check if the tx has
+			// been included into the blockchain or not.
+			_, _, err2 := client.TransactionByHash(context.Background(), tx.Hash())
+			if err2 != nil {
+				log.Error("cannot dispatch tx, from = ", from, " chain = ", chain)
+				log.Error("cannot dispatch tx, err = ", err)
+				log.Error("cannot dispatch tx, err2 = ", err2)
+				return err
+			}
+
+			log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+		}
 	}
 
-	log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from, "txHash =", tx.Hash())
-
-	return &types.DispatchedTxResult{
-		Success:                 true,
-		DeployedAddr:            addr,
-		Chain:                   request.Chain,
-		TxHash:                  request.TxHash,
-		IsEthContractDeployment: request.IsEthContractDeployment,
-	}
+	return fmt.Errorf("cannot dispatch eth tx")
 }
