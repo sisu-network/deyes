@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/sisu-network/deyes/config"
 
 	_ "github.com/lib/pq"
@@ -40,19 +42,23 @@ func (s *SyncDB) Health(ctx context.Context) (blockfrost.Health, error) {
 }
 
 func (s *SyncDB) BlockLatest(ctx context.Context) (blockfrost.Block, error) {
-	rows, err := s.DB.Query("SELECT block_no FROM block ORDER BY id DESC LIMIT 1")
+	rows, err := s.DB.Query("SELECT block_no, epoch_no, slot_no FROM block ORDER BY id DESC LIMIT 1")
 	if err != nil {
 		return blockfrost.Block{}, err
 	}
 
 	defer rows.Close()
 	rows.Next()
-	var height sql.NullInt64
-	if err := rows.Scan(&height); err != nil {
+	var height, epoch, slot sql.NullInt64
+	if err := rows.Scan(&height, &epoch, &slot); err != nil {
 		return blockfrost.Block{}, err
 	}
 
-	return blockfrost.Block{Height: int(height.Int64)}, nil
+	return blockfrost.Block{
+		Height: int(height.Int64),
+		Epoch:  int(epoch.Int64),
+		Slot:   int(slot.Int64),
+	}, nil
 }
 
 func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error) {
@@ -279,4 +285,299 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfro
 	}
 
 	return res, nil
+}
+
+func (s *SyncDB) LatestEpochParameters(ctx context.Context) (blockfrost.EpochParameters, error) {
+	query := "SELECT min_fee_a, min_fee_b, max_block_size, max_tx_size, max_bh_size, key_deposit, pool_deposit," +
+		" max_epoch, optimal_pool_count, coins_per_utxo_size FROM epoch_param ORDER BY id DESC LIMIT 1"
+	rows, err := s.DB.Query(query)
+	if err != nil {
+		return blockfrost.EpochParameters{}, err
+	}
+
+	defer rows.Close()
+	rows.Next()
+	var (
+		minFeeA, minFeeB, maxBlockSize, maxTxSize, maxBlockHeaderSize, maxEpoch, nopt sql.NullInt64
+		keyDeposit, poolDeposit, minUTXOValue                                         sql.NullString
+	)
+	if err := rows.Scan(&minFeeA, &minFeeB, &maxBlockSize, &maxTxSize, &maxBlockHeaderSize, &keyDeposit,
+		&poolDeposit, &maxEpoch, &nopt, &minUTXOValue); err != nil {
+		return blockfrost.EpochParameters{}, err
+	}
+
+	return blockfrost.EpochParameters{
+		Epoch:              int(maxEpoch.Int64),
+		KeyDeposit:         keyDeposit.String,
+		MaxBlockHeaderSize: int(maxBlockHeaderSize.Int64),
+		MaxBlockSize:       int(maxBlockSize.Int64),
+		MaxTxSize:          int(maxTxSize.Int64),
+		MinFeeA:            int(minFeeA.Int64),
+		MinFeeB:            int(minFeeB.Int64),
+		MinUtxo:            minUTXOValue.String,
+		NOpt:               int(nopt.Int64),
+		PoolDeposit:        poolDeposit.String,
+	}, nil
+}
+
+type TxOut struct {
+	ID      int
+	TxID    int
+	Index   int
+	Address string
+	Value   string
+}
+
+type TxIn struct {
+	ID         int
+	TxInID     int
+	TxOutID    int
+	TxOutIndex int
+}
+
+type Tx struct {
+	ID      int
+	Hash    string
+	BlockID int
+}
+
+type TxInfo struct {
+	TxHash  string
+	BlockID int
+}
+
+// AddressUTXOs queries address's utxos at specific block height
+func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error) {
+	to, err := strconv.ParseUint(query.To, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	maxBlock := int(to)
+	// check overflow here because postgresql only support int32 type
+	if to > math.MaxInt32 {
+		maxBlock = math.MaxInt32
+	}
+
+	txIDs, txInfoMap, err := s.getAddressTxsUntilMaxBlock(address, maxBlock)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(txIDs) == 0 {
+		return nil, nil
+	}
+
+	txOuts, err := s.getTxOutByTxID(address, txIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	txIns, err := s.getTxInByTxID(txIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	unusedTxOuts := make([]TxOut, 0)
+	for _, txOut := range txOuts {
+		used := false
+		for _, txIn := range txIns {
+			if txOut.TxID == txIn.TxOutID && txOut.Index == txIn.TxOutIndex {
+				used = true
+				break
+			}
+		}
+
+		if !used {
+			unusedTxOuts = append(unusedTxOuts, txOut)
+		}
+	}
+
+	res := make([]blockfrost.AddressUTXO, 0)
+
+	for _, txOut := range unusedTxOuts {
+		addressAmounts, err := s.getAddressAmountFromTxOut(txOut)
+		if err != nil {
+			return nil, err
+		}
+
+		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockID)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, blockfrost.AddressUTXO{
+			TxHash:      txInfoMap[txOut.TxID].TxHash,
+			OutputIndex: txOut.Index,
+			Amount:      addressAmounts,
+			Block:       block.Hash,
+		})
+	}
+
+	return res, nil
+}
+
+func (s *SyncDB) getAddressTxsUntilMaxBlock(address string, maxBlock int) ([]int64, map[int]TxInfo, error) {
+	txQuery := "select id, encode(hash, 'hex'), block_id from tx where block_id in (select id from block where block_no <= $1) and id in (select tx_id from tx_out where address = $2)"
+	rows, err := s.DB.Query(txQuery, maxBlock, address)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	txIDs := make([]int64, 0)
+	txInfoMap := make(map[int]TxInfo)
+
+	for rows.Next() {
+		var id, blockID sql.NullInt64
+		var hash sql.NullString
+		if err := rows.Scan(&id, &hash, &blockID); err != nil {
+			return nil, nil, err
+		}
+
+		txIDs = append(txIDs, id.Int64)
+		txInfoMap[int(id.Int64)] = TxInfo{
+			TxHash:  hash.String,
+			BlockID: int(blockID.Int64),
+		}
+	}
+	rows.Close()
+
+	return txIDs, txInfoMap, nil
+}
+
+func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]blockfrost.AddressAmount, error) {
+	rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	addressAmounts := make([]blockfrost.AddressAmount, 0)
+	for rows.Next() {
+		var quantity sql.NullString
+		var maID sql.NullInt64
+		if err := rows.Scan(&quantity, &maID); err != nil {
+			return nil, err
+		}
+
+		maRow, err := s.DB.Query("SELECT encode(policy, 'hex'), encode(name, 'hex') FROM multi_asset where id = $1", maID.Int64)
+		if err != nil {
+			return nil, err
+		}
+
+		maRow.Next()
+		var policy, maName sql.NullString
+		if err := maRow.Scan(&policy, &maName); err != nil {
+			return nil, err
+		}
+		maRow.Close()
+
+		amount := blockfrost.AddressAmount{
+			Quantity: quantity.String,
+			Unit:     policy.String + maName.String,
+		}
+		addressAmounts = append(addressAmounts, amount)
+	}
+	defer rows.Close()
+
+	addressAmounts = append(addressAmounts, blockfrost.AddressAmount{
+		Unit:     "lovelace",
+		Quantity: txOut.Value,
+	})
+
+	return addressAmounts, nil
+}
+
+func (s *SyncDB) getTxOutByTxID(address string, txIDs []int64) ([]TxOut, error) {
+	str := buildQueryFromIntArray(txIDs)
+	txOutQuery := "select id, tx_id, index, address, value from tx_out where tx_id in " + str + " and address = $1"
+	rows, err := s.DB.Query(txOutQuery, address)
+	if err != nil {
+		return nil, err
+	}
+
+	txOuts := make([]TxOut, 0)
+	for rows.Next() {
+		var (
+			id, txId, index sql.NullInt64
+			address, value  sql.NullString
+		)
+
+		if err := rows.Scan(&id, &txId, &index, &address, &value); err != nil {
+			return nil, err
+		}
+
+		txOuts = append(txOuts, TxOut{
+			ID:      int(id.Int64),
+			TxID:    int(txId.Int64),
+			Index:   int(index.Int64),
+			Address: address.String,
+			Value:   value.String,
+		})
+	}
+	defer rows.Close()
+
+	return txOuts, nil
+}
+
+func (s *SyncDB) getTxInByTxID(txIDs []int64) ([]TxIn, error) {
+	str := buildQueryFromIntArray(txIDs)
+	txInQuery := "select id, tx_in_id, tx_out_id, tx_out_index from tx_in where tx_out_id in " + str
+	rows, err := s.DB.Query(txInQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	txIns := make([]TxIn, 0)
+	for rows.Next() {
+		var id, txInID, txOutID, txOutIndex sql.NullInt64
+		if err := rows.Scan(&id, &txInID, &txOutID, &txOutIndex); err != nil {
+			return nil, err
+		}
+
+		txIns = append(txIns, TxIn{
+			ID:         int(id.Int64),
+			TxInID:     int(txInID.Int64),
+			TxOutID:    int(txOutID.Int64),
+			TxOutIndex: int(txOutIndex.Int64),
+		})
+	}
+	defer rows.Close()
+
+	return txIns, nil
+}
+
+func (s *SyncDB) GetBlockByID(_ context.Context, id int) (blockfrost.Block, error) {
+	query := "select encode(hash, 'hex'), block_no, slot_no, epoch_no from block where id = $1 limit 1"
+	row, err := s.DB.Query(query, id)
+	if err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	row.Next()
+	var (
+		blockNumber, slot, epoch sql.NullInt64
+		blockHash                sql.NullString
+	)
+
+	if err := row.Scan(&blockHash, &blockNumber, &slot, &epoch); err != nil {
+		return blockfrost.Block{}, err
+	}
+
+	return blockfrost.Block{
+		Height: int(blockNumber.Int64),
+		Hash:   blockHash.String,
+		Slot:   int(slot.Int64),
+		Epoch:  int(epoch.Int64),
+	}, nil
+}
+
+func buildQueryFromIntArray(arr []int64) string {
+	strArr := make([]string, 0, len(arr))
+	for _, element := range arr {
+		strArr = append(strArr, strconv.Itoa(int(element)))
+	}
+
+	res := strings.Join(strArr, ",")
+	res = "(" + res + ")"
+	return res
 }

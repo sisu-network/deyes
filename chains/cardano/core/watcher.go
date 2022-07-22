@@ -87,12 +87,19 @@ func (w *Watcher) scanChain() {
 		if err != nil {
 			w.blockTime = w.blockTime + w.cfg.AdjustTime
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			latestBlock, err2 := w.client.LatestBlock()
+			if err2 != nil {
+				log.Error(err2)
+				continue
+			}
+
 			if !strings.Contains(err.Error(), "Not Found") {
 				// This error is not a Block not found error. Print the error here.
-				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", w.client.LatestBlock().Height, err)
+				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
 			} else {
+
 				log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
-					w.client.LatestBlock().Height, w.blockTime)
+					latestBlock.Height, w.blockTime)
 			}
 			continue
 		}
@@ -169,7 +176,12 @@ func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
 	lastScanBlock := int(w.lastBlockHeight.Load())
 	nextBlock := lastScanBlock + 1
 	if lastScanBlock == 0 {
-		nextBlock = w.client.LatestBlock().Height
+		latestBlock, err := w.client.LatestBlock()
+		if err != nil {
+			return nil, err
+		}
+
+		nextBlock = latestBlock.Height
 	}
 
 	block, err := w.client.GetBlock(strconv.Itoa(nextBlock))

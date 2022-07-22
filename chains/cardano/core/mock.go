@@ -8,7 +8,7 @@ import (
 
 type MockCardanoClient struct {
 	IsHealthyFunc   func() bool
-	LatestBlockFunc func() *blockfrost.Block
+	LatestBlockFunc func() (*blockfrost.Block, error)
 	BlockHeightFunc func() (int, error)
 	NewTxsFunc      func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTxFunc    func(tx *cardano.Tx) (*cardano.Hash32, error)
@@ -23,12 +23,12 @@ func (c *MockCardanoClient) IsHealthy() bool {
 	return false
 }
 
-func (c *MockCardanoClient) LatestBlock() *blockfrost.Block {
+func (c *MockCardanoClient) LatestBlock() (*blockfrost.Block, error) {
 	if c.LatestBlockFunc != nil {
 		return c.LatestBlockFunc()
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (c *MockCardanoClient) BlockHeight() (int, error) {

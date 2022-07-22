@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/blockfrost/blockfrost-go"
 	"sync/atomic"
 
+	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
@@ -99,7 +99,7 @@ func (p *Processor) Start() {
 			} else {
 				panic(fmt.Errorf("unknown cardano client type: %s", cfg.ClientType))
 			}
-			client := carcore.NewBlockfrostClient(
+			client := carcore.NewDefaultCardanoClient(
 				provider,
 				submitURL,
 				cfg.RpcSecret, // only used for Blockfrost API
