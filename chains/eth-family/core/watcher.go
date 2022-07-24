@@ -144,7 +144,7 @@ func (w *Watcher) scanBlocks() {
 	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
 
 	for {
-		log.Verbose("w.blockTime = ", w.blockTime)
+		log.Verbose(w.cfg.Chain, " w.blockTime = ", w.blockTime)
 
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
