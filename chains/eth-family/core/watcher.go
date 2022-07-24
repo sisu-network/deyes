@@ -214,6 +214,7 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	}
 
 	if number < uint64(w.blockHeight) {
+		log.Verbose("AAAAA ", number, w.blockHeight)
 		return nil, NewBlockHeightExceededError(number)
 	}
 
