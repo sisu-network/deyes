@@ -162,8 +162,11 @@ func (w *Watcher) scanBlocks() {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if w.cfg.Chain == "fantom-testnet" {
-			log.Verbose("block = ", block)
-			log.Verbose("err = ", err)
+			log.Verbose("fantom-testnet block = ", block)
+			if block != nil {
+				log.Verbose("fantom-testnet *block = ", block.Hash(), block.Number(), block.Nonce(), len(block.Transactions()))
+			}
+			log.Verbose("fantom-testnet err = ", err)
 		}
 		if err != nil || block == nil {
 			if err != ethereum.NotFound {
@@ -174,7 +177,7 @@ func (w *Watcher) scanBlocks() {
 		}
 
 		if w.cfg.Chain == "fantom-testnet" {
-			log.Verbose("Updating fantom block time....")
+			log.Verbose("fantom-testnet Updating fantom block time....")
 		}
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 		filteredTxs, err := w.processBlock(block)
