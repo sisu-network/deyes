@@ -150,6 +150,7 @@ func (w *Watcher) scanBlocks() {
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
 		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+			log.Verbose("Updating gas price")
 			go func() {
 				gasPrice := w.GetGasPrice()
 				if gasPrice == 0 {
@@ -160,6 +161,10 @@ func (w *Watcher) scanBlocks() {
 
 		// Get the blockheight
 		block, err := w.tryGetBlock()
+		if w.cfg.Chain == "fantom-testnet" {
+			log.Verbose("block = ", block)
+			log.Verbose("err = ", err)
+		}
 		if err != nil || block == nil {
 			if err != ethereum.NotFound {
 				log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
@@ -168,6 +173,9 @@ func (w *Watcher) scanBlocks() {
 			continue
 		}
 
+		if w.cfg.Chain == "fantom-testnet" {
+			log.Verbose("Updating fantom block time....")
+		}
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 		filteredTxs, err := w.processBlock(block)
 		if err != nil {
@@ -203,6 +211,10 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 		// Sleep a few seconds and to get the block again.
 		time.Sleep(time.Duration(utils.MinInt(w.blockTime/4, 3000)) * time.Millisecond)
 		block, err = w.getBlock(w.blockHeight)
+
+		if w.cfg.Chain == "fantom-testnet" {
+			log.Verbose("Fantom block not found!")
+		}
 
 		// Extend the wait time a little bit more
 		w.blockTime = w.blockTime + w.cfg.AdjustTime
