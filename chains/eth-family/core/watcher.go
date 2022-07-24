@@ -204,6 +204,15 @@ func (w *Watcher) scanBlocks() {
 
 // Get block with retry when block is not mined yet.
 func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
+	number, err := w.getBlockNumber()
+	if err != nil {
+		return nil, err
+	}
+
+	if number < uint64(w.blockHeight) {
+		return nil, fmt.Errorf("Our block height is higher than chain's height. Chain height = %d", number)
+	}
+
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
