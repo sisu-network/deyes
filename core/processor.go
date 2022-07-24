@@ -167,6 +167,9 @@ func (tp *Processor) SetGateway(chain, addr string) {
 func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
 
+	// If dispatching successful, add the tx to tracking.
+	tp.watchers[chain].TrackTx(request.TxHash)
+
 	dispatcher := tp.dispatchers[chain]
 	var result *types.DispatchedTxResult
 	if dispatcher == nil {
@@ -177,9 +180,6 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 
 	log.Info("Posting result to sisu for chain ", chain, " tx hash = ", request.TxHash, " success = ", result.Success)
 	tp.sisuClient.PostDeploymentResult(result)
-
-	// If dispatching successful, add the tx to tracking.
-	tp.watchers[chain].TrackTx(request.TxHash)
 }
 
 func (tp *Processor) GetNonce(chain string, address string) int64 {
