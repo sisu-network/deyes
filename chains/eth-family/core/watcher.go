@@ -144,6 +144,8 @@ func (w *Watcher) scanBlocks() {
 	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
 
 	for {
+		log.Verbose("w.blockTime = ", w.blockTime)
+
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
@@ -204,7 +206,6 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 
 		// Extend the wait time a little bit more
 		w.blockTime = w.blockTime + w.cfg.AdjustTime
-		log.Verbose("New blocktime: ", w.blockTime)
 	}
 
 	return block, err
@@ -283,8 +284,6 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			log.Error("Cannot serialize ETH tx, err = ", err)
 			continue
 		}
-
-		fmt.Println("Txhash = ", tx.Hash().String())
 
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
 			// This is a transaction that we are tracking. Inform Sisu about this.
