@@ -30,6 +30,20 @@ const (
 
 type GasPriceGetter func(ctx context.Context) (*big.Int, error)
 
+type BlockHeightExceededError struct {
+	ChainHeight uint64
+}
+
+func NewBlockHeightExceededError(chainHeight uint64) error {
+	return &BlockHeightExceededError{
+		ChainHeight: chainHeight,
+	}
+}
+
+func (e *BlockHeightExceededError) Error() string {
+	return fmt.Sprintf("Our block height is higher than chain's height. Chain height = %d", e.ChainHeight)
+}
+
 // TODO: Move this to the chains package.
 type Watcher struct {
 	cfg             config.Chain
@@ -159,9 +173,12 @@ func (w *Watcher) scanBlocks() {
 		// Get the blockheight
 		block, err := w.tryGetBlock()
 		if err != nil || block == nil {
-			if err != ethereum.NotFound {
+			if _, ok := err.(*BlockHeightExceededError); !ok && err != ethereum.NotFound {
+				// This err is not ETH not found or our custom error.
 				log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
 			}
+
+			w.blockTime = w.blockTime + w.cfg.AdjustTime
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			continue
 		}
@@ -191,10 +208,19 @@ func (w *Watcher) scanBlocks() {
 
 // Get block with retry when block is not mined yet.
 func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
+	number, err := w.getBlockNumber()
+	if err != nil {
+		return nil, err
+	}
+
+	if number < uint64(w.blockHeight) {
+		return nil, NewBlockHeightExceededError(number)
+	}
+
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		log.Debug(w.cfg.Chain, " Height = ", block.Number())
+		log.Verbose(w.cfg.Chain, " Height = ", block.Number())
 		return block, nil
 
 	case ethereum.NotFound:
