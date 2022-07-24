@@ -158,6 +158,8 @@ func (w *Watcher) scanBlocks() {
 	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
 
 	for {
+		log.Verbose("Block time on chain ", w.cfg.Chain, " is ", w.blockTime)
+
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
@@ -214,7 +216,6 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
 	}
 
 	if number < uint64(w.blockHeight) {
-		log.Verbose("AAAAA ", number, w.blockHeight)
 		return nil, NewBlockHeightExceededError(number)
 	}
 
