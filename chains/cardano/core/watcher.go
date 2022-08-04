@@ -16,8 +16,6 @@ import (
 	"github.com/sisu-network/deyes/utils"
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
-
-	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
 var (
@@ -33,13 +31,13 @@ type Watcher struct {
 	lastBlockHeight atomic.Int32
 	gateway         string
 
-	txTrackCh    chan *chainstypes.TrackUpdate
+	txTrackCh    chan *types.TrackUpdate
 	lock         *sync.RWMutex
 	txTrackCache *lru.Cache
 }
 
 func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
-	txTrackCh chan *chainstypes.TrackUpdate, client CardanoClient) *Watcher {
+	txTrackCh chan *types.TrackUpdate, client CardanoClient) *Watcher {
 	return &Watcher{
 		cfg:          cfg,
 		db:           db,
@@ -136,12 +134,12 @@ func (w *Watcher) scanChain() {
 				log.Verbose("Confirming cardano tx with hash = ", txIn.Hash)
 
 				// This is a transction that we are tracking. Inform Sisu about this.
-				w.txTrackCh <- &chainstypes.TrackUpdate{
+				w.txTrackCh <- &types.TrackUpdate{
 					Chain:       w.cfg.Chain,
 					Bytes:       bz,
 					Hash:        txIn.Hash,
 					BlockHeight: int64(block.Height),
-					Result:      chainstypes.TrackResultConfirmed,
+					Result:      types.TrackResultConfirmed,
 				}
 
 				continue

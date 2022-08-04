@@ -8,8 +8,6 @@ import (
 
 	libchain "github.com/sisu-network/lib/chain"
 
-	chainstypes "github.com/sisu-network/deyes/chains/types"
-
 	"github.com/sisu-network/deyes/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,7 +46,7 @@ func TestProcessBlock(t *testing.T) {
 	cfg := config.Chain{
 		Chain: "ganache1",
 	}
-	watcher := NewWatcher(db, cfg, make(chan *types.Txs), make(chan *chainstypes.TrackUpdate),
+	watcher := NewWatcher(db, cfg, make(chan *types.Txs), make(chan *types.TrackUpdate),
 		[]EthClient{client}).(*Watcher)
 	watcher.SetGateway(common.Address{1}.Hex())
 	trans := genTransactions(t)

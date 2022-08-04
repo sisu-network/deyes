@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
 )
@@ -22,7 +21,7 @@ type Client interface {
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateTokenPrices(prices []*types.TokenPrice) error
-	ConfirmTx(txTrack *chainstypes.TrackUpdate) error
+	ConfirmTx(txTrack *types.TrackUpdate) error
 }
 
 var (
@@ -116,7 +115,7 @@ func (c *DefaultClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
 	return nil
 }
 
-func (c *DefaultClient) ConfirmTx(txTrack *chainstypes.TrackUpdate) error {
+func (c *DefaultClient) ConfirmTx(txTrack *types.TrackUpdate) error {
 	log.Verbose("Confirming transaction with Sisu...")
 
 	var r string

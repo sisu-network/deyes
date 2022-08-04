@@ -19,8 +19,6 @@ import (
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
-
-	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
 const (
@@ -52,7 +50,7 @@ type Watcher struct {
 	blockTime       int
 	db              database.Database
 	txsCh           chan *types.Txs
-	txTrackCh       chan *chainstypes.TrackUpdate
+	txTrackCh       chan *types.TrackUpdate
 	chainAccount    string
 	gateway         string
 	signers         map[string]etypes.Signer
@@ -63,7 +61,7 @@ type Watcher struct {
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
-	txTrackCh chan *chainstypes.TrackUpdate, clients []EthClient) chains.Watcher {
+	txTrackCh chan *types.TrackUpdate, clients []EthClient) chains.Watcher {
 	w := &Watcher{
 		db:           db,
 		cfg:          cfg,
@@ -316,12 +314,12 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
 			// This is a transaction that we are tracking. Inform Sisu about this.
-			w.txTrackCh <- &chainstypes.TrackUpdate{
+			w.txTrackCh <- &types.TrackUpdate{
 				Chain:       w.cfg.Chain,
 				Bytes:       bz,
 				Hash:        tx.Hash().String(),
 				BlockHeight: int64(block.NumberU64()),
-				Result:      chainstypes.TrackResultConfirmed,
+				Result:      types.TrackResultConfirmed,
 			}
 
 			continue

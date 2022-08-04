@@ -9,7 +9,6 @@ import (
 	carcore "github.com/sisu-network/deyes/chains/cardano/core"
 	"github.com/sisu-network/deyes/chains/eth-family/core"
 	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
-	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -26,7 +25,7 @@ type Processor struct {
 	db            database.Database
 	txsCh         chan *types.Txs
 	priceUpdateCh chan []*types.TokenPrice
-	txTrackCh     chan *chainstypes.TrackUpdate
+	txTrackCh     chan *types.TrackUpdate
 	chain         string
 	blockTime     int
 	sisuClient    client.Client
@@ -60,7 +59,7 @@ func (p *Processor) Start() {
 	log.Info("tp.cfg.Chains = ", p.cfg.Chains)
 
 	p.txsCh = make(chan *types.Txs, 1000)
-	p.txTrackCh = make(chan *chainstypes.TrackUpdate, 1000)
+	p.txTrackCh = make(chan *types.TrackUpdate, 1000)
 	p.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go p.listen()
