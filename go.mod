@@ -16,7 +16,7 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/logdna/logdna-go v1.0.2
 	github.com/mattn/go-sqlite3 v1.14.13
-	github.com/sisu-network/lib v0.0.1-alpha9.0.20220805083151-ce0604bc1c59
+	github.com/sisu-network/lib v0.0.1-alpha9.0.20220805094201-302101a59f7f
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/atomic v1.9.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
