@@ -10,6 +10,7 @@ import (
 
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/golang/groupcache/lru"
+	"github.com/sisu-network/deyes/chains/common"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -31,22 +32,24 @@ type Watcher struct {
 	lastBlockHeight atomic.Int32
 	gateway         string
 
-	txTrackCh    chan *types.TrackUpdate
-	lock         *sync.RWMutex
-	txTrackCache *lru.Cache
+	txTrackCh        chan *types.TrackUpdate
+	lock             *sync.RWMutex
+	txTrackCache     *lru.Cache
+	blockTimeTracker *common.BlockTimeTracker
 }
 
 func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 	txTrackCh chan *types.TrackUpdate, client CardanoClient) *Watcher {
 	return &Watcher{
-		cfg:          cfg,
-		db:           db,
-		txsCh:        txsCh,
-		blockTime:    cfg.BlockTime,
-		txTrackCh:    txTrackCh,
-		lock:         &sync.RWMutex{},
-		client:       client,
-		txTrackCache: lru.New(1000),
+		cfg:              cfg,
+		db:               db,
+		txsCh:            txsCh,
+		blockTime:        cfg.BlockTime,
+		txTrackCh:        txTrackCh,
+		lock:             &sync.RWMutex{},
+		client:           client,
+		txTrackCache:     lru.New(1000),
+		blockTimeTracker: common.NewBlockTimeTracker(cfg.BlockTime),
 	}
 }
 
