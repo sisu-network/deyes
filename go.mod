@@ -3,7 +3,7 @@ module github.com/sisu-network/deyes
 go 1.18
 
 require (
-	github.com/BurntSushi/toml v0.4.1
+	github.com/BurntSushi/toml v1.1.0
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/blockfrost/blockfrost-go v0.1.0
 	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.2
@@ -16,7 +16,7 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/logdna/logdna-go v1.0.2
 	github.com/mattn/go-sqlite3 v1.14.13
-	github.com/sisu-network/lib v0.0.1-alpha9.0.20220604231101-08930647bd3f
+	github.com/sisu-network/lib v0.0.1-alpha9.0.20220805083151-ce0604bc1c59
 	github.com/stretchr/testify v1.7.2
 	go.uber.org/atomic v1.9.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
