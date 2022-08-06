@@ -318,9 +318,9 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			continue
 		}
 
-		fmt.Println("Txhash = ", tx.Hash().String())
-
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
+			log.Verbose("Tracked tx found, hash = ", tx.Hash().String())
+
 			// This is a transaction that we are tracking. Inform Sisu about this.
 			w.txTrackCh <- &types.TrackUpdate{
 				Chain:       w.cfg.Chain,
@@ -350,6 +350,8 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			log.Errorf("cannot get from address for tx %s on chain %s, err = %v", tx.Hash().String(), w.cfg.Chain, err)
 			continue
 		}
+
+		log.Verbose("tx going through gateway found, hash = ", tx.Hash().String())
 
 		arr = append(arr, &types.Tx{
 			Hash:       tx.Hash().String(),
