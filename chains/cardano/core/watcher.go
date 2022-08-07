@@ -82,26 +82,29 @@ func (w *Watcher) scanChain() {
 	log.Info("Start scanning chain: ", w.cfg.Chain)
 
 	for {
+		w.blockTime = w.blockTimeTracker.GetSleepTime()
+		log.Verbose("Block time on chain ", w.cfg.Chain, " is ", w.blockTime)
+
 		// Get next block to scan
 		block, err := w.getNextBlock()
 
 		if err != nil {
-			w.blockTime = w.blockTime + w.cfg.AdjustTime
-			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
 			latestBlock, err2 := w.client.LatestBlock()
 			if err2 != nil {
-				log.Error(err2)
 				continue
-			}
-
-			if !strings.Contains(err.Error(), "Not Found") {
-				// This error is not a Block not found error. Print the error here.
-				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
 			} else {
+				if !strings.Contains(err.Error(), "Not Found") {
+					// This error is not a Block not found error. Print the error here.
+					log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
+				} else {
 
-				log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
-					latestBlock.Height, w.blockTime)
+					log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
+						latestBlock.Height, w.blockTime)
+				}
 			}
+
+			w.blockTimeTracker.MissBlock()
+			time.Sleep(time.Duration(w.blockTimeTracker.GetSleepTime()) * time.Millisecond)
 			continue
 		}
 
@@ -110,14 +113,15 @@ func (w *Watcher) scanChain() {
 		txsIn, err := w.client.NewTxs(block.Height, w.gateway)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
-			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+			// This is a networking or RPC call error. We do not count this as a block miss.
+			time.Sleep(time.Duration(w.blockTimeTracker.GetSleepTime()) * time.Millisecond)
 			continue
 		}
 
 		log.Info("Block height && blocktime for Cardano Scanner = ", block.Height, w.blockTime)
 
 		w.lastBlockHeight.Store(int32(block.Height))
-		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
+		w.blockTimeTracker.HitBlock()
 
 		if len(w.gateway) == 0 {
 			log.Verbose("Gateway is still empty")
@@ -169,7 +173,7 @@ func (w *Watcher) scanChain() {
 		}
 
 		// Sleep until next block
-		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+		time.Sleep(time.Duration(w.blockTimeTracker.GetSleepTime()) * time.Millisecond)
 	}
 }
 
