@@ -118,7 +118,7 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
-		log.Info("Block height && blocktime for Cardano Scanner = ", block.Height, w.blockTime)
+		log.Info("Block number on ", w.cfg.Chain, " = ", block.Height)
 
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTimeTracker.HitBlock()
