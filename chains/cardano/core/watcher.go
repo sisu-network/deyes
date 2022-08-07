@@ -83,7 +83,6 @@ func (w *Watcher) scanChain() {
 
 	for {
 		w.blockTime = w.blockTimeTracker.GetSleepTime()
-		log.Verbose("Block time on chain ", w.cfg.Chain, " is ", w.blockTime)
 
 		// Get next block to scan
 		block, err := w.getNextBlock()
@@ -118,7 +117,7 @@ func (w *Watcher) scanChain() {
 			continue
 		}
 
-		log.Info("Block number on ", w.cfg.Chain, " = ", block.Height)
+		log.Verbose("Chain ", w.cfg.Chain, ": w.blockTime = ", w.blockTime, " height = ", block.Height)
 
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTimeTracker.HitBlock()

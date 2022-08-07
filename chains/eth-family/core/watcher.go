@@ -160,8 +160,6 @@ func (w *Watcher) scanBlocks() {
 
 	for {
 		w.blockTime = w.blockTimeTracker.GetSleepTime()
-		log.Verbose("Block time on chain ", w.cfg.Chain, " is ", w.blockTime)
-
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
@@ -186,6 +184,8 @@ func (w *Watcher) scanBlocks() {
 			time.Sleep(time.Duration(w.blockTimeTracker.GetSleepTime()) * time.Millisecond)
 			continue
 		}
+
+		log.Verbose("Chain ", w.cfg.Chain, ": w.blockTime = ", w.blockTime, " height = ", block.Number())
 
 		// Update block time
 		if hasSecondTry {
