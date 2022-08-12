@@ -15,6 +15,7 @@ var ChainParamsMap = map[string]ChainParams{
 	"polygon-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"xdai":             {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"arbitrum-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"avaxc-testnet":    {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
 type ChainParams struct {
