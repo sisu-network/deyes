@@ -16,3 +16,10 @@ func FloatToWei(value float64) *big.Int {
 	bigval.Int(result)
 	return result
 }
+
+func WeiToFloat(value *big.Int) float64 {
+	f := new(big.Float).Quo(new(big.Float).SetInt(value), new(big.Float).SetInt(ONE_ETHER_IN_WEI))
+	ret, _ := f.Float64()
+
+	return ret
+}

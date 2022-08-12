@@ -13,6 +13,7 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 
@@ -137,7 +138,11 @@ func (p *Processor) listen() {
 			}
 
 		case prices := <-p.priceUpdateCh:
-			log.Info("There is new token price update", prices)
+			log.Info("There is new token price update")
+			for _, tp := range prices {
+				log.Verbose(tp.Id, ": ", utils.WeiToFloat(tp.Price))
+			}
+
 			if p.sisuReady.Load() == true {
 				p.sisuClient.UpdateTokenPrices(prices)
 			} else {

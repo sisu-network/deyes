@@ -230,7 +230,6 @@ func (w *Watcher) tryGetBlock() (*etypes.Block, error, bool) {
 	block, err := w.getBlock(w.blockHeight)
 	switch err {
 	case nil:
-		log.Verbose(w.cfg.Chain, " Height = ", block.Number())
 		return block, nil, false
 
 	case ethereum.NotFound:
