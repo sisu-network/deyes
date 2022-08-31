@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -121,7 +122,7 @@ func (w *Watcher) SetChainAccount(addr string) {
 
 	err := w.db.SetChainAccount(w.cfg.Chain, addr)
 	if err == nil {
-		w.chainAccount = addr
+		w.chainAccount = strings.ToLower(addr)
 	} else {
 		log.Error("Failed to save gateway")
 	}
@@ -133,7 +134,7 @@ func (w *Watcher) SetGateway(addr string) {
 
 	err := w.db.SetGateway(w.cfg.Chain, addr)
 	if err == nil {
-		w.gateway = addr
+		w.gateway = strings.ToLower(addr)
 	} else {
 		log.Error("Failed to save gateway")
 	}
@@ -362,8 +363,11 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 }
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
-	if tx.To() != nil && (tx.To().String() == w.gateway || tx.To().String() == w.chainAccount) {
-		return true
+	if tx.To() != nil {
+		to := strings.ToLower(tx.To().String())
+		if to == w.gateway || to == w.chainAccount {
+			return true
+		}
 	}
 
 	return false
