@@ -52,7 +52,6 @@ type Watcher struct {
 	db              database.Database
 	txsCh           chan *types.Txs
 	txTrackCh       chan *chainstypes.TrackUpdate
-	chainAccount    string
 	gateway         string
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
@@ -101,24 +100,7 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	w.chainAccount, err = w.db.GetChainAccount(w.cfg.Chain)
-	if err != nil {
-		panic(err)
-	}
-
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
-}
-
-func (w *Watcher) SetChainAccount(addr string) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	err := w.db.SetChainAccount(w.cfg.Chain, addr)
-	if err == nil {
-		w.chainAccount = strings.ToLower(addr)
-	} else {
-		log.Error("Failed to save gateway")
-	}
 }
 
 func (w *Watcher) SetGateway(addr string) {
@@ -288,7 +270,7 @@ func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 	if tx.To() != nil {
 		to := strings.ToLower(tx.To().String())
-		if to == w.gateway || to == w.chainAccount {
+		if to == w.gateway {
 			return true
 		}
 	}

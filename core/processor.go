@@ -152,12 +152,6 @@ func (p *Processor) listen() {
 	}
 }
 
-func (tp *Processor) SetChainAccount(chain, addr string) {
-	log.Infof("Setting chain account, chain = %s, addr = %s", chain, addr)
-	watcher := tp.watchers[chain]
-	watcher.SetChainAccount(addr)
-}
-
 func (tp *Processor) SetGateway(chain, addr string) {
 	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]

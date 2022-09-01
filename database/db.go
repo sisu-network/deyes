@@ -26,10 +26,6 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
-	// Chain Account
-	SetChainAccount(chain, address string) error
-	GetChainAccount(chain string) (string, error)
-
 	// Gateway address
 	SetGateway(chain, address string) error
 	GetGateway(chain string) (string, error)
@@ -249,14 +245,6 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 		blockHeight: blockHeight,
 		txs:         txs,
 	}
-}
-
-func (d *DefaultDatabase) SetChainAccount(chain, address string) error {
-	return d.addWatchAddress(chain, address, "chain_account")
-}
-
-func (d *DefaultDatabase) GetChainAccount(chain string) (string, error) {
-	return d.getWatchAddress(chain, "chain_account")
 }
 
 func (d *DefaultDatabase) SetGateway(chain, address string) error {
