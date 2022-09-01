@@ -30,7 +30,7 @@ func newBlockFetcher(cfg config.Chain, blockCh chan *etypes.Block, clients []Eth
 	}
 }
 
-func (bf *defaultBlockFetcher) Start() {
+func (bf *defaultBlockFetcher) start() {
 	bf.setBlockHeight()
 
 	bf.scanBlocks()

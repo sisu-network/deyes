@@ -36,9 +36,9 @@ type defaultReceiptFetcher struct {
 	chain      string
 	requestCh  chan *txReceiptRequest
 	responseCh chan *txReceiptResponse
+	retryTime  time.Duration
 
 	clients []EthClient
-	txQueue []*etypes.Transaction
 }
 
 func newReceiptFetcher(responseCh chan *txReceiptResponse, clients []EthClient, chain string) receiptFetcher {
@@ -47,60 +47,66 @@ func newReceiptFetcher(responseCh chan *txReceiptResponse, clients []EthClient, 
 		requestCh:  make(chan *txReceiptRequest, 20),
 		responseCh: responseCh,
 		clients:    clients,
-		txQueue:    make([]*etypes.Transaction, 0),
+		retryTime:  time.Second * 5,
 	}
 }
 
 func (rf *defaultReceiptFetcher) start() {
 	for {
 		request := <-rf.requestCh
-
-		retry := 0
-		response := &txReceiptResponse{
-			blockNumber: request.blockNumber,
-			blockHash:   request.blockHash,
-			txs:         make([]*etypes.Transaction, 0),
-			receipts:    make([]*etypes.Receipt, 0),
-		}
-
-		for {
-			rf.txQueue = append(rf.txQueue, request.txs...)
-			tx := rf.txQueue[0]
-			ok := false
-			for _, client := range rf.clients {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-				receipt, err := client.TransactionReceipt(ctx, tx.Hash())
-				cancel()
-
-				if err == nil && receipt != nil {
-					ok = true
-					response.txs = append(response.txs, tx)
-					response.receipts = append(response.receipts, receipt)
-					break
-				}
-			}
-
-			if ok {
-				retry = 0
-				rf.txQueue = rf.txQueue[1:]
-				if len(rf.txQueue) == 0 {
-					break
-				}
-			} else {
-				if retry == MaxReceiptRetry {
-					log.Errorf("cannot get receipt for tx with hash %s on chain %s", tx.Hash().String(), rf.chain)
-					rf.txQueue = rf.txQueue[1:]
-					continue
-				}
-
-				retry++
-				time.Sleep(time.Second * 5)
-			}
-		}
+		response := rf.getResponse(request)
 
 		// Post the response
 		rf.responseCh <- response
 	}
+}
+
+func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txReceiptResponse {
+	retry := 0
+	response := &txReceiptResponse{
+		blockNumber: request.blockNumber,
+		blockHash:   request.blockHash,
+		txs:         make([]*etypes.Transaction, 0),
+		receipts:    make([]*etypes.Receipt, 0),
+	}
+
+	txQueue := request.txs
+
+	for {
+		if len(txQueue) == 0 {
+			break
+		}
+
+		tx := txQueue[0]
+		ok := false
+		for _, client := range rf.clients {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+			cancel()
+
+			if err == nil && receipt != nil {
+				ok = true
+				response.txs = append(response.txs, tx)
+				response.receipts = append(response.receipts, receipt)
+				break
+			}
+		}
+
+		if ok {
+			retry = 0
+			txQueue = txQueue[1:]
+		} else {
+			if retry == MaxReceiptRetry {
+				log.Errorf("cannot get receipt for tx with hash %s on chain %s", tx.Hash().String(), rf.chain)
+				txQueue = txQueue[1:]
+			} else {
+				retry++
+				time.Sleep(rf.retryTime)
+			}
+		}
+	}
+
+	return response
 }
 
 func (rf *defaultReceiptFetcher) fetchReceipts(block int64, txs []*etypes.Transaction) {

@@ -141,7 +141,9 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) scanBlocks() {
-	go w.blockFetcher.Start()
+	go w.blockFetcher.start()
+	go w.receiptFetcher.start()
+
 	go w.waitForBlock()
 	go w.waitForReceipt()
 }
@@ -165,8 +167,13 @@ func (w *Watcher) waitForBlock() {
 		}
 
 		// Pass this block to the receipt fetcher
+		log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
 		txs := w.processBlock(block)
-		w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs)
+		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
+
+		if len(txs) > 0 {
+			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs)
+		}
 	}
 }
 
@@ -176,7 +183,7 @@ func (w *Watcher) waitForReceipt() {
 		response := <-w.receiptResponseCh
 		txs := w.extractTxs(response)
 
-		log.Verbose("txs sizes = ", len(txs.Arr), " on chain ", w.cfg.Chain)
+		log.Verbose(w.cfg.Chain, ": txs sizes = ", len(txs.Arr))
 
 		if len(txs.Arr) > 0 {
 			// Send list of interested txs back to the listener.
@@ -193,7 +200,6 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	arr := make([]*types.Tx, 0)
 	for i, tx := range response.txs {
 		receipt := response.receipts[i]
-
 		bz, err := tx.MarshalBinary()
 		if err != nil {
 			log.Error("Cannot serialize ETH tx, err = ", err)
@@ -207,38 +213,37 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 				result = chainstypes.TrackResultFailure
 			}
 
-			if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
-				// This is a transaction that we are tracking. Inform Sisu about this.
-				w.txTrackCh <- &chainstypes.TrackUpdate{
-					Chain:       w.cfg.Chain,
-					Bytes:       bz,
-					Hash:        tx.Hash().String(),
-					BlockHeight: response.blockNumber,
-					Result:      result,
-				}
-				continue
+			// This is a transaction that we are tracking. Inform Sisu about this.
+			w.txTrackCh <- &chainstypes.TrackUpdate{
+				Chain:       w.cfg.Chain,
+				Bytes:       bz,
+				Hash:        tx.Hash().String(),
+				BlockHeight: response.blockNumber,
+				Result:      result,
 			}
 
-			var to string
-			if tx.To() == nil {
-				to = ""
-			} else {
-				to = tx.To().String()
-			}
-
-			from, err := w.getFromAddress(w.cfg.Chain, tx)
-			if err != nil {
-				log.Errorf("cannot get from address for tx %s on chain %s, err = %v", tx.Hash().String(), w.cfg.Chain, err)
-				continue
-			}
-
-			arr = append(arr, &types.Tx{
-				Hash:       tx.Hash().String(),
-				Serialized: bz,
-				From:       from.Hex(),
-				To:         to,
-			})
+			continue
 		}
+
+		var to string
+		if tx.To() == nil {
+			to = ""
+		} else {
+			to = tx.To().String()
+		}
+
+		from, err := w.getFromAddress(w.cfg.Chain, tx)
+		if err != nil {
+			log.Errorf("cannot get from address for tx %s on chain %s, err = %v", tx.Hash().String(), w.cfg.Chain, err)
+			continue
+		}
+
+		arr = append(arr, &types.Tx{
+			Hash:       tx.Hash().String(),
+			Serialized: bz,
+			From:       from.Hex(),
+			To:         to,
+		})
 	}
 
 	return &types.Txs{
@@ -264,7 +269,6 @@ func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
 }
 
 func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
-	log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
 	ret := make([]*etypes.Transaction, 0)
 
 	for _, tx := range block.Transactions() {
