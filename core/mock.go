@@ -11,7 +11,7 @@ type MockClient struct {
 	BroadcastTxsFunc         func(txs *types.Txs) error
 	PostDeploymentResultFunc func(result *types.DispatchedTxResult) error
 	UpdateTokenPricesFunc    func(prices []*types.TokenPrice) error
-	ConfirmTxFunc            func(txTrack *chainstypes.TrackUpdate) error
+	OnTxIncludedInBlockFunc  func(txTrack *chainstypes.TrackUpdate) error
 }
 
 func (c *MockClient) TryDial() {
@@ -52,9 +52,9 @@ func (c *MockClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
 	return nil
 }
 
-func (c *MockClient) ConfirmTx(txTrack *chainstypes.TrackUpdate) error {
-	if c.ConfirmTxFunc != nil {
-		return c.ConfirmTxFunc(txTrack)
+func (c *MockClient) OnTxIncludedInBlock(txTrack *chainstypes.TrackUpdate) error {
+	if c.OnTxIncludedInBlockFunc != nil {
+		return c.OnTxIncludedInBlockFunc(txTrack)
 	}
 
 	return nil

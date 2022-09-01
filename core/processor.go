@@ -147,7 +147,7 @@ func (p *Processor) listen() {
 
 		case txTrackUpdate := <-p.txTrackCh:
 			log.Verbose("There is a tx to confirm with hash: ", txTrackUpdate.Hash)
-			p.sisuClient.ConfirmTx(txTrackUpdate)
+			p.sisuClient.OnTxIncludedInBlock(txTrackUpdate)
 		}
 	}
 }

@@ -22,7 +22,7 @@ type Client interface {
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
 	UpdateTokenPrices(prices []*types.TokenPrice) error
-	ConfirmTx(txTrack *chainstypes.TrackUpdate) error
+	OnTxIncludedInBlock(txTrack *chainstypes.TrackUpdate) error
 }
 
 var (
@@ -116,11 +116,11 @@ func (c *DefaultClient) UpdateTokenPrices(prices []*types.TokenPrice) error {
 	return nil
 }
 
-func (c *DefaultClient) ConfirmTx(txTrack *chainstypes.TrackUpdate) error {
+func (c *DefaultClient) OnTxIncludedInBlock(txTrack *chainstypes.TrackUpdate) error {
 	log.Verbose("Confirming transaction with Sisu...")
 
 	var r string
-	err := c.client.CallContext(context.Background(), &r, "tss_confirmTx", txTrack)
+	err := c.client.CallContext(context.Background(), &r, "tss_onTxIncludedInBlock", txTrack)
 	if err != nil {
 		log.Error("Failed confirm transaction, err = ", err)
 		return err
