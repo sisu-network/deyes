@@ -6,8 +6,7 @@ type DispatchedTxRequest struct {
 	TxHash string
 
 	// For ETH chains
-	PubKey                  []byte
-	IsEthContractDeployment bool
+	PubKey []byte
 }
 
 type DispatchedTxResult struct {
@@ -17,8 +16,7 @@ type DispatchedTxResult struct {
 	TxHash  string
 
 	// For ETH only. This is optional deployed contract addresses.
-	DeployedAddr            string
-	IsEthContractDeployment bool
+	DeployedAddr string
 }
 
 func NewDispatchTxError(err error) *DispatchedTxResult {

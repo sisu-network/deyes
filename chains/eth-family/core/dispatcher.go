@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/types"
@@ -66,16 +65,6 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	// Check if this is a contract deployment for eth. If it is, returns the deployed address.
 	var addr string
 	from := utils.PublicKeyBytesToAddress(request.PubKey)
-	if request.IsEthContractDeployment {
-		if request.PubKey == nil {
-			return types.NewDispatchTxError(fmt.Errorf("invalid pubkey"))
-		}
-
-		addr = crypto.CreateAddress(from, tx.Nonce()).String()
-
-		log.Info("Deploying address = ", addr, " for chain ", request.Chain)
-	}
-
 	err = d.tryDispatchTx(tx, request.Chain, from)
 	if err != nil {
 		// Try to connect again.
@@ -87,11 +76,10 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
 			"txHash =", tx.Hash())
 		return &types.DispatchedTxResult{
-			Success:                 true,
-			DeployedAddr:            addr,
-			Chain:                   request.Chain,
-			TxHash:                  request.TxHash,
-			IsEthContractDeployment: request.IsEthContractDeployment,
+			Success:      true,
+			DeployedAddr: addr,
+			Chain:        request.Chain,
+			TxHash:       request.TxHash,
 		}
 	}
 
