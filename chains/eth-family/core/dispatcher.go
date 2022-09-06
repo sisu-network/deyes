@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,12 +60,35 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	tx := &eTypes.Transaction{}
 	err := tx.UnmarshalBinary(txBytes)
 	if err != nil {
-		return types.NewDispatchTxError(err)
+		log.Error("Failed to unmarshal ETH transaction, err = ", err)
+		return types.NewDispatchTxError(types.ErrMarshal)
 	}
 
-	// Check if this is a contract deployment for eth. If it is, returns the deployed address.
-	var addr string
 	from := utils.PublicKeyBytesToAddress(request.PubKey)
+	// Check the balance to see if we have enough native token.
+	balance := d.checkNativeBalance(from)
+	err = nil
+	if balance == nil {
+		err = fmt.Errorf("Cannot get balance for account %s", from)
+	}
+
+	minimum := new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas())))
+	if minimum.Cmp(balance) > 0 {
+		err = fmt.Errorf("Balance smaller than minimum required for this transaction, balance = %s, minimum = %s",
+			balance.String(), minimum.String())
+	}
+
+	if err != nil {
+		log.Error(err)
+		return &types.DispatchedTxResult{
+			Success: false,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
+			Err:     types.ErrNotEnoughBalance,
+		}
+	}
+
+	// Dispath tx.
 	err = d.tryDispatchTx(tx, request.Chain, from)
 	if err != nil {
 		// Try to connect again.
@@ -74,16 +98,40 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 	if err == nil {
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
-			"txHash =", tx.Hash())
+			" txHash =", tx.Hash())
 		return &types.DispatchedTxResult{
-			Success:      true,
-			DeployedAddr: addr,
-			Chain:        request.Chain,
-			TxHash:       request.TxHash,
+			Success: true,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
 		}
+	} else {
+		log.Error("Failed to dispatch tx, err = ", err)
 	}
 
-	return types.NewDispatchTxError(err)
+	return types.NewDispatchTxError(types.ErrSubmitTx)
+}
+
+func (d *EthDispatcher) checkNativeBalance(from common.Address) *big.Int {
+	// Shuffle rpcs so that we will use different healthy rpc
+	clients, healthy, rpcs := d.shuffle()
+
+	for i := range clients {
+		if !healthy[i] {
+			log.Verbose("%s is not healthy", rpcs[i])
+			continue
+		}
+
+		client := clients[i]
+		balance, err := client.BalanceAt(context.Background(), from, nil)
+		if err != nil {
+			log.Error("Error getting balance, err = ", err)
+			continue
+		}
+
+		return balance
+	}
+
+	return nil
 }
 
 func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {

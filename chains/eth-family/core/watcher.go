@@ -225,6 +225,7 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 			Serialized: bz,
 			From:       from.Hex(),
 			To:         to,
+			Success:    receipt.Status == 1,
 		})
 	}
 

@@ -29,7 +29,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 		return &types.DispatchedTxResult{
 			Success: false,
 			Chain:   request.Chain,
-			Err:     err,
+			Err:     types.ErrMarshal,
 		}
 	}
 
@@ -43,7 +43,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 		return &types.DispatchedTxResult{
 			Success: false,
 			Chain:   request.Chain,
-			Err:     err,
+			Err:     types.ErrSubmitTx,
 		}
 	}
 

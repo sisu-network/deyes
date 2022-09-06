@@ -4,11 +4,11 @@ package types
 type Tx struct {
 	// keccab32 of the serialized byte. For utxo, it's the keccab32 hash of tx hash and utxo index.
 	Hash        string
-	SrcChain    string
 	OutputIndex int // used only for utxos
 	Serialized  []byte
 	From        string
 	To          string
+	Success     bool
 }
 
 // List of all transactions in a block of a specific chain.

@@ -205,6 +205,5 @@ func (w *Watcher) SetGateway(addr string) {
 }
 
 func (w *Watcher) TrackTx(txHash string) {
-	fmt.Println("Cardano tracking tx: ", txHash)
 	w.txTrackCache.Add(txHash, true)
 }
