@@ -298,8 +298,8 @@ func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
-			tokenPrice.Price,
-			tokenPrice.Price,
+			tokenPrice.Price.String(),
+			tokenPrice.Price.String(),
 		)
 		if err != nil {
 			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
