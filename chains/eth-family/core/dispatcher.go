@@ -151,7 +151,7 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 			// been included into the blockchain or not.
 			_, _, err2 := client.TransactionByHash(context.Background(), tx.Hash())
 			if err2 != nil {
-				log.Error("cannot dispatch tx, from = ", from, " chain = ", chain)
+				log.Error("cannot dispatch tx, from = ", from, " chain = ", chain, " rpc = ", rpcs[i])
 				log.Error("cannot dispatch tx, err = ", err)
 				log.Error("cannot dispatch tx, err2 = ", err2)
 
