@@ -147,15 +147,9 @@ func (p *Processor) listen() {
 
 		case txTrackUpdate := <-p.txTrackCh:
 			log.Verbose("There is a tx to confirm with hash: ", txTrackUpdate.Hash)
-			p.sisuClient.ConfirmTx(txTrackUpdate)
+			p.sisuClient.OnTxIncludedInBlock(txTrackUpdate)
 		}
 	}
-}
-
-func (tp *Processor) SetChainAccount(chain, addr string) {
-	log.Infof("Setting chain account, chain = %s, addr = %s", chain, addr)
-	watcher := tp.watchers[chain]
-	watcher.SetChainAccount(addr)
 }
 
 func (tp *Processor) SetGateway(chain, addr string) {
@@ -173,7 +167,8 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	dispatcher := tp.dispatchers[chain]
 	var result *types.DispatchedTxResult
 	if dispatcher == nil {
-		result = types.NewDispatchTxError(fmt.Errorf("unknown chain %s", chain))
+		log.Error(fmt.Errorf("unknown chain %s", chain))
+		result = types.NewDispatchTxError(types.ErrGeneric)
 	} else {
 		result = dispatcher.Dispatch(request)
 	}

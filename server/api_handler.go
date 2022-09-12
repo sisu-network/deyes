@@ -28,10 +28,6 @@ func (api *ApiHandler) SetSisuReady(isReady bool) {
 	api.processor.SetSisuReady(isReady)
 }
 
-func (api *ApiHandler) SetChainAccount(chain string, addr string) {
-	api.processor.SetChainAccount(chain, addr)
-}
-
 func (api *ApiHandler) SetGatewayAddress(chain string, addr string) {
 	api.processor.SetGateway(chain, addr)
 }

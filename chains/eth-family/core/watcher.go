@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/groupcache/lru"
@@ -48,32 +48,44 @@ func (e *BlockHeightExceededError) Error() string {
 type Watcher struct {
 	cfg             config.Chain
 	clients         []EthClient
-	blockHeight     int64
 	blockTime       int
 	db              database.Database
 	txsCh           chan *types.Txs
 	txTrackCh       chan *chainstypes.TrackUpdate
-	chainAccount    string
 	gateway         string
-	signers         map[string]etypes.Signer
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
 	lock            *sync.RWMutex
 	txTrackCache    *lru.Cache
+
+	// Block fetcher
+	blockCh      chan *etypes.Block
+	blockFetcher *defaultBlockFetcher
+
+	// Receipt fetcher
+	receiptFetcher    receiptFetcher
+	receiptResponseCh chan *txReceiptResponse
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 	txTrackCh chan *chainstypes.TrackUpdate, clients []EthClient) chains.Watcher {
+	blockCh := make(chan *etypes.Block)
+	receiptResponseCh := make(chan *txReceiptResponse)
+
 	w := &Watcher{
-		db:           db,
-		cfg:          cfg,
-		txsCh:        txsCh,
-		txTrackCh:    txTrackCh,
-		blockTime:    cfg.BlockTime,
-		gasPrice:     atomic.NewInt64(0),
-		clients:      clients,
-		lock:         &sync.RWMutex{},
-		txTrackCache: lru.New(TxTrackCacheSize),
+		receiptResponseCh: receiptResponseCh,
+		blockCh:           blockCh,
+		blockFetcher:      newBlockFetcher(cfg, blockCh, clients),
+		receiptFetcher:    newReceiptFetcher(receiptResponseCh, clients, cfg.Chain),
+		db:                db,
+		cfg:               cfg,
+		txsCh:             txsCh,
+		txTrackCh:         txTrackCh,
+		blockTime:         cfg.BlockTime,
+		gasPrice:          atomic.NewInt64(0),
+		clients:           clients,
+		lock:              &sync.RWMutex{},
+		txTrackCache:      lru.New(TxTrackCacheSize),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -82,49 +94,13 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 }
 
 func (w *Watcher) init() {
-	// Set the block height for the watcher.
-	w.setBlockHeight()
-
 	var err error
 	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
 
-	w.chainAccount, err = w.db.GetChainAccount(w.cfg.Chain)
-	if err != nil {
-		panic(err)
-	}
-
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
-}
-
-func (w *Watcher) setBlockHeight() {
-	for {
-		number, err := w.getBlockNumber()
-		if err != nil {
-			log.Errorf("cannot get latest block number for chain %s. Sleeping for a few seconds", w.cfg.Chain)
-			time.Sleep(time.Second * 5)
-			continue
-		}
-
-		w.blockHeight = int64(number)
-		break
-	}
-
-	log.Info("Watching from block", w.blockHeight, " for chain ", w.cfg.Chain)
-}
-
-func (w *Watcher) SetChainAccount(addr string) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	err := w.db.SetChainAccount(w.cfg.Chain, addr)
-	if err == nil {
-		w.chainAccount = addr
-	} else {
-		log.Error("Failed to save gateway")
-	}
 }
 
 func (w *Watcher) SetGateway(addr string) {
@@ -133,7 +109,7 @@ func (w *Watcher) SetGateway(addr string) {
 
 	err := w.db.SetGateway(w.cfg.Chain, addr)
 	if err == nil {
-		w.gateway = addr
+		w.gateway = strings.ToLower(addr)
 	} else {
 		log.Error("Failed to save gateway")
 	}
@@ -147,23 +123,23 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) scanBlocks() {
-	latestBlock, err := w.getLatestBlock()
-	if err != nil {
-		log.Error("Failed to scan blocks, err = ", err)
-	}
+	go w.blockFetcher.start()
+	go w.receiptFetcher.start()
 
-	if latestBlock != nil {
-		w.blockHeight = latestBlock.Header().Number.Int64()
-	}
-	log.Info(w.cfg.Chain, " Latest height = ", w.blockHeight)
+	go w.waitForBlock()
+	go w.waitForReceipt()
+}
 
+// waitForBlock waits for new blocks from the block fetcher. It then filters interested txs and
+// passes that to receipt fetcher to fetch receipt.
+func (w *Watcher) waitForBlock() {
 	for {
-		log.Verbose("Block time on chain ", w.cfg.Chain, " is ", w.blockTime)
+		block := <-w.blockCh
 
 		// Only update gas price at deterministic block height
 		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
 		chainParams := config.ChainParamsMap[w.cfg.Chain]
-		if (w.blockHeight-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+		if (block.Number().Int64()-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
 			go func() {
 				gasPrice := w.GetGasPrice()
 				if gasPrice == 0 {
@@ -172,163 +148,62 @@ func (w *Watcher) scanBlocks() {
 			}()
 		}
 
-		// Get the blockheight
-		block, err := w.tryGetBlock()
-		if err != nil || block == nil {
-			if _, ok := err.(*BlockHeightExceededError); !ok && err != ethereum.NotFound {
-				// This err is not ETH not found or our custom error.
-				log.Error("Cannot get block at height", w.blockHeight, "for chain", w.cfg.Chain, " err = ", err)
-			}
+		// Pass this block to the receipt fetcher
+		log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
+		txs := w.processBlock(block)
+		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
-			w.blockTime = w.blockTime + w.cfg.AdjustTime
-			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
-			continue
+		if len(txs) > 0 {
+			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs)
 		}
+	}
+}
 
-		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
-		filteredTxs, err := w.processBlock(block)
-		if err != nil {
-			log.Error("cannot process block, err = ", err)
-			continue
-		}
+// waitForReceipt waits for receipts returned by the fetcher.
+func (w *Watcher) waitForReceipt() {
+	for {
+		response := <-w.receiptResponseCh
+		txs := w.extractTxs(response)
 
-		log.Verbose("Filtered txs sizes = ", len(filteredTxs.Arr), " on chain ", w.cfg.Chain)
+		log.Verbose(w.cfg.Chain, ": txs sizes = ", len(txs.Arr))
 
-		if len(filteredTxs.Arr) > 0 {
+		if len(txs.Arr) > 0 {
 			// Send list of interested txs back to the listener.
-			w.txsCh <- filteredTxs
+			w.txsCh <- txs
 		}
 
 		// Save all txs into database for later references.
-		w.db.SaveTxs(w.cfg.Chain, w.blockHeight, filteredTxs)
-
-		w.blockHeight++
-
-		time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
+		w.db.SaveTxs(w.cfg.Chain, response.blockNumber, txs)
 	}
 }
 
-// Get block with retry when block is not mined yet.
-func (w *Watcher) tryGetBlock() (*etypes.Block, error) {
-	number, err := w.getBlockNumber()
-	if err != nil {
-		return nil, err
-	}
-
-	if number < uint64(w.blockHeight) {
-		return nil, NewBlockHeightExceededError(number)
-	}
-
-	block, err := w.getBlock(w.blockHeight)
-	switch err {
-	case nil:
-		log.Verbose(w.cfg.Chain, " Height = ", block.Number())
-		return block, nil
-
-	case ethereum.NotFound:
-		// Sleep a few seconds and to get the block again.
-		time.Sleep(time.Duration(utils.MinInt(w.blockTime/4, 3000)) * time.Millisecond)
-		block, err = w.getBlock(w.blockHeight)
-
-		// Extend the wait time a little bit more
-		w.blockTime = w.blockTime + w.cfg.AdjustTime
-		log.Verbose("New blocktime: ", w.blockTime)
-	}
-
-	return block, err
-}
-
-func (w *Watcher) getBlockNumber() (uint64, error) {
-	for _, client := range w.clients {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
-		number, err := client.BlockNumber(ctx)
-		cancel()
-
-		if err == nil {
-			return number, nil
-		}
-	}
-
-	return 0, fmt.Errorf("Block number not found")
-}
-
-func (w *Watcher) getLatestBlock() (*etypes.Block, error) {
-	return w.getBlock(-1)
-}
-
-func (w *Watcher) getBlock(height int64) (*etypes.Block, error) {
-	for _, client := range w.clients {
-		blockNum := big.NewInt(height)
-		if height == -1 { // latest block
-			blockNum = nil
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
-		block, err := client.BlockByNumber(ctx, blockNum)
-		cancel()
-
-		if err == nil {
-			return block, nil
-		}
-	}
-
-	return nil, ethereum.NotFound
-}
-
-func (w *Watcher) getTxReceipt(hash common.Hash) (*etypes.Receipt, error) {
-	for _, client := range w.clients {
-		receipt, err := client.TransactionReceipt(context.Background(), hash)
-		if err == nil && receipt != nil {
-			return receipt, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Failed to get tx receipt")
-}
-
-func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
-	for _, client := range w.clients {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
-		gasPrice, err := client.SuggestGasPrice(ctx)
-		cancel()
-
-		if err == nil {
-			return gasPrice, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Gas price not found")
-}
-
-func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
+// extractTxs takes resposne from the receipt fetcher and converts them into deyes transactions.
+func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	arr := make([]*types.Tx, 0)
-
-	log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
-
-	for _, tx := range block.Transactions() {
+	for i, tx := range response.txs {
+		receipt := response.receipts[i]
 		bz, err := tx.MarshalBinary()
 		if err != nil {
 			log.Error("Cannot serialize ETH tx, err = ", err)
 			continue
 		}
 
-		fmt.Println("Txhash = ", tx.Hash().String())
-
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
+			// Get Tx Receipt
+			result := chainstypes.TrackResultConfirmed
+			if receipt.Status == 0 {
+				result = chainstypes.TrackResultFailure
+			}
+
 			// This is a transaction that we are tracking. Inform Sisu about this.
 			w.txTrackCh <- &chainstypes.TrackUpdate{
 				Chain:       w.cfg.Chain,
 				Bytes:       bz,
 				Hash:        tx.Hash().String(),
-				BlockHeight: int64(block.NumberU64()),
-				Result:      chainstypes.TrackResultConfirmed,
+				BlockHeight: response.blockNumber,
+				Result:      result,
 			}
 
-			continue
-		}
-
-		// Only filter our interested transaction.
-		if !w.acceptTx(tx) {
 			continue
 		}
 
@@ -350,20 +225,55 @@ func (w *Watcher) processBlock(block *etypes.Block) (*types.Txs, error) {
 			Serialized: bz,
 			From:       from.Hex(),
 			To:         to,
+			Success:    receipt.Status == 1,
 		})
 	}
 
 	return &types.Txs{
 		Chain:     w.cfg.Chain,
-		Block:     block.Number().Int64(),
-		BlockHash: block.Hash().String(),
+		Block:     response.blockNumber,
+		BlockHash: response.blockHash,
 		Arr:       arr,
-	}, nil
+	}
+}
+
+func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
+	for _, client := range w.clients {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
+		gasPrice, err := client.SuggestGasPrice(ctx)
+		cancel()
+
+		if err == nil {
+			return gasPrice, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Gas price not found")
+}
+
+func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
+	ret := make([]*etypes.Transaction, 0)
+
+	for _, tx := range block.Transactions() {
+		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
+			ret = append(ret, tx)
+			continue
+		}
+
+		if w.acceptTx(tx) {
+			ret = append(ret, tx)
+		}
+	}
+
+	return ret
 }
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
-	if tx.To() != nil && (tx.To().String() == w.gateway || tx.To().String() == w.chainAccount) {
-		return true
+	if tx.To() != nil {
+		to := strings.ToLower(tx.To().String())
+		if to == w.gateway {
+			return true
+		}
 	}
 
 	return false
@@ -431,4 +341,18 @@ func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 func (w *Watcher) TrackTx(txHash string) {
 	log.Verbose("Tracking tx: ", txHash)
 	w.txTrackCache.Add(txHash, true)
+}
+
+func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*etypes.Receipt, error) {
+	for _, client := range w.clients {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		receipt, err := client.TransactionReceipt(ctx, txHash)
+		cancel()
+
+		if err == nil {
+			return receipt, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Cannot find receipt for tx hash: %s", txHash.String())
 }

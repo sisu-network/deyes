@@ -6,22 +6,17 @@ type DispatchedTxRequest struct {
 	TxHash string
 
 	// For ETH chains
-	PubKey                  []byte
-	IsEthContractDeployment bool
+	PubKey []byte
 }
 
 type DispatchedTxResult struct {
 	Success bool
-	Err     error
+	Err     DispatchError // We use int since json RPC cannot marshal error
 	Chain   string
 	TxHash  string
-
-	// For ETH only. This is optional deployed contract addresses.
-	DeployedAddr            string
-	IsEthContractDeployment bool
 }
 
-func NewDispatchTxError(err error) *DispatchedTxResult {
+func NewDispatchTxError(err DispatchError) *DispatchedTxResult {
 	return &DispatchedTxResult{
 		Success: false,
 		Err:     err,

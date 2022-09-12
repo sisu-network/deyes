@@ -26,10 +26,6 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
-	// Chain Account
-	SetChainAccount(chain, address string) error
-	GetChainAccount(chain string) (string, error)
-
 	// Gateway address
 	SetGateway(chain, address string) error
 	GetGateway(chain string) (string, error)
@@ -251,14 +247,6 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SetChainAccount(chain, address string) error {
-	return d.addWatchAddress(chain, address, "chain_account")
-}
-
-func (d *DefaultDatabase) GetChainAccount(chain string) (string, error) {
-	return d.getWatchAddress(chain, "chain_account")
-}
-
 func (d *DefaultDatabase) SetGateway(chain, address string) error {
 	return d.addWatchAddress(chain, address, "gateway")
 }
@@ -310,8 +298,8 @@ func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
-			tokenPrice.Price,
-			tokenPrice.Price,
+			tokenPrice.Price.String(),
+			tokenPrice.Price.String(),
 		)
 		if err != nil {
 			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)

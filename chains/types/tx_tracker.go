@@ -4,6 +4,7 @@ type TrackResult int
 
 const (
 	TrackResultConfirmed TrackResult = iota
+	TrackResultFailure
 	TrackResultTimeout
 )
 
