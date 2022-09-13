@@ -61,7 +61,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	err := tx.UnmarshalBinary(txBytes)
 	if err != nil {
 		log.Error("Failed to unmarshal ETH transaction, err = ", err)
-		return types.NewDispatchTxError(types.ErrMarshal)
+		return types.NewDispatchTxError(request, types.ErrMarshal)
 	}
 
 	from := utils.PublicKeyBytesToAddress(request.PubKey)
@@ -73,6 +73,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	}
 
 	minimum := new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas())))
+	minimum = minimum.Add(minimum, tx.Value())
 	if minimum.Cmp(balance) > 0 {
 		err = fmt.Errorf("Balance smaller than minimum required for this transaction, from = %s, balance = %s, minimum = %s",
 			from.String(), balance.String(), minimum.String())
@@ -90,12 +91,6 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 	// Dispath tx.
 	err = d.tryDispatchTx(tx, request.Chain, from)
-	if err != nil {
-		// Try to connect again.
-		d.dial()
-		err = d.tryDispatchTx(tx, request.Chain, from) // try second time
-	}
-
 	if err == nil {
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
 			" txHash =", tx.Hash())
@@ -108,7 +103,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		log.Error("Failed to dispatch tx, err = ", err)
 	}
 
-	return types.NewDispatchTxError(types.ErrSubmitTx)
+	return types.NewDispatchTxError(request, types.ErrSubmitTx)
 }
 
 func (d *EthDispatcher) checkNativeBalance(from common.Address) *big.Int {
@@ -138,6 +133,8 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 	// Shuffle rpcs so that we will use different healthy rpc
 	clients, healthy, rpcs := d.shuffle()
 
+	triedRpcs := make(map[string]bool)
+
 	for i := range clients {
 		if !healthy[i] {
 			log.Verbose("%s is not healthy", rpcs[i])
@@ -145,26 +142,56 @@ func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from
 		}
 
 		log.Verbose("Trying rpc ", rpcs[i])
-		client := clients[i]
-		if err := client.SendTransaction(context.Background(), tx); err != nil {
-			// It is possible that another node has deployed the same transaction. We check if the tx has
-			// been included into the blockchain or not.
-			_, _, err2 := client.TransactionByHash(context.Background(), tx.Hash())
-			if err2 != nil {
-				log.Error("cannot dispatch tx, from = ", from, " chain = ", chain, " rpc = ", rpcs[i])
-				log.Error("cannot dispatch tx, err = ", err)
-				log.Error("cannot dispatch tx, err2 = ", err2)
+		err := d.sendTransaction(clients[i], tx, i, from, chain, rpcs[i])
+		if err == nil {
+			return nil
+		}
 
-				d.healthy[i] = false
-				continue
-			}
+		triedRpcs[rpcs[i]] = true
+	}
 
-			log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+	// We cannot connect to healthy rpcs. Try connecting to rpc that was marked as unhealthy in the
+	// past.
+	for i, rpc := range rpcs {
+		if triedRpcs[rpc] {
+			continue
+		}
+
+		log.Verbose("Trying rpc ", rpcs[i])
+		err := d.sendTransaction(clients[i], tx, i, from, chain, rpcs[i])
+		if err == nil {
 			return nil
 		}
 	}
 
 	return fmt.Errorf("cannot dispatch eth tx")
+}
+
+func (d *EthDispatcher) sendTransaction(client *ethclient.Client, tx *eTypes.Transaction, index int,
+	from common.Address, chain string, rpc string) error {
+	if err := client.SendTransaction(context.Background(), tx); err != nil {
+		// It is possible that another node has deployed the same transaction. We check if the tx has
+		// been included into the blockchain or not.
+		_, _, err2 := client.TransactionByHash(context.Background(), tx.Hash())
+		if err2 != nil {
+			log.Error("cannot dispatch tx, from = ", from, " chain = ", chain, " rpc = ", rpc)
+			log.Error("cannot dispatch tx, err = ", err)
+			log.Error("cannot dispatch tx, err2 = ", err2)
+
+			d.healthy[index] = false
+
+			return err
+		}
+
+		d.healthy[index] = true
+
+		log.Info("The transaction has been deployed before. Tx hash = ", tx.Hash().String())
+		return nil
+	}
+
+	d.healthy[index] = true
+
+	return nil
 }
 
 func (d *EthDispatcher) shuffle() ([]*ethclient.Client, []bool, []string) {
