@@ -168,7 +168,7 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	var result *types.DispatchedTxResult
 	if dispatcher == nil {
 		log.Error(fmt.Errorf("unknown chain %s", chain))
-		result = types.NewDispatchTxError(types.ErrGeneric)
+		result = types.NewDispatchTxError(request, types.ErrGeneric)
 	} else {
 		result = dispatcher.Dispatch(request)
 	}
