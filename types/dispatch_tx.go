@@ -16,8 +16,10 @@ type DispatchedTxResult struct {
 	TxHash  string
 }
 
-func NewDispatchTxError(err DispatchError) *DispatchedTxResult {
+func NewDispatchTxError(request *DispatchedTxRequest, err DispatchError) *DispatchedTxResult {
 	return &DispatchedTxResult{
+		Chain:   request.Chain,
+		TxHash:  request.TxHash,
 		Success: false,
 		Err:     err,
 	}
