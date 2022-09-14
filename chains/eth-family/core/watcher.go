@@ -103,11 +103,11 @@ func (w *Watcher) init() {
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
 }
 
-func (w *Watcher) SetGateway(addr string) {
+func (w *Watcher) SetVault(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	err := w.db.SetGateway(w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr)
 	if err == nil {
 		w.gateway = strings.ToLower(addr)
 	} else {
