@@ -123,6 +123,13 @@ func (d *EthDispatcher) checkNativeBalance(from common.Address) *big.Int {
 			continue
 		}
 
+		if balance.Cmp(big.NewInt(0)) == 0 {
+			// Balance is rarely 0. If this is the case, it's very likely that this RPC has a problem.
+			// Continue with other RPC.
+			log.Warn("balance is 0 for some rpc. Trying other rpc")
+			continue
+		}
+
 		return balance
 	}
 
