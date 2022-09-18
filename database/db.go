@@ -27,7 +27,7 @@ type Database interface {
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
 	// Gateway address
-	SetGateway(chain, address string) error
+	SetVault(chain, address string) error
 	GetGateway(chain string) (string, error)
 
 	// Token price
@@ -247,8 +247,8 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SetGateway(chain, address string) error {
-	return d.addWatchAddress(chain, address, "gateway")
+func (d *DefaultDatabase) SetVault(chain, address string) error {
+	return d.addWatchAddress(chain, address, "vault")
 }
 
 func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {

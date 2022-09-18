@@ -28,8 +28,8 @@ func (api *ApiHandler) SetSisuReady(isReady bool) {
 	api.processor.SetSisuReady(isReady)
 }
 
-func (api *ApiHandler) SetGatewayAddress(chain string, addr string) {
-	api.processor.SetGateway(chain, addr)
+func (api *ApiHandler) SetVaultAddress(chain string, addr string) {
+	api.processor.SetVault(chain, addr)
 }
 
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {

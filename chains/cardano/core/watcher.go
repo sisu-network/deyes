@@ -192,11 +192,11 @@ func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
 	return block, nil
 }
 
-func (w *Watcher) SetGateway(addr string) {
+func (w *Watcher) SetVault(addr string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	err := w.db.SetGateway(w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr)
 	if err == nil {
 		w.gateway = addr
 	} else {
