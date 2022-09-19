@@ -7,8 +7,7 @@ import (
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
-	"github.com/sisu-network/deyes/chains/eth-family/core"
-	ethcore "github.com/sisu-network/deyes/chains/eth-family/core"
+	chainseth "github.com/sisu-network/deyes/chains/eth-family"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
@@ -72,8 +71,8 @@ func (p *Processor) Start() {
 		var watcher chains.Watcher
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) { // ETH chain
-			watcher = ethcore.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
-			dispatcher = ethcore.NewEhtDispatcher(chain, cfg.Rpcs)
+			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
+			dispatcher = chainseth.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) { // Cardano chain
 			client := p.getCardanoClient(cfg)
 
@@ -124,8 +123,8 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *chainscardano.DefaultCar
 	)
 }
 
-func (p *Processor) getEthClients(rpcs []string) []ethcore.EthClient {
-	clients := core.NewEthClients(rpcs)
+func (p *Processor) getEthClients(rpcs []string) []chainseth.EthClient {
+	clients := chainseth.NewEthClients(rpcs)
 	if len(clients) == 0 {
 		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
 	}
@@ -188,7 +187,7 @@ func (tp *Processor) GetNonce(chain string, address string) int64 {
 		return -1
 	}
 
-	watcher := tp.watchers[chain].(*ethcore.Watcher)
+	watcher := tp.watchers[chain].(*chainseth.Watcher)
 	if watcher == nil {
 		return -1
 	}
