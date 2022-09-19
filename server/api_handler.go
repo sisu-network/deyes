@@ -1,7 +1,7 @@
 package server
 
 import (
-	chainseth "github.com/sisu-network/deyes/chains/eth-family"
+	chainseth "github.com/sisu-network/deyes/chains/eth"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
 

@@ -7,7 +7,7 @@ import (
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
-	chainseth "github.com/sisu-network/deyes/chains/eth-family"
+	chainseth "github.com/sisu-network/deyes/chains/eth"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
