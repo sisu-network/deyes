@@ -442,8 +442,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/sirupsen/logrus v1.4.1/go.mod h1:ni0Sbl8bgC9z8RoU9G6nDWqqs/fq4eDPysMBDgk/93Q=
 github.com/sirupsen/logrus v1.7.0 h1:ShrD1U9pZB12TX0cVy0DtePoCH97K8EtX+mg7ZARUtM=
 github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
-github.com/sisu-network/cardano-go v0.1.14-fork-04 h1:jT4k68hTCM+ovQlP1tk1d06PU5/LbBpNR8AKVnUj8xM=
-github.com/sisu-network/cardano-go v0.1.14-fork-04/go.mod h1:gvo3faIs9dNVR0bRjIn8vQca8Pd6TpYWpxMiIV87lr4=
+github.com/sisu-network/cardano-go v0.1.14-fork-08 h1:wELq+cs4FJj8GD813o88OyYfSfADtvjLPQoJQE0U944=
+github.com/sisu-network/cardano-go v0.1.14-fork-08/go.mod h1:gvo3faIs9dNVR0bRjIn8vQca8Pd6TpYWpxMiIV87lr4=
 github.com/sisu-network/lib v0.0.1-alpha9.0.20220805094201-302101a59f7f h1:w06bwQHqI5d+TwY8zjTMuCRQ1lNgeuwzCs72Hn7NI7U=
 github.com/sisu-network/lib v0.0.1-alpha9.0.20220805094201-302101a59f7f/go.mod h1:ccPr7jJqYU+f0F10Z0hCiKJtYCFcFhgeElxIwRuCI6k=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
