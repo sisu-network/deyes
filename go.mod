@@ -78,6 +78,6 @@ require (
 )
 
 replace (
-	github.com/echovl/cardano-go => github.com/sisu-network/cardano-go v0.1.14-fork-04
+	github.com/echovl/cardano-go => github.com/sisu-network/cardano-go v0.1.14-fork-08
 	github.com/ethereum/go-ethereum v1.10.12 => github.com/sisu-network/go-ethereum v1.10.12-sisu001
 )

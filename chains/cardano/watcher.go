@@ -1,4 +1,4 @@
-package core
+package cardano
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ type Watcher struct {
 	client          CardanoClient
 	blockTime       int
 	lastBlockHeight atomic.Int32
-	gateway         string
+	vault           string
 
 	txTrackCh    chan *chainstypes.TrackUpdate
 	lock         *sync.RWMutex
@@ -61,12 +61,12 @@ func (w *Watcher) init() {
 	}
 
 	var err error
-	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	w.vault, err = w.db.GetVault(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
+	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
 
 	w.lastBlockHeight.Store(0)
 }
@@ -106,7 +106,7 @@ func (w *Watcher) scanChain() {
 
 		// Process each address in the interested addr.
 		txArr := make([]*types.Tx, 0)
-		txsIn, err := w.client.NewTxs(block.Height, w.gateway)
+		txsIn, err := w.client.NewTxs(block.Height, w.vault)
 		if err != nil {
 			log.Error("Cannot get list of new transaction at block ", block.Height, " err = ", err)
 			time.Sleep(time.Duration(w.blockTime) * time.Millisecond)
@@ -118,7 +118,7 @@ func (w *Watcher) scanChain() {
 		w.lastBlockHeight.Store(int32(block.Height))
 		w.blockTime = w.blockTime - w.cfg.AdjustTime/4
 
-		if len(w.gateway) == 0 {
+		if len(w.vault) == 0 {
 			log.Verbose("Gateway is still empty")
 			continue
 		}
@@ -152,6 +152,7 @@ func (w *Watcher) scanChain() {
 				OutputIndex: txIn.Index,
 				Serialized:  bz,
 				To:          txIn.Address,
+				Success:     true,
 			})
 		}
 
@@ -198,7 +199,7 @@ func (w *Watcher) SetVault(addr string) {
 
 	err := w.db.SetVault(w.cfg.Chain, addr)
 	if err == nil {
-		w.gateway = addr
+		w.vault = addr
 	} else {
 		log.Error("Failed to save gateway")
 	}

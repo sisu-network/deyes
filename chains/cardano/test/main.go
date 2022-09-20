@@ -14,7 +14,7 @@ import (
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
 	"github.com/echovl/cardano-go/wallet"
-	carcore "github.com/sisu-network/deyes/chains/cardano/core"
+	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
@@ -127,9 +127,9 @@ func testWatcher() {
 		Server:    blockfrost.CardanoTestNet,
 	})
 	txsCh := make(chan *types.Txs)
-	watcher := carcore.NewWatcher(chainCfg, dbInstance, txsCh,
+	watcher := chainscardano.NewWatcher(chainCfg, dbInstance, txsCh,
 		make(chan *chainstypes.TrackUpdate, 3),
-		carcore.NewDefaultCardanoClient(provider, blockfrost.CardanoTestNet+"/tx/submit", projectId))
+		chainscardano.NewDefaultCardanoClient(provider, blockfrost.CardanoTestNet+"/tx/submit", projectId))
 	watcher.Start()
 	watcher.SetVault("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
 
@@ -292,7 +292,7 @@ func testBlockfrostClient() {
 		Server:    blockfrost.CardanoTestNet,
 	})
 
-	client := carcore.NewDefaultCardanoClient(
+	client := chainscardano.NewDefaultCardanoClient(
 		provider, blockfrost.CardanoTestNet+"/tx/submit", projectId,
 	)
 
@@ -464,14 +464,14 @@ func testWatcherSyncDB() {
 		DbName:   "cexplorer",
 	}
 
-	db, err := carcore.ConnectDB(syncDbCfg)
+	db, err := chainscardano.ConnectDB(syncDbCfg)
 	if err != nil {
 		panic(err)
 	}
 
-	syncDB := carcore.NewSyncDBConnector(db)
+	syncDB := chainscardano.NewSyncDBConnector(db)
 
-	cardanoClient := carcore.NewDefaultCardanoClient(syncDB, "", "")
+	cardanoClient := chainscardano.NewDefaultCardanoClient(syncDB, "", "")
 	txs, err := cardanoClient.NewTxs(3704374, "addr_test1vqfrdtmc7kvcpfyl8ula54ycqrh9kvml2wrxf9n28s2slrqk7awga")
 	if err != nil {
 		panic(err)

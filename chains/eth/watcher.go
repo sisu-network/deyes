@@ -1,4 +1,4 @@
-package core
+package eth
 
 import (
 	"context"
@@ -95,7 +95,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 
 func (w *Watcher) init() {
 	var err error
-	w.gateway, err = w.db.GetGateway(w.cfg.Chain)
+	w.gateway, err = w.db.GetVault(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}

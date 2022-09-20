@@ -26,9 +26,9 @@ type Database interface {
 	Init() error
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
-	// Gateway address
+	// Vault address
 	SetVault(chain, address string) error
-	GetGateway(chain string) (string, error)
+	GetVault(chain string) (string, error)
 
 	// Token price
 	SaveTokenPrices(tokenPrices []*types.TokenPrice)
@@ -265,8 +265,8 @@ func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 	return err
 }
 
-func (d *DefaultDatabase) GetGateway(chain string) (string, error) {
-	return d.getWatchAddress(chain, "gateway")
+func (d *DefaultDatabase) GetVault(chain string) (string, error) {
+	return d.getWatchAddress(chain, "vault")
 }
 
 func (d *DefaultDatabase) getWatchAddress(chain, typ string) (string, error) {
