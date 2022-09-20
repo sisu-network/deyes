@@ -13,7 +13,7 @@ require (
 	github.com/golang-migrate/migrate v3.5.4+incompatible
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.3.1
-	github.com/lib/pq v1.0.0
+	github.com/lib/pq v1.10.7
 	github.com/logdna/logdna-go v1.0.2
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/sisu-network/lib v0.0.1-alpha9.0.20220805094201-302101a59f7f
