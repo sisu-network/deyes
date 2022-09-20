@@ -26,11 +26,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 	tx := &cardano.Tx{}
 	if err := tx.UnmarshalCBOR(request.Tx); err != nil {
 		log.Error("error when unmarshalling tx: ", err)
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			Err:     types.ErrMarshal,
-		}
+		return types.NewDispatchTxError(request, types.ErrMarshal)
 	}
 
 	for _, txInput := range tx.Body.Inputs {
@@ -40,11 +36,7 @@ func (d *CardanoDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.
 	hash, err := d.client.SubmitTx(tx)
 	if err != nil {
 		log.Error("error when submitting tx: ", err)
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			Err:     types.ErrSubmitTx,
-		}
+		return types.NewDispatchTxError(request, types.ErrSubmitTx)
 	}
 
 	log.Verbose("Cardano tx hash = ", hash)
