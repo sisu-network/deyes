@@ -52,7 +52,7 @@ type Watcher struct {
 	db              database.Database
 	txsCh           chan *types.Txs
 	txTrackCh       chan *chainstypes.TrackUpdate
-	gateway         string
+	vault           string
 	gasPrice        *atomic.Int64
 	gasPriceGetters []GasPriceGetter
 	lock            *sync.RWMutex
@@ -95,12 +95,12 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 
 func (w *Watcher) init() {
 	var err error
-	w.gateway, err = w.db.GetVault(w.cfg.Chain)
+	w.vault, err = w.db.GetVault(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
 
-	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.gateway)
+	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
 }
 
 func (w *Watcher) SetVault(addr string) {
@@ -109,7 +109,7 @@ func (w *Watcher) SetVault(addr string) {
 
 	err := w.db.SetVault(w.cfg.Chain, addr)
 	if err == nil {
-		w.gateway = strings.ToLower(addr)
+		w.vault = strings.ToLower(addr)
 	} else {
 		log.Error("Failed to save gateway")
 	}
@@ -270,8 +270,7 @@ func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
 
 func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 	if tx.To() != nil {
-		to := strings.ToLower(tx.To().String())
-		if to == w.gateway {
+		if strings.EqualFold(tx.To().String(), w.vault) {
 			return true
 		}
 	}
