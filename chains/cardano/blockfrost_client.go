@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/blockfrost/blockfrost-go"
@@ -113,7 +114,7 @@ func (b *DefaultCardanoClient) BlockHeight() (int, error) {
 }
 
 // NewTxs implements CardanoClient
-func (b *DefaultCardanoClient) NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error) {
+func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.CardanoTransactionUtxo, error) {
 	latestHeight, err := b.BlockHeight()
 	if err != nil {
 		return nil, err
@@ -136,7 +137,7 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, gateway string) ([]*types.
 			return nil, err
 		}
 
-		if !b.shouldIncludeTx(utxos, gateway) {
+		if !b.shouldIncludeTx(utxos, vault) {
 			continue
 		}
 
@@ -146,7 +147,7 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, gateway string) ([]*types.
 		}
 
 		for i, output := range utxos.Outputs {
-			if output.Address == gateway {
+			if strings.EqualFold(output.Address, vault) {
 				tx := &types.CardanoTransactionUtxo{
 					Hash:     string(txHash),
 					Index:    i,
@@ -170,9 +171,9 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, gateway string) ([]*types.
 	return txs, nil
 }
 
-func (b *DefaultCardanoClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, gateway string) bool {
+func (b *DefaultCardanoClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, vault string) bool {
 	for _, output := range utxos.Outputs {
-		if output.Address == gateway {
+		if strings.EqualFold(output.Address, vault) {
 			return true
 		}
 	}
