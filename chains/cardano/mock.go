@@ -7,12 +7,13 @@ import (
 )
 
 type MockCardanoClient struct {
-	IsHealthyFunc   func() bool
-	LatestBlockFunc func() (*providertypes.Block, error)
-	GetBlockFunc    func(hashOrNumber string) (*providertypes.Block, error)
-	BlockHeightFunc func() (int, error)
-	NewTxsFunc      func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
-	SubmitTxFunc    func(tx *cardano.Tx) (*cardano.Hash32, error)
+	IsHealthyFunc      func() bool
+	LatestBlockFunc    func() (*providertypes.Block, error)
+	GetBlockFunc       func(hashOrNumber string) (*providertypes.Block, error)
+	BlockHeightFunc    func() (int, error)
+	NewTxsFunc         func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
+	SubmitTxFunc       func(tx *cardano.Tx) (*cardano.Hash32, error)
+	ProtocolParamsFunc func() (*cardano.ProtocolParams, error)
 }
 
 func (c *MockCardanoClient) IsHealthy() bool {
@@ -58,6 +59,14 @@ func (c *MockCardanoClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*providertypes.Block, error) {
 	if c.GetBlockFunc != nil {
 		return c.GetBlockFunc(hashOrNumber)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
+	if c.ProtocolParamsFunc != nil {
+		return c.ProtocolParamsFunc()
 	}
 
 	return nil, nil

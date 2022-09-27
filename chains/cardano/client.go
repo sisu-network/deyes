@@ -25,6 +25,7 @@ type CardanoClient interface {
 	BlockHeight() (int, error)
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
+	ProtocolParams() (*cardano.ProtocolParams, error)
 }
 
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
@@ -32,6 +33,7 @@ var _ CardanoClient = (*DefaultCardanoClient)(nil)
 type Provider interface {
 	Health(ctx context.Context) (bool, error)
 
+	// TODO: Convert provider type to cardano type to simplify our data model.
 	BlockLatest(ctx context.Context) (*providertypes.Block, error)
 	Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error)
 	AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error)
@@ -202,6 +204,10 @@ func (b *DefaultCardanoClient) GetTransactionMetadata(txHash string) (*types.Car
 
 func (b *DefaultCardanoClient) getContext() context.Context {
 	return context.Background()
+}
+
+func (b *DefaultCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
+	return b.inner.LatestEpochParameters(context.Background())
 }
 
 // SubmitTx implements CardanoClient

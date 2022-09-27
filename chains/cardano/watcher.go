@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/echovl/cardano-go"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -207,4 +208,8 @@ func (w *Watcher) SetVault(addr string) {
 
 func (w *Watcher) TrackTx(txHash string) {
 	w.txTrackCache.Add(txHash, true)
+}
+
+func (w *Watcher) ProtocolParams() (*cardano.ProtocolParams, error) {
+	return w.client.ProtocolParams()
 }

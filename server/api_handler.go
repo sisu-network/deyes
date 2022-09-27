@@ -1,6 +1,10 @@
 package server
 
 import (
+	"fmt"
+
+	"github.com/echovl/cardano-go"
+	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
@@ -40,6 +44,7 @@ func (api *ApiHandler) GetNonce(chain string, address string) int64 {
 	return api.processor.GetNonce(chain, address)
 }
 
+// This API only applies for ETH chains.
 func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
 	prices := make([]int64, len(chains))
 	for i, chain := range chains {
@@ -52,4 +57,14 @@ func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
 	}
 
 	return prices
+}
+
+func (api *ApiHandler) CardanoProtocolParams(chain string) (*cardano.ProtocolParams, error) {
+	if !libchain.IsCardanoChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
+
+	return watcher.ProtocolParams()
 }
