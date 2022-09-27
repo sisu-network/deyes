@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blockfrost/blockfrost-go"
 	"github.com/echovl/cardano-go"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
 	"github.com/sisu-network/deyes/types"
@@ -19,8 +18,8 @@ import (
 
 type CardanoClient interface {
 	IsHealthy() bool
-	LatestBlock() (*blockfrost.Block, error)
-	GetBlock(hashOrNumber string) (*blockfrost.Block, error)
+	LatestBlock() (*types.CardanoBlock, error)
+	GetBlock(hashOrNumber string) (*types.CardanoBlock, error)
 	BlockHeight() (int, error)
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
@@ -29,15 +28,15 @@ type CardanoClient interface {
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
 
 type Provider interface {
-	Health(ctx context.Context) (blockfrost.Health, error)
-	BlockLatest(ctx context.Context) (blockfrost.Block, error)
-	Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error)
-	AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error)
-	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
-	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
-	BlockTransactions(ctx context.Context, height string) ([]blockfrost.Transaction, error)
-	LatestEpochParameters(ctx context.Context) (blockfrost.EpochParameters, error)
-	AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error)
+	Health(ctx context.Context) (bool, error)
+	BlockLatest(ctx context.Context) (*types.CardanoBlock, error)
+	Block(ctx context.Context, hashOrNumber string) (*types.CardanoBlock, error)
+	AddressTransactions(ctx context.Context, address string, query types.APIQueryParams) ([]*types.AddressTransactions, error)
+	TransactionMetadata(ctx context.Context, hash string) ([]*types.TransactionMetadata, error)
+	TransactionUTXOs(ctx context.Context, hash string) (*types.TransactionUTXOs, error)
+	BlockTransactions(ctx context.Context, height string) ([]string, error)
+	LatestEpochParameters(ctx context.Context) (types.EpochParameters, error)
+	AddressUTXOs(ctx context.Context, address string, query types.APIQueryParams) ([]types.AddressUTXO, error)
 }
 
 const (
@@ -57,7 +56,6 @@ type DefaultCardanoClient struct {
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
-	bfAssetCache map[string]*blockfrost.Asset
 	lock         *sync.RWMutex
 }
 
@@ -67,40 +65,28 @@ func NewDefaultCardanoClient(inner Provider, submitTxURL, secret string) *Defaul
 		secret:       secret,
 		submitTxURL:  submitTxURL,
 		policyAssets: make(map[string]*cardano.Assets),
-		bfAssetCache: make(map[string]*blockfrost.Asset),
 		lock:         &sync.RWMutex{},
 	}
 }
 
 // IsHealthy implements CardanoClient
 func (b *DefaultCardanoClient) IsHealthy() bool {
-	health, err := b.inner.Health(context.Background())
+	healthy, err := b.inner.Health(context.Background())
 	if err != nil {
 		log.Error("Blockfrost is not healthy")
 		return false
 	}
 
-	return health.IsHealthy
+	return healthy
 }
 
 // LatestBlock implements CardanoClient
-func (b *DefaultCardanoClient) LatestBlock() (*blockfrost.Block, error) {
-	block, err := b.inner.BlockLatest(b.getContext())
-	if err != nil {
-		log.Error("Failed to get latest cardano block, err = ", err)
-		return nil, err
-	}
-
-	return &block, nil
+func (b *DefaultCardanoClient) LatestBlock() (*types.CardanoBlock, error) {
+	return b.inner.BlockLatest(b.getContext())
 }
 
-func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
-	block, err := b.inner.Block(b.getContext(), hashOrNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	return &block, nil
+func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*types.CardanoBlock, error) {
+	return b.inner.Block(b.getContext(), hashOrNumber)
 }
 
 // BlockHeight implements CardanoClient
@@ -171,7 +157,7 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.Ca
 	return txs, nil
 }
 
-func (b *DefaultCardanoClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, vault string) bool {
+func (b *DefaultCardanoClient) shouldIncludeTx(utxos *types.TransactionUTXOs, vault string) bool {
 	for _, output := range utxos.Outputs {
 		if strings.EqualFold(output.Address, vault) {
 			return true

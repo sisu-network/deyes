@@ -162,10 +162,7 @@ func testWatcher() {
 		panic(err)
 	}
 
-	provider := blockfrost.NewAPIClient(blockfrost.APIClientOptions{
-		ProjectID: projectId,
-		Server:    blockfrost.CardanoTestNet,
-	})
+	provider := chainscardano.NewBlockfrostProvider(chainCfg)
 	txsCh := make(chan *types.Txs)
 	watcher := chainscardano.NewWatcher(chainCfg, dbInstance, txsCh,
 		make(chan *chainstypes.TrackUpdate, 3),
@@ -215,7 +212,7 @@ func testWatcher() {
 	}
 }
 
-func getProtocolParams(bfParams blockfrost.EpochParameters) *cardano.ProtocolParams {
+func getProtocolParams(bfParams types.EpochParameters) *cardano.ProtocolParams {
 	keyDeposit, err := strconv.Atoi(bfParams.KeyDeposit)
 	if err != nil {
 		panic(err)
@@ -231,7 +228,7 @@ func getProtocolParams(bfParams blockfrost.EpochParameters) *cardano.ProtocolPar
 	}
 }
 
-func convertUtxos(butxos []blockfrost.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
+func convertUtxos(butxos []types.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
 	utxos := make([]cardano.UTxO, len(butxos))
 
 	for i, butxo := range butxos {
@@ -295,7 +292,7 @@ func constructTx(api chainscardano.Provider, senderAddr cardano.Address) *cardan
 		panic(err)
 	}
 
-	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), blockfrost.APIQueryParams{})
+	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), types.APIQueryParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -388,11 +385,15 @@ func testBlockfrostClient() {
 		panic("project id is empty")
 	}
 
-	provider := blockfrost.NewAPIClient(blockfrost.APIClientOptions{
-		ProjectID: projectId,
-		Server:    blockfrost.CardanoTestNet,
-	})
+	chainCfg := config.Chain{
+		Chain:      "cardano-testnet",
+		BlockTime:  20 * 1000,
+		AdjustTime: 2000,
+		Rpcs:       []string{"https://cardano-preprod.blockfrost.io/api/v0"},
+		RpcSecret:  projectId,
+	}
 
+	provider := chainscardano.NewBlockfrostProvider(chainCfg)
 	client := chainscardano.NewDefaultCardanoClient(
 		provider, blockfrost.CardanoTestNet+"/tx/submit", projectId,
 	)
@@ -624,8 +625,8 @@ func testDbSyncSubmitTx() {
 func main() {
 	loadEnv()
 
+	// testWatcherSyncDB()
 	testDbSyncSubmitTx()
-
 	// transfer("addr_test1vzycp0hf59rp7vptgp74c4vw3fl4zspujmn2arlyflwrumslsh02n", 5*1_000_000)
 
 	// transferWithMetadata("ganache1",

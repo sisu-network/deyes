@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/blockfrost/blockfrost-go"
 	"github.com/sisu-network/deyes/chains"
+	"github.com/sisu-network/deyes/chains/cardano"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
@@ -98,10 +98,7 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *chainscardano.DefaultCar
 	if cfg.ClientType == config.ClientTypeBlockFrost && len(cfg.RpcSecret) > 0 {
 		log.Info("Use Blockfrost API client")
 		// TODO: Make this configurable
-		provider = blockfrost.NewAPIClient(blockfrost.APIClientOptions{
-			ProjectID: cfg.RpcSecret,
-			Server:    "https://cardano-preprod.blockfrost.io/api/v0",
-		})
+		provider = cardano.NewBlockfrostProvider(cfg)
 		submitURL = "https://cardano-preprod.blockfrost.io/api/v0" + "/tx/submit"
 	} else if cfg.ClientType == config.ClientTypeSelfHost {
 		log.Info("Use Self-host client")

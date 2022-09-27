@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blockfrost/blockfrost-go"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -173,7 +172,7 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
+func (w *Watcher) getNextBlock() (*types.CardanoBlock, error) {
 	lastScanBlock := int(w.lastBlockHeight.Load())
 	nextBlock := lastScanBlock + 1
 	if lastScanBlock == 0 {
