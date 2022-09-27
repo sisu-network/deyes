@@ -3,11 +3,11 @@ package cardano
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/lib/log"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/lib/pq"
@@ -22,7 +22,7 @@ func TestIntegrationSyncDB(t *testing.T) {
 
 	str, err := json.Marshal(&cfg)
 	require.NoError(t, err)
-	fmt.Println(string(str))
+	log.Info(string(str))
 
 	db, err := ConnectDB(cfg)
 	require.NoError(t, err)

@@ -3,12 +3,14 @@ package cardano
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/echovl/cardano-go"
 	"github.com/ethereum/go-ethereum/common/math"
 	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
@@ -286,12 +288,12 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*provide
 	return res, nil
 }
 
-func (s *SyncDB) LatestEpochParameters(ctx context.Context) (providertypes.EpochParameters, error) {
+func (s *SyncDB) LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error) {
 	query := "SELECT min_fee_a, min_fee_b, max_block_size, max_tx_size, max_bh_size, key_deposit, pool_deposit," +
 		" max_epoch, optimal_pool_count, coins_per_utxo_size FROM epoch_param ORDER BY id DESC LIMIT 1"
 	rows, err := s.DB.Query(query)
 	if err != nil {
-		return providertypes.EpochParameters{}, err
+		return nil, err
 	}
 
 	defer rows.Close()
@@ -302,20 +304,35 @@ func (s *SyncDB) LatestEpochParameters(ctx context.Context) (providertypes.Epoch
 	)
 	if err := rows.Scan(&minFeeA, &minFeeB, &maxBlockSize, &maxTxSize, &maxBlockHeaderSize, &keyDeposit,
 		&poolDeposit, &maxEpoch, &nopt, &minUTXOValue); err != nil {
-		return providertypes.EpochParameters{}, err
+		return nil, err
 	}
 
-	return providertypes.EpochParameters{
-		Epoch:              int(maxEpoch.Int64),
-		KeyDeposit:         keyDeposit.String,
-		MaxBlockHeaderSize: int(maxBlockHeaderSize.Int64),
-		MaxBlockSize:       int(maxBlockSize.Int64),
-		MaxTxSize:          int(maxTxSize.Int64),
-		MinFeeA:            int(minFeeA.Int64),
-		MinFeeB:            int(minFeeB.Int64),
-		MinUtxo:            minUTXOValue.String,
-		NOpt:               int(nopt.Int64),
-		PoolDeposit:        poolDeposit.String,
+	keyDepositInt, err := strconv.ParseUint(keyDeposit.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	minUTXO, err := strconv.ParseUint(minUTXOValue.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDepositInt, err := strconv.ParseUint(poolDeposit.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cardano.ProtocolParams{
+		MaxEpoch:           uint(maxEpoch.Int64),
+		KeyDeposit:         cardano.Coin(keyDepositInt),
+		MaxBlockHeaderSize: uint(maxBlockHeaderSize.Int64),
+		MaxBlockBodySize:   uint(maxBlockSize.Int64),
+		MaxTxSize:          uint(maxTxSize.Int64),
+		MinFeeA:            cardano.Coin(minFeeA.Int64),
+		MinFeeB:            cardano.Coin(minFeeB.Int64),
+		CoinsPerUTXOWord:   cardano.Coin(minUTXO),
+		NOpt:               uint(nopt.Int64),
+		PoolDeposit:        cardano.Coin(poolDepositInt),
 	}, nil
 }
 
@@ -346,7 +363,7 @@ type TxInfo struct {
 }
 
 // AddressUTXOs queries address's utxos at specific block height
-func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]providertypes.AddressUTXO, error) {
+func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
 	var maxBlock int
 	if len(query.To) == 0 {
 		maxBlock = math.MaxInt32
@@ -397,7 +414,11 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query provide
 		}
 	}
 
-	res := make([]providertypes.AddressUTXO, 0)
+	res := make([]cardano.UTxO, 0)
+	spender, err := cardano.NewAddress(address)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, txOut := range unusedTxOuts {
 		addressAmounts, err := s.getAddressAmountFromTxOut(txOut)
@@ -405,16 +426,16 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query provide
 			return nil, err
 		}
 
-		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockID)
+		txHash, err := cardano.NewHash32(txInfoMap[txOut.TxID].TxHash)
 		if err != nil {
 			return nil, err
 		}
 
-		res = append(res, providertypes.AddressUTXO{
-			TxHash:      txInfoMap[txOut.TxID].TxHash,
-			OutputIndex: txOut.Index,
-			Amount:      addressAmounts,
-			Block:       block.Hash,
+		res = append(res, cardano.UTxO{
+			TxHash:  txHash,
+			Index:   uint64(txOut.Index),
+			Amount:  addressAmounts,
+			Spender: spender,
 		})
 	}
 
@@ -449,13 +470,19 @@ func (s *SyncDB) getAddressTxsUntilMaxBlock(address string, maxBlock int) ([]int
 	return txIDs, txInfoMap, nil
 }
 
-func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]providertypes.AddressAmount, error) {
+func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) (*cardano.Value, error) {
 	rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	addressAmounts := make([]providertypes.AddressAmount, 0)
+	coinValue, err := strconv.Atoi(txOut.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	addressAmounts := cardano.NewValue(cardano.Coin(coinValue))
+
 	for rows.Next() {
 		var quantity sql.NullString
 		var maID sql.NullInt64
@@ -475,18 +502,40 @@ func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]providertypes.Address
 		}
 		maRow.Close()
 
-		amount := providertypes.AddressAmount{
-			Quantity: quantity.String,
-			Unit:     policy.String + maName.String,
+		bz, err := hex.DecodeString(policy.String)
+		if err != nil {
+			return nil, err
 		}
-		addressAmounts = append(addressAmounts, amount)
-	}
-	defer rows.Close()
+		policyID := cardano.NewPolicyIDFromHash(cardano.Hash28(bz))
+		assetName, err := hex.DecodeString(maName.String)
+		if err != nil {
+			return nil, err
+		}
 
-	addressAmounts = append(addressAmounts, providertypes.AddressAmount{
-		Unit:     "lovelace",
-		Quantity: txOut.Value,
-	})
+		assetValue, err := strconv.Atoi(quantity.String)
+		if err != nil {
+			return nil, err
+		}
+
+		currentAssets := addressAmounts.MultiAsset.Get(policyID)
+		if currentAssets != nil {
+			currentAssets.Set(
+				cardano.NewAssetName(string(assetName)),
+				cardano.BigNum(assetValue),
+			)
+		} else {
+			addressAmounts.MultiAsset.Set(
+				policyID,
+				cardano.NewAssets().
+					Set(
+						cardano.NewAssetName(string(assetName)),
+						cardano.BigNum(assetValue),
+					),
+			)
+		}
+	}
+
+	defer rows.Close()
 
 	return addressAmounts, nil
 }

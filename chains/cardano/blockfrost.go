@@ -2,9 +2,12 @@ package cardano
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/echovl/cardano-go"
 	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
 )
@@ -146,27 +149,43 @@ func (b blockfrostProvider) BlockTransactions(ctx context.Context, height string
 	return arrs, nil
 }
 
-func (b blockfrostProvider) LatestEpochParameters(ctx context.Context) (providertypes.EpochParameters, error) {
-	bparams, err := b.inner.LatestEpochParameters(ctx)
+func (b blockfrostProvider) LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error) {
+	eparams, err := b.inner.LatestEpochParameters(context.Background())
 	if err != nil {
-		return providertypes.EpochParameters{}, err
+		return nil, err
 	}
 
-	return providertypes.EpochParameters{
-		Epoch:              bparams.Epoch,
-		KeyDeposit:         bparams.KeyDeposit,
-		MaxBlockHeaderSize: bparams.MaxBlockHeaderSize,
-		MaxBlockSize:       bparams.MaxBlockSize,
-		MaxTxSize:          bparams.MaxTxSize,
-		MinFeeA:            bparams.MinFeeA,
-		MinFeeB:            bparams.MinFeeB,
-		MinUtxo:            bparams.MinUtxo,
-		NOpt:               bparams.NOpt,
-		PoolDeposit:        bparams.PoolDeposit,
-	}, nil
+	minUTXO, err := strconv.ParseUint(eparams.MinUtxo, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDeposit, err := strconv.ParseUint(eparams.PoolDeposit, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	keyDeposit, err := strconv.ParseUint(eparams.KeyDeposit, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	pparams := &cardano.ProtocolParams{
+		MinFeeA:            cardano.Coin(eparams.MinFeeA),
+		MinFeeB:            cardano.Coin(eparams.MinFeeB),
+		MaxBlockBodySize:   uint(eparams.MaxBlockSize),
+		MaxTxSize:          uint(eparams.MaxTxSize),
+		MaxBlockHeaderSize: uint(eparams.MaxBlockHeaderSize),
+		KeyDeposit:         cardano.Coin(keyDeposit),
+		PoolDeposit:        cardano.Coin(poolDeposit),
+		MaxEpoch:           uint(eparams.Epoch),
+		NOpt:               uint(eparams.NOpt),
+		CoinsPerUTXOWord:   cardano.Coin(minUTXO),
+	}
+
+	return pparams, nil
 }
 
-func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, params providertypes.APIQueryParams) ([]providertypes.AddressUTXO, error) {
+func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, params providertypes.APIQueryParams) ([]cardano.UTxO, error) {
 	butxos, err := b.inner.AddressUTXOs(ctx, address, blockfrost.APIQueryParams{
 		Count: params.Count,
 		Page:  params.Page,
@@ -178,23 +197,63 @@ func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, pa
 		return nil, err
 	}
 
-	utxos := make([]providertypes.AddressUTXO, len(butxos))
+	utxos := make([]cardano.UTxO, len(butxos))
+	spender, err := cardano.NewAddress(address)
+	if err != nil {
+		return nil, err
+	}
 
 	for i, butxo := range butxos {
-		utxos[i] = providertypes.AddressUTXO{
-			TxHash:      butxo.TxHash,
-			Block:       butxo.Block,
-			OutputIndex: butxo.OutputIndex,
-			Amount:      make([]providertypes.AddressAmount, 0, len(butxo.Amount)),
+		txHash, err := cardano.NewHash32(butxo.TxHash)
+		if err != nil {
+			return nil, err
 		}
 
-		for _, amount := range butxo.Amount {
-			utxos[i].Amount = append(utxos[i].Amount, providertypes.AddressAmount{
-				Quantity: amount.Quantity,
-				Unit:     amount.Unit,
-			})
+		amount := cardano.NewValue(0)
+		for _, a := range butxo.Amount {
+			if a.Unit == "lovelace" {
+				lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				amount.Coin += cardano.Coin(lovelace)
+			} else {
+				unitBytes, err := hex.DecodeString(a.Unit)
+				if err != nil {
+					return nil, err
+				}
+				policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
+				assetName := string(unitBytes[28:])
+				assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				currentAssets := amount.MultiAsset.Get(policyID)
+				if currentAssets != nil {
+					currentAssets.Set(
+						cardano.NewAssetName(assetName),
+						cardano.BigNum(assetValue),
+					)
+				} else {
+					amount.MultiAsset.Set(
+						policyID,
+						cardano.NewAssets().
+							Set(
+								cardano.NewAssetName(string(assetName)),
+								cardano.BigNum(assetValue),
+							),
+					)
+				}
+			}
+		}
+
+		utxos[i] = cardano.UTxO{
+			Spender: spender,
+			TxHash:  txHash,
+			Amount:  amount,
+			Index:   uint64(butxo.OutputIndex),
 		}
 	}
 
-	return nil, nil
+	return utxos, nil
 }

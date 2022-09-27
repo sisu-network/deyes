@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/tyler-smith/go-bip39"
@@ -213,96 +212,17 @@ func testWatcher() {
 	}
 }
 
-func getProtocolParams(bfParams providertypes.EpochParameters) *cardano.ProtocolParams {
-	keyDeposit, err := strconv.Atoi(bfParams.KeyDeposit)
-	if err != nil {
-		panic(err)
-	}
-
-	minUtxo, err := strconv.Atoi(bfParams.MinUtxo)
-
-	return &cardano.ProtocolParams{
-		MinFeeA:          cardano.Coin(bfParams.MinFeeA),
-		MinFeeB:          cardano.Coin(bfParams.MinFeeB),
-		KeyDeposit:       cardano.Coin(keyDeposit),
-		CoinsPerUTXOWord: cardano.Coin(minUtxo),
-	}
-}
-
-func convertUtxos(butxos []providertypes.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
-	utxos := make([]cardano.UTxO, len(butxos))
-
-	for i, butxo := range butxos {
-		txHash, err := cardano.NewHash32(butxo.TxHash)
-		if err != nil {
-			return nil, err
-		}
-
-		amount := cardano.NewValue(0)
-		for _, a := range butxo.Amount {
-			if a.Unit == "lovelace" {
-				lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				amount.Coin += cardano.Coin(lovelace)
-			} else {
-				unitBytes, err := hex.DecodeString(a.Unit)
-				if err != nil {
-					return nil, err
-				}
-				policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
-				assetName := string(unitBytes[28:])
-				assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
-				if err != nil {
-					return nil, err
-				}
-				currentAssets := amount.MultiAsset.Get(policyID)
-				if currentAssets != nil {
-					currentAssets.Set(
-						cardano.NewAssetName(assetName),
-						cardano.BigNum(assetValue),
-					)
-				} else {
-					amount.MultiAsset.Set(
-						policyID,
-						cardano.NewAssets().
-							Set(
-								cardano.NewAssetName(string(assetName)),
-								cardano.BigNum(assetValue),
-							),
-					)
-				}
-			}
-		}
-
-		utxos[i] = cardano.UTxO{
-			Spender: sender,
-			TxHash:  txHash,
-			Amount:  amount,
-			Index:   uint64(butxo.OutputIndex),
-		}
-	}
-
-	return utxos, nil
-}
-
 func constructTx(api chainscardano.Provider, senderAddr cardano.Address) *cardano.TxBuilder {
-	bfParams, err := api.LatestEpochParameters(context.Background())
+	protocolParams, err := api.LatestEpochParameters(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), providertypes.APIQueryParams{})
-	if err != nil {
-		panic(err)
-	}
-	utxos, err := convertUtxos(butxos, senderAddr)
+	utxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), providertypes.APIQueryParams{})
 	if err != nil {
 		panic(err)
 	}
 
-	protocolParams := getProtocolParams(bfParams)
 	txBuilder := cardano.NewTxBuilder(protocolParams)
 
 	receiver, err := cardano.NewAddress("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
@@ -626,9 +546,9 @@ func testDbSyncSubmitTx() {
 func main() {
 	loadEnv()
 
-	testWatcherSyncDB()
+	// testWatcherSyncDB()
 
-	// testDbSyncSubmitTx()
+	testDbSyncSubmitTx()
 	// transfer("addr_test1vzycp0hf59rp7vptgp74c4vw3fl4zspujmn2arlyflwrumslsh02n", 5*1_000_000)
 
 	// transferWithMetadata("ganache1",

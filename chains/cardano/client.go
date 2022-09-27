@@ -31,14 +31,16 @@ var _ CardanoClient = (*DefaultCardanoClient)(nil)
 
 type Provider interface {
 	Health(ctx context.Context) (bool, error)
+
 	BlockLatest(ctx context.Context) (*providertypes.Block, error)
 	Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error)
 	AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error)
 	TransactionMetadata(ctx context.Context, hash string) ([]*providertypes.TransactionMetadata, error)
 	TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error)
+
 	BlockTransactions(ctx context.Context, height string) ([]string, error)
-	LatestEpochParameters(ctx context.Context) (providertypes.EpochParameters, error)
-	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]providertypes.AddressUTXO, error)
+	LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error)
+	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 }
 
 const (
