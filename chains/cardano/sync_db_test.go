@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/types"
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/lib/pq"
@@ -29,7 +29,7 @@ func TestIntegrationSyncDB(t *testing.T) {
 
 	syncDB := NewSyncDBConnector(db)
 	utxos, err := syncDB.AddressUTXOs(context.Background(), "addr_test1vrfdtdcy8tu8000jprfclp8dz9d6pgl2984fvtzhnqafx7qmmg0l4",
-		types.APIQueryParams{To: "18446744073709551615"})
+		providertypes.APIQueryParams{To: "18446744073709551615"})
 	require.NoError(t, err)
 	require.NotEmpty(t, utxos)
 }

@@ -2,13 +2,14 @@ package cardano
 
 import (
 	"github.com/echovl/cardano-go"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/types"
 )
 
 type MockCardanoClient struct {
 	IsHealthyFunc   func() bool
-	LatestBlockFunc func() (*types.CardanoBlock, error)
-	GetBlockFunc    func(hashOrNumber string) (*types.CardanoBlock, error)
+	LatestBlockFunc func() (*providertypes.Block, error)
+	GetBlockFunc    func(hashOrNumber string) (*providertypes.Block, error)
 	BlockHeightFunc func() (int, error)
 	NewTxsFunc      func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTxFunc    func(tx *cardano.Tx) (*cardano.Hash32, error)
@@ -22,7 +23,7 @@ func (c *MockCardanoClient) IsHealthy() bool {
 	return false
 }
 
-func (c *MockCardanoClient) LatestBlock() (*types.CardanoBlock, error) {
+func (c *MockCardanoClient) LatestBlock() (*providertypes.Block, error) {
 	if c.LatestBlockFunc != nil {
 		return c.LatestBlockFunc()
 	}
@@ -54,7 +55,7 @@ func (c *MockCardanoClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 	return nil, nil
 }
 
-func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*types.CardanoBlock, error) {
+func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*providertypes.Block, error) {
 	if c.GetBlockFunc != nil {
 		return c.GetBlockFunc(hashOrNumber)
 	}

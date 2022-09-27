@@ -16,6 +16,7 @@ import (
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
 
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
@@ -172,7 +173,7 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) getNextBlock() (*types.CardanoBlock, error) {
+func (w *Watcher) getNextBlock() (*providertypes.Block, error) {
 	lastScanBlock := int(w.lastBlockHeight.Load())
 	nextBlock := lastScanBlock + 1
 	if lastScanBlock == 0 {

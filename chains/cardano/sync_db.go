@@ -10,8 +10,8 @@ import (
 
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/ethereum/go-ethereum/common/math"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/types"
 
 	_ "github.com/lib/pq"
 )
@@ -43,7 +43,7 @@ func (s *SyncDB) Health(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (s *SyncDB) BlockLatest(ctx context.Context) (*types.CardanoBlock, error) {
+func (s *SyncDB) BlockLatest(ctx context.Context) (*providertypes.Block, error) {
 	rows, err := s.DB.Query("SELECT block_no, epoch_no, slot_no FROM block ORDER BY id DESC LIMIT 1")
 	if err != nil {
 		return nil, err
@@ -56,14 +56,14 @@ func (s *SyncDB) BlockLatest(ctx context.Context) (*types.CardanoBlock, error) {
 		return nil, err
 	}
 
-	return &types.CardanoBlock{
+	return &providertypes.Block{
 		Height: int(height.Int64),
 		Epoch:  int(epoch.Int64),
 		Slot:   int(slot.Int64),
 	}, nil
 }
 
-func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (*types.CardanoBlock, error) {
+func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error) {
 	num, err := strconv.Atoi(hashOrNumber)
 	if err != nil {
 		return nil, err
@@ -79,10 +79,10 @@ func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (*types.Cardano
 		return nil, err
 	}
 
-	return &types.CardanoBlock{Height: num}, nil
+	return &providertypes.Block{Height: num}, nil
 }
 
-func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query types.APIQueryParams) ([]*types.AddressTransactions, error) {
+func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error) {
 	from, err := strconv.Atoi(query.From)
 	if err != nil {
 		return nil, err
@@ -105,9 +105,9 @@ func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query 
 		txs = append(txs, rc.String)
 	}
 
-	res := make([]*types.AddressTransactions, 0, len(txs))
+	res := make([]*providertypes.AddressTransactions, 0, len(txs))
 	for _, tx := range txs {
-		res = append(res, &types.AddressTransactions{TxHash: tx})
+		res = append(res, &providertypes.AddressTransactions{TxHash: tx})
 	}
 
 	return res, nil
@@ -154,14 +154,14 @@ func (s *SyncDB) BlockHeight() (int, error) {
 	return int(blockNum.Int64), nil
 }
 
-func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*types.TransactionUTXOs, error) {
+func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error) {
 	hash = "\\x" + hash
 	res, err := s.GetTxOutIDs(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	outputs := make([]types.TransactionUTXOsOutput, 0)
+	outputs := make([]providertypes.TransactionUTXOsOutput, 0)
 
 	for index, id := range res.Ids {
 		rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", id)
@@ -169,7 +169,7 @@ func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*types.Tran
 			return nil, err
 		}
 
-		txAmounts := make([]types.TxAmount, 0)
+		txAmounts := make([]providertypes.TxAmount, 0)
 		for rows.Next() {
 			var quantity sql.NullString
 			var maID sql.NullInt64
@@ -189,7 +189,7 @@ func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*types.Tran
 			}
 			maRow.Close()
 
-			txAmount := types.TxAmount{
+			txAmount := providertypes.TxAmount{
 				Quantity: quantity.String,
 				Unit:     policy.String + maName.String,
 			}
@@ -197,21 +197,21 @@ func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*types.Tran
 		}
 		rows.Close()
 
-		txAmounts = append(txAmounts, types.TxAmount{
+		txAmounts = append(txAmounts, providertypes.TxAmount{
 			Quantity: strconv.FormatInt(res.Values[index], 10),
 			Unit:     "lovelace",
 		})
 
 		outputs = append(outputs, struct {
-			Address string           `json:"address"`
-			Amount  []types.TxAmount `json:"amount"`
+			Address string                   `json:"address"`
+			Amount  []providertypes.TxAmount `json:"amount"`
 		}{
 			Address: res.Addresses[index],
 			Amount:  txAmounts,
 		})
 	}
 
-	return &types.TransactionUTXOs{
+	return &providertypes.TransactionUTXOs{
 		Hash:    hash,
 		Outputs: outputs,
 	}, nil
@@ -253,7 +253,7 @@ func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) (GetTxOutIDsResult,
 	}, nil
 }
 
-func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*types.TransactionMetadata, error) {
+func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*providertypes.TransactionMetadata, error) {
 	hash = "\\x" + hash
 	query := `SELECT key, json FROM tx_metadata WHERE tx_id = (SELECT id FROM tx WHERE hash ='` + hash + `')`
 	rows, err := s.DB.Query(query)
@@ -262,7 +262,7 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*types.T
 	}
 
 	defer rows.Close()
-	res := make([]*types.TransactionMetadata, 0)
+	res := make([]*providertypes.TransactionMetadata, 0)
 	for rows.Next() {
 		var label, metadata sql.NullString
 		if err := rows.Scan(&label, &metadata); err != nil {
@@ -271,12 +271,12 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*types.T
 
 		m := map[string]interface{}{}
 		if err := json.Unmarshal([]byte(metadata.String), &m); err == nil {
-			res = append(res, &types.TransactionMetadata{
+			res = append(res, &providertypes.TransactionMetadata{
 				JsonMetadata: m,
 				Label:        label.String,
 			})
 		} else {
-			res = append(res, &types.TransactionMetadata{
+			res = append(res, &providertypes.TransactionMetadata{
 				JsonMetadata: metadata.String,
 				Label:        label.String,
 			})
@@ -286,12 +286,12 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*types.T
 	return res, nil
 }
 
-func (s *SyncDB) LatestEpochParameters(ctx context.Context) (types.EpochParameters, error) {
+func (s *SyncDB) LatestEpochParameters(ctx context.Context) (providertypes.EpochParameters, error) {
 	query := "SELECT min_fee_a, min_fee_b, max_block_size, max_tx_size, max_bh_size, key_deposit, pool_deposit," +
 		" max_epoch, optimal_pool_count, coins_per_utxo_size FROM epoch_param ORDER BY id DESC LIMIT 1"
 	rows, err := s.DB.Query(query)
 	if err != nil {
-		return types.EpochParameters{}, err
+		return providertypes.EpochParameters{}, err
 	}
 
 	defer rows.Close()
@@ -302,10 +302,10 @@ func (s *SyncDB) LatestEpochParameters(ctx context.Context) (types.EpochParamete
 	)
 	if err := rows.Scan(&minFeeA, &minFeeB, &maxBlockSize, &maxTxSize, &maxBlockHeaderSize, &keyDeposit,
 		&poolDeposit, &maxEpoch, &nopt, &minUTXOValue); err != nil {
-		return types.EpochParameters{}, err
+		return providertypes.EpochParameters{}, err
 	}
 
-	return types.EpochParameters{
+	return providertypes.EpochParameters{
 		Epoch:              int(maxEpoch.Int64),
 		KeyDeposit:         keyDeposit.String,
 		MaxBlockHeaderSize: int(maxBlockHeaderSize.Int64),
@@ -346,7 +346,7 @@ type TxInfo struct {
 }
 
 // AddressUTXOs queries address's utxos at specific block height
-func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query types.APIQueryParams) ([]types.AddressUTXO, error) {
+func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]providertypes.AddressUTXO, error) {
 	var maxBlock int
 	if len(query.To) == 0 {
 		maxBlock = math.MaxInt32
@@ -397,7 +397,7 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query types.A
 		}
 	}
 
-	res := make([]types.AddressUTXO, 0)
+	res := make([]providertypes.AddressUTXO, 0)
 
 	for _, txOut := range unusedTxOuts {
 		addressAmounts, err := s.getAddressAmountFromTxOut(txOut)
@@ -410,7 +410,7 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query types.A
 			return nil, err
 		}
 
-		res = append(res, types.AddressUTXO{
+		res = append(res, providertypes.AddressUTXO{
 			TxHash:      txInfoMap[txOut.TxID].TxHash,
 			OutputIndex: txOut.Index,
 			Amount:      addressAmounts,
@@ -449,13 +449,13 @@ func (s *SyncDB) getAddressTxsUntilMaxBlock(address string, maxBlock int) ([]int
 	return txIDs, txInfoMap, nil
 }
 
-func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]types.AddressAmount, error) {
+func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]providertypes.AddressAmount, error) {
 	rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	addressAmounts := make([]types.AddressAmount, 0)
+	addressAmounts := make([]providertypes.AddressAmount, 0)
 	for rows.Next() {
 		var quantity sql.NullString
 		var maID sql.NullInt64
@@ -475,7 +475,7 @@ func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]types.AddressAmount, 
 		}
 		maRow.Close()
 
-		amount := types.AddressAmount{
+		amount := providertypes.AddressAmount{
 			Quantity: quantity.String,
 			Unit:     policy.String + maName.String,
 		}
@@ -483,7 +483,7 @@ func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]types.AddressAmount, 
 	}
 	defer rows.Close()
 
-	addressAmounts = append(addressAmounts, types.AddressAmount{
+	addressAmounts = append(addressAmounts, providertypes.AddressAmount{
 		Unit:     "lovelace",
 		Quantity: txOut.Value,
 	})

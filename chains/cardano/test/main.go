@@ -28,6 +28,7 @@ import (
 	"github.com/sisu-network/lib/log"
 
 	cardanobf "github.com/echovl/cardano-go/blockfrost"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 )
 
 var (
@@ -212,7 +213,7 @@ func testWatcher() {
 	}
 }
 
-func getProtocolParams(bfParams types.EpochParameters) *cardano.ProtocolParams {
+func getProtocolParams(bfParams providertypes.EpochParameters) *cardano.ProtocolParams {
 	keyDeposit, err := strconv.Atoi(bfParams.KeyDeposit)
 	if err != nil {
 		panic(err)
@@ -228,7 +229,7 @@ func getProtocolParams(bfParams types.EpochParameters) *cardano.ProtocolParams {
 	}
 }
 
-func convertUtxos(butxos []types.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
+func convertUtxos(butxos []providertypes.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
 	utxos := make([]cardano.UTxO, len(butxos))
 
 	for i, butxo := range butxos {
@@ -292,7 +293,7 @@ func constructTx(api chainscardano.Provider, senderAddr cardano.Address) *cardan
 		panic(err)
 	}
 
-	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), types.APIQueryParams{})
+	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), providertypes.APIQueryParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -625,8 +626,9 @@ func testDbSyncSubmitTx() {
 func main() {
 	loadEnv()
 
-	// testWatcherSyncDB()
-	testDbSyncSubmitTx()
+	testWatcherSyncDB()
+
+	// testDbSyncSubmitTx()
 	// transfer("addr_test1vzycp0hf59rp7vptgp74c4vw3fl4zspujmn2arlyflwrumslsh02n", 5*1_000_000)
 
 	// transferWithMetadata("ganache1",

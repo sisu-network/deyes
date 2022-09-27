@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/blockfrost/blockfrost-go"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/types"
 )
 
 type blockfrostProvider struct {
@@ -39,33 +39,33 @@ func (b blockfrostProvider) Health(ctx context.Context) (bool, error) {
 	return health.IsHealthy, nil
 }
 
-func (b blockfrostProvider) BlockLatest(ctx context.Context) (*types.CardanoBlock, error) {
+func (b blockfrostProvider) BlockLatest(ctx context.Context) (*providertypes.Block, error) {
 	block, err := b.inner.BlockLatest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.CardanoBlock{
+	return &providertypes.Block{
 		Height: block.Height,
 		Time:   block.Time,
 		Hash:   block.Hash,
 	}, nil
 }
 
-func (b blockfrostProvider) Block(ctx context.Context, hashOrNumber string) (*types.CardanoBlock, error) {
+func (b blockfrostProvider) Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error) {
 	block, err := b.inner.Block(ctx, hashOrNumber)
 	if err != nil {
 		return nil, err
 	}
 
-	return &types.CardanoBlock{
+	return &providertypes.Block{
 		Height: block.Height,
 		Time:   block.Time,
 		Hash:   block.Hash,
 	}, nil
 }
 
-func (b blockfrostProvider) AddressTransactions(ctx context.Context, address string, params types.APIQueryParams) ([]*types.AddressTransactions, error) {
+func (b blockfrostProvider) AddressTransactions(ctx context.Context, address string, params providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error) {
 	btxs, err := b.inner.AddressTransactions(ctx, address, blockfrost.APIQueryParams{
 		Count: params.Count,
 		Page:  params.Page,
@@ -77,9 +77,9 @@ func (b blockfrostProvider) AddressTransactions(ctx context.Context, address str
 		return nil, err
 	}
 
-	txs := make([]*types.AddressTransactions, 0)
+	txs := make([]*providertypes.AddressTransactions, 0)
 	for _, btx := range btxs {
-		txs = append(txs, &types.AddressTransactions{
+		txs = append(txs, &providertypes.AddressTransactions{
 			TxHash: btx.TxHash,
 		})
 	}
@@ -87,15 +87,15 @@ func (b blockfrostProvider) AddressTransactions(ctx context.Context, address str
 	return txs, nil
 }
 
-func (b blockfrostProvider) TransactionMetadata(ctx context.Context, hash string) ([]*types.TransactionMetadata, error) {
+func (b blockfrostProvider) TransactionMetadata(ctx context.Context, hash string) ([]*providertypes.TransactionMetadata, error) {
 	bmetas, err := b.inner.TransactionMetadata(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	metas := make([]*types.TransactionMetadata, 0)
+	metas := make([]*providertypes.TransactionMetadata, 0)
 	for _, bmeta := range bmetas {
-		metas = append(metas, &types.TransactionMetadata{
+		metas = append(metas, &providertypes.TransactionMetadata{
 			JsonMetadata: bmeta.JsonMetadata,
 			Label:        bmeta.Label,
 		})
@@ -104,21 +104,21 @@ func (b blockfrostProvider) TransactionMetadata(ctx context.Context, hash string
 	return metas, nil
 }
 
-func (b blockfrostProvider) TransactionUTXOs(ctx context.Context, hash string) (*types.TransactionUTXOs, error) {
+func (b blockfrostProvider) TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error) {
 	transactionUTXOs, err := b.inner.TransactionUTXOs(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	outputs := make([]types.TransactionUTXOsOutput, 0)
+	outputs := make([]providertypes.TransactionUTXOsOutput, 0)
 	for _, bOuptut := range transactionUTXOs.Outputs {
-		ourOutput := types.TransactionUTXOsOutput{
+		ourOutput := providertypes.TransactionUTXOsOutput{
 			Address: bOuptut.Address,
-			Amount:  make([]types.TxAmount, len(bOuptut.Amount)),
+			Amount:  make([]providertypes.TxAmount, len(bOuptut.Amount)),
 		}
 
 		for i, amount := range bOuptut.Amount {
-			ourOutput.Amount[i] = types.TxAmount{
+			ourOutput.Amount[i] = providertypes.TxAmount{
 				Quantity: amount.Quantity,
 				Unit:     amount.Unit,
 			}
@@ -127,7 +127,7 @@ func (b blockfrostProvider) TransactionUTXOs(ctx context.Context, hash string) (
 		outputs = append(outputs, ourOutput)
 	}
 
-	return &types.TransactionUTXOs{
+	return &providertypes.TransactionUTXOs{
 		Hash: transactionUTXOs.Hash,
 	}, nil
 }
@@ -146,13 +146,13 @@ func (b blockfrostProvider) BlockTransactions(ctx context.Context, height string
 	return arrs, nil
 }
 
-func (b blockfrostProvider) LatestEpochParameters(ctx context.Context) (types.EpochParameters, error) {
+func (b blockfrostProvider) LatestEpochParameters(ctx context.Context) (providertypes.EpochParameters, error) {
 	bparams, err := b.inner.LatestEpochParameters(ctx)
 	if err != nil {
-		return types.EpochParameters{}, err
+		return providertypes.EpochParameters{}, err
 	}
 
-	return types.EpochParameters{
+	return providertypes.EpochParameters{
 		Epoch:              bparams.Epoch,
 		KeyDeposit:         bparams.KeyDeposit,
 		MaxBlockHeaderSize: bparams.MaxBlockHeaderSize,
@@ -166,7 +166,7 @@ func (b blockfrostProvider) LatestEpochParameters(ctx context.Context) (types.Ep
 	}, nil
 }
 
-func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, params types.APIQueryParams) ([]types.AddressUTXO, error) {
+func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, params providertypes.APIQueryParams) ([]providertypes.AddressUTXO, error) {
 	butxos, err := b.inner.AddressUTXOs(ctx, address, blockfrost.APIQueryParams{
 		Count: params.Count,
 		Page:  params.Page,
@@ -178,18 +178,18 @@ func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, pa
 		return nil, err
 	}
 
-	utxos := make([]types.AddressUTXO, len(butxos))
+	utxos := make([]providertypes.AddressUTXO, len(butxos))
 
 	for i, butxo := range butxos {
-		utxos[i] = types.AddressUTXO{
+		utxos[i] = providertypes.AddressUTXO{
 			TxHash:      butxo.TxHash,
 			Block:       butxo.Block,
 			OutputIndex: butxo.OutputIndex,
-			Amount:      make([]types.AddressAmount, 0, len(butxo.Amount)),
+			Amount:      make([]providertypes.AddressAmount, 0, len(butxo.Amount)),
 		}
 
 		for _, amount := range butxo.Amount {
-			utxos[i].Amount = append(utxos[i].Amount, types.AddressAmount{
+			utxos[i].Amount = append(utxos[i].Amount, providertypes.AddressAmount{
 				Quantity: amount.Quantity,
 				Unit:     amount.Unit,
 			})
