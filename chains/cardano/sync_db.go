@@ -348,15 +348,20 @@ type TxInfo struct {
 
 // AddressUTXOs queries address's utxos at specific block height
 func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error) {
-	to, err := strconv.ParseUint(query.To, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-
-	maxBlock := int(to)
-	// check overflow here because postgresql only support int32 type
-	if to > math.MaxInt32 {
+	var maxBlock int
+	if len(query.To) == 0 {
 		maxBlock = math.MaxInt32
+	} else {
+		to, err := strconv.ParseUint(query.To, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		maxBlock = int(to)
+		// check overflow here because postgresql only support int32 type
+		if to > math.MaxInt32 {
+			maxBlock = math.MaxInt32
+		}
 	}
 
 	txIDs, txInfoMap, err := s.getAddressTxsUntilMaxBlock(address, maxBlock)

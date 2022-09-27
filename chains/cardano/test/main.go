@@ -9,10 +9,15 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
+	"github.com/tyler-smith/go-bip39"
+
+	"github.com/BurntSushi/toml"
 	"github.com/blockfrost/blockfrost-go"
 	"github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/echovl/cardano-go"
 	cgblockfrost "github.com/echovl/cardano-go/blockfrost"
+	cardanocrypto "github.com/echovl/cardano-go/crypto"
 	"github.com/echovl/cardano-go/wallet"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
@@ -25,22 +30,19 @@ import (
 	cardanobf "github.com/echovl/cardano-go/blockfrost"
 )
 
-// Miscellaneous test for cardano watcher
-const (
-	Mnemonic = "art forum devote street sure rather head chuckle guard poverty release quote oak craft enemy"
-)
-
 var (
 	WrapADA = cardano.NewAssetName("WRAP_ADA")
 )
 
 func getWallet() *wallet.Wallet {
 	projectId := os.Getenv("PROJECT_ID")
+	Mnemonic := os.Getenv("MNEMONIC")
+
 	if len(projectId) == 0 {
 		panic("project id is empty")
 	}
 
-	node := cgblockfrost.NewNode(cardano.Testnet, projectId)
+	node := cgblockfrost.NewNode(cardano.Preprod, projectId)
 	opts := &wallet.Options{Node: node}
 	client := wallet.NewClient(opts)
 
@@ -53,6 +55,44 @@ func getWallet() *wallet.Wallet {
 	log.Info("Address = ", addr.String())
 
 	return w
+}
+
+func getKey(name, password, mnemonic string) cardanocrypto.XPrvKey {
+	entropy, err := bip39.EntropyFromMnemonic(mnemonic)
+	if err != nil {
+		panic(err)
+	}
+
+	// This logic is taken from here:
+	// https://github.com/sisu-network/cardano-go/blob/81453a2fe980c23b9af74a632928907a55dfc692/wallet/wallet.go#L183
+	purposeIndex := uint32(1852 + 0x80000000)
+	coinTypeIndex := uint32(1815 + 0x80000000)
+	accountIndex := uint32(0x80000000)
+	externalChainIndex := uint32(0x0)
+
+	rootKey := cardanocrypto.NewXPrvKeyFromEntropy(entropy, password)
+	accountKey := rootKey.Derive(uint32(purposeIndex)).
+		Derive(coinTypeIndex).
+		Derive(accountIndex)
+	chainKey := accountKey.Derive(externalChainIndex)
+	addr0Key := chainKey.Derive(0)
+
+	return addr0Key
+}
+
+func loadConfig() *config.Deyes {
+	tomlFile := "./deyes.toml"
+	if _, err := os.Stat(tomlFile); os.IsNotExist(err) {
+		panic(err)
+	}
+
+	cfg := new(config.Deyes)
+	_, err := toml.DecodeFile(tomlFile, &cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	return cfg
 }
 
 func getApi() blockfrost.APIClient {
@@ -104,7 +144,7 @@ func testWatcher() {
 		Chain:      "cardano-testnet",
 		BlockTime:  20 * 1000,
 		AdjustTime: 2000,
-		Rpcs:       []string{"https://cardano-testnet.blockfrost.io/api/v0"},
+		Rpcs:       []string{"https://cardano-preprod.blockfrost.io/api/v0"},
 		RpcSecret:  projectId,
 	}
 
@@ -191,34 +231,95 @@ func getProtocolParams(bfParams blockfrost.EpochParameters) *cardano.ProtocolPar
 	}
 }
 
-func constructTx(api blockfrost.APIClient, senderAddr cardano.Address) *cardano.TxBuilder {
+func convertUtxos(butxos []blockfrost.AddressUTXO, sender cardano.Address) ([]cardano.UTxO, error) {
+	utxos := make([]cardano.UTxO, len(butxos))
+
+	for i, butxo := range butxos {
+		txHash, err := cardano.NewHash32(butxo.TxHash)
+		if err != nil {
+			return nil, err
+		}
+
+		amount := cardano.NewValue(0)
+		for _, a := range butxo.Amount {
+			if a.Unit == "lovelace" {
+				lovelace, err := strconv.ParseUint(a.Quantity, 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				amount.Coin += cardano.Coin(lovelace)
+			} else {
+				unitBytes, err := hex.DecodeString(a.Unit)
+				if err != nil {
+					return nil, err
+				}
+				policyID := cardano.NewPolicyIDFromHash(unitBytes[:28])
+				assetName := string(unitBytes[28:])
+				assetValue, err := strconv.ParseUint(a.Quantity, 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				currentAssets := amount.MultiAsset.Get(policyID)
+				if currentAssets != nil {
+					currentAssets.Set(
+						cardano.NewAssetName(assetName),
+						cardano.BigNum(assetValue),
+					)
+				} else {
+					amount.MultiAsset.Set(
+						policyID,
+						cardano.NewAssets().
+							Set(
+								cardano.NewAssetName(string(assetName)),
+								cardano.BigNum(assetValue),
+							),
+					)
+				}
+			}
+		}
+
+		utxos[i] = cardano.UTxO{
+			Spender: sender,
+			TxHash:  txHash,
+			Amount:  amount,
+			Index:   uint64(butxo.OutputIndex),
+		}
+	}
+
+	return utxos, nil
+}
+
+func constructTx(api chainscardano.Provider, senderAddr cardano.Address) *cardano.TxBuilder {
 	bfParams, err := api.LatestEpochParameters(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	utxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), blockfrost.APIQueryParams{})
+	butxos, err := api.AddressUTXOs(context.Background(), senderAddr.String(), blockfrost.APIQueryParams{})
 	if err != nil {
 		panic(err)
 	}
-	log.Info("utxos = ", utxos)
+	utxos, err := convertUtxos(butxos, senderAddr)
+	if err != nil {
+		panic(err)
+	}
 
 	protocolParams := getProtocolParams(bfParams)
 	txBuilder := cardano.NewTxBuilder(protocolParams)
 
 	receiver, err := cardano.NewAddress("addr_test1vqyqp03az6w8xuknzpfup3h7ghjwu26z7xa6gk7l9j7j2gs8zfwcy")
-
-	txHash, err := cardano.NewHash32("bc82779c18b98f0f5628b0cae12af618020e5388258d3bcce936c380583298dc")
 	if err != nil {
 		panic(err)
 	}
 
-	txInput := cardano.NewTxInput(txHash, 0, cardano.NewValue(994171615))
-	txOut := cardano.NewTxOutput(receiver, cardano.NewValue(1000000))
+	for _, utxo := range utxos {
+		txBuilder.AddInputs(&cardano.TxInput{TxHash: utxo.TxHash, Index: utxo.Index, Amount: utxo.Amount})
+	}
+	txOut := cardano.NewTxOutput(receiver, cardano.NewValue(1_000_000))
 
-	txBuilder.AddInputs(txInput)
 	txBuilder.AddOutputs(txOut)
-	txBuilder.SetFee(cardano.Coin(1000000))
+	txBuilder.AddChangeIfNeeded(senderAddr)
+	txBuilder.SetFee(cardano.Coin(200_000))
 
 	block, err := api.BlockLatest(context.Background())
 	if err != nil {
@@ -251,14 +352,14 @@ func queryTxUtxo() {
 		panic(err)
 	}
 
-	fmt.Printf("asset = %s, policy = %s, name = %s, fingerprint = %s\n", asset.Asset, asset.PolicyId, asset.AssetName, asset.Fingerprint)
+	log.Verbosef("asset = %s, policy = %s, name = %s, fingerprint = %s\n", asset.Asset, asset.PolicyId, asset.AssetName, asset.Fingerprint)
 	assets, err := api.AssetsByPolicy(context.Background(), "6b8d07d69639e9413dd637a1a815a7323c69c86abbafb66dbfdb1aa7")
 	if err != nil {
 		panic(err)
 	}
 
 	for _, asset := range assets {
-		fmt.Printf("asset = %s, quantity = %s, metadata = %v\n", asset.Asset, asset.Quantity, asset.Metadata)
+		log.Verbosef("asset = %s, quantity = %s, metadata = %v\n", asset.Asset, asset.Quantity, asset.Metadata)
 		decode, err := hex.DecodeString(asset.Asset)
 		if err != nil {
 			log.Error("err = ", err)
@@ -445,6 +546,13 @@ func transferMultiAsset(recipient string, amount uint64) {
 	log.Info("txHash = ", txHash)
 }
 
+func loadEnv() {
+	err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+}
+
 func testUtxos() {
 	api := getApi()
 	txHashes, err := api.TransactionUTXOs(context.Background(), "c3998f845e159598f566fe1418d86b22296953a83bda2a96eab411f9ff05a0c2")
@@ -456,15 +564,10 @@ func testUtxos() {
 }
 
 func testWatcherSyncDB() {
-	syncDbCfg := config.SyncDbConfig{
-		Host:     "hide",
-		Port:     5432,
-		User:     "hide",
-		Password: "hide",
-		DbName:   "cexplorer",
-	}
+	cfg := loadConfig()
+	log.Verbose(cfg)
 
-	db, err := chainscardano.ConnectDB(syncDbCfg)
+	db, err := chainscardano.ConnectDB(cfg.Chains["cardano-testnet"].SyncDB)
 	if err != nil {
 		panic(err)
 	}
@@ -472,26 +575,58 @@ func testWatcherSyncDB() {
 	syncDB := chainscardano.NewSyncDBConnector(db)
 
 	cardanoClient := chainscardano.NewDefaultCardanoClient(syncDB, "", "")
-	txs, err := cardanoClient.NewTxs(3704374, "addr_test1vqfrdtmc7kvcpfyl8ula54ycqrh9kvml2wrxf9n28s2slrqk7awga")
+	txs, err := cardanoClient.NewTxs(229733, "addr_test1qrfut328td5krhgjk7eh6k9uh5ek6egk2xf0wxqxjaqq2jrtw0ge2rnesr84874t3cz5gft6y9rck5qzlmdf0ygtredsddxavz")
 	if err != nil {
 		panic(err)
 	}
 
 	if len(txs) == 0 {
-		panic("fail")
+		panic("Transaction list is empty")
 	}
 
 	for _, tx := range txs {
-		fmt.Printf("tx = %s\n", tx.Hash)
+		log.Verbosef("tx = %s\n", tx.Hash)
 	}
 }
 
+func testDbSyncSubmitTx() {
+	cfg := loadConfig()
+	log.Verbose(cfg)
+
+	db, err := chainscardano.ConnectDB(cfg.Chains["cardano-testnet"].SyncDB)
+	if err != nil {
+		panic(err)
+	}
+	syncDB := chainscardano.NewSyncDBConnector(db)
+	sender, err := cardano.NewAddress("addr_test1vzdw29a37lf0c3xv0rsdksreapcah4y4kucae35ujz5cucs69z3v6")
+	if err != nil {
+		panic(err)
+	}
+
+	txBuilder := constructTx(syncDB, sender)
+	client := chainscardano.NewDefaultCardanoClient(syncDB, cfg.Chains["cardano-testnet"].SyncDB.SubmitURL, "")
+
+	txBuilder.Sign(getKey(os.Getenv("USER"), os.Getenv("PASSWORD"), os.Getenv("MNEMONIC")).PrvKey())
+
+	tx, err := txBuilder.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	hash, err := client.SubmitTx(tx)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Verbose("Hash = ", hash)
+}
+
 func main() {
-	testWatcherSyncDB()
-	//testUtxos()
-	// testBlockfrostClient()
-	// transfer("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 3_000_000)
-	// transferMultiAsset("addr_test1vpa9x6a7r4cwg6r052yj25usa2gkxarps8zecfmtx4p7erqwtfq45", 4_000_000)
+	loadEnv()
+
+	testDbSyncSubmitTx()
+
+	// transfer("addr_test1vzycp0hf59rp7vptgp74c4vw3fl4zspujmn2arlyflwrumslsh02n", 5*1_000_000)
 
 	// transferWithMetadata("ganache1",
 	// 	"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
