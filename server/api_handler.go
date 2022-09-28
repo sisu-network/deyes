@@ -68,3 +68,13 @@ func (api *ApiHandler) CardanoProtocolParams(chain string) (*cardano.ProtocolPar
 
 	return watcher.ProtocolParams()
 }
+
+func (api *ApiHandler) CardanoUtxos(chain string, addr string, maxBlock uint64) ([]cardano.UTxO, error) {
+	if !libchain.IsCardanoChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
+
+	return watcher.CardanoUtxos(addr, maxBlock)
+}

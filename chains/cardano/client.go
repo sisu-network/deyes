@@ -26,6 +26,7 @@ type CardanoClient interface {
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
 	ProtocolParams() (*cardano.ProtocolParams, error)
+	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 }
 
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
@@ -123,9 +124,14 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.Ca
 		return nil, err
 	}
 
+	fmt.Println("txHashes length = ", len(txHashes))
+
 	for _, txHash := range txHashes {
+		fmt.Println("txHash = ", txHash)
+
 		utxos, err := b.inner.TransactionUTXOs(context.Background(), string(txHash))
 		if err != nil {
+			fmt.Println("TransactionUTXOs error = ", err)
 			return nil, err
 		}
 
@@ -164,7 +170,11 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.Ca
 }
 
 func (b *DefaultCardanoClient) shouldIncludeTx(utxos *providertypes.TransactionUTXOs, vault string) bool {
+	fmt.Println("Outputs length = ", len(utxos.Outputs))
 	for _, output := range utxos.Outputs {
+		fmt.Println("Utxo address = ", output.Address)
+		fmt.Println("utxos.Outputs = ", utxos.Outputs)
+
 		if strings.EqualFold(output.Address, vault) {
 			return true
 		}
@@ -208,6 +218,10 @@ func (b *DefaultCardanoClient) getContext() context.Context {
 
 func (b *DefaultCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
 	return b.inner.LatestEpochParameters(context.Background())
+}
+
+func (b *DefaultCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
+	return b.inner.AddressUTXOs(ctx, address, query)
 }
 
 // SubmitTx implements CardanoClient

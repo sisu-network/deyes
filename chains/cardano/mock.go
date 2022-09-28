@@ -1,6 +1,8 @@
 package cardano
 
 import (
+	"context"
+
 	"github.com/echovl/cardano-go"
 	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/types"
@@ -14,6 +16,7 @@ type MockCardanoClient struct {
 	NewTxsFunc         func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
 	SubmitTxFunc       func(tx *cardano.Tx) (*cardano.Hash32, error)
 	ProtocolParamsFunc func() (*cardano.ProtocolParams, error)
+	AddressUTXOsFunc   func(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 }
 
 func (c *MockCardanoClient) IsHealthy() bool {
@@ -67,6 +70,14 @@ func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*providertypes.Block,
 func (c *MockCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
 	if c.ProtocolParamsFunc != nil {
 		return c.ProtocolParamsFunc()
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
+	if c.AddressUTXOsFunc != nil {
+		return c.AddressUTXOsFunc(ctx, address, query)
 	}
 
 	return nil, nil

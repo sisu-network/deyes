@@ -131,7 +131,8 @@ func (b blockfrostProvider) TransactionUTXOs(ctx context.Context, hash string) (
 	}
 
 	return &providertypes.TransactionUTXOs{
-		Hash: transactionUTXOs.Hash,
+		Hash:    transactionUTXOs.Hash,
+		Outputs: outputs,
 	}, nil
 }
 

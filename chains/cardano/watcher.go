@@ -1,6 +1,7 @@
 package cardano
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -99,8 +100,8 @@ func (w *Watcher) scanChain() {
 				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
 			} else {
 
-				log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
-					latestBlock.Height, w.blockTime)
+				log.Verbosef("%s: Block %d not found. We need to wait more. w.blockTime = %d\n",
+					w.cfg.Chain, latestBlock.Height, w.blockTime)
 			}
 			continue
 		}
@@ -207,9 +208,16 @@ func (w *Watcher) SetVault(addr string) {
 }
 
 func (w *Watcher) TrackTx(txHash string) {
+	log.Verbosef("Tracking cardano tx with hash: %s", txHash)
 	w.txTrackCache.Add(txHash, true)
 }
 
 func (w *Watcher) ProtocolParams() (*cardano.ProtocolParams, error) {
 	return w.client.ProtocolParams()
+}
+
+func (w *Watcher) CardanoUtxos(addr string, maxBlock uint64) ([]cardano.UTxO, error) {
+	return w.client.AddressUTXOs(context.Background(), addr, providertypes.APIQueryParams{
+		To: fmt.Sprint(maxBlock),
+	})
 }
