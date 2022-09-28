@@ -16,6 +16,11 @@ type ApiHandler struct {
 	processor *core.Processor
 }
 
+type CardanoUtxosResult struct {
+	Utxos []cardano.UTxO
+	Bytes [][]byte
+}
+
 func NewApi(processor *core.Processor) *ApiHandler {
 	return &ApiHandler{
 		processor: processor,
@@ -69,12 +74,29 @@ func (api *ApiHandler) CardanoProtocolParams(chain string) (*cardano.ProtocolPar
 	return watcher.ProtocolParams()
 }
 
-func (api *ApiHandler) CardanoUtxos(chain string, addr string, maxBlock uint64) ([]cardano.UTxO, error) {
+func (api *ApiHandler) CardanoUtxos(chain string, addr string, maxBlock uint64) (CardanoUtxosResult, error) {
 	if !libchain.IsCardanoChain(chain) {
-		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+		return CardanoUtxosResult{}, fmt.Errorf("Invalid Cardano chain %s", chain)
 	}
 
 	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
 
-	return watcher.CardanoUtxos(addr, maxBlock)
+	utxos, err := watcher.CardanoUtxos(addr, maxBlock)
+	if err != nil {
+		return CardanoUtxosResult{}, err
+	}
+
+	result := CardanoUtxosResult{
+		Utxos: utxos,
+	}
+	// We have to marshal Amount since it's not serializable through network.
+	result.Bytes = make([][]byte, len(utxos))
+	for i, utxo := range utxos {
+		result.Bytes[i], err = utxo.Amount.MarshalCBOR()
+		if err != nil {
+			return CardanoUtxosResult{}, err
+		}
+	}
+
+	return result, err
 }

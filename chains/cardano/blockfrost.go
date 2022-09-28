@@ -205,6 +205,8 @@ func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, pa
 	}
 
 	for i, butxo := range butxos {
+		fmt.Printf("butxo = %v+\n", butxo)
+
 		txHash, err := cardano.NewHash32(butxo.TxHash)
 		if err != nil {
 			return nil, err
