@@ -35,7 +35,7 @@ var (
 )
 
 func getWallet() *wallet.Wallet {
-	projectId := os.Getenv("PROJECT_ID")
+	projectId := os.Getenv("BLOCKFROST_SECRET")
 	Mnemonic := os.Getenv("MNEMONIC")
 
 	if len(projectId) == 0 {
@@ -548,8 +548,8 @@ func main() {
 
 	// testWatcherSyncDB()
 
-	testDbSyncSubmitTx()
-	// transfer("addr_test1vzycp0hf59rp7vptgp74c4vw3fl4zspujmn2arlyflwrumslsh02n", 5*1_000_000)
+	// testDbSyncSubmitTx()
+	transfer("addr_test1vqp9rec4rzljt64ykvp5qersc8aldhhr94uae9p9gpmr88s4494xt", 150*1_000_000)
 
 	// transferWithMetadata("ganache1",
 	// 	"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",

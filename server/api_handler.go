@@ -64,6 +64,8 @@ func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
 	return prices
 }
 
+///// Carnado
+
 func (api *ApiHandler) CardanoProtocolParams(chain string) (*cardano.ProtocolParams, error) {
 	if !libchain.IsCardanoChain(chain) {
 		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
@@ -99,4 +101,25 @@ func (api *ApiHandler) CardanoUtxos(chain string, addr string, maxBlock uint64) 
 	}
 
 	return result, err
+}
+
+// Balance returns the current balance of an account.
+func (api *ApiHandler) CardanoBalance(chain string, address string, maxBlock int64) (*cardano.Value, error) {
+	if !libchain.IsCardanoChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
+
+	return watcher.Balance(address, maxBlock)
+}
+
+// Tip returns the node's current tip
+func (api *ApiHandler) CardanoTip(chain string) (*cardano.NodeTip, error) {
+	return nil, nil
+}
+
+func (api *ApiHandler) CardanoSubmitTx(chain string, tx *cardano.Tx) (*cardano.Hash32, error) {
+
+	return nil, nil
 }

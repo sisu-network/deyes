@@ -24,9 +24,10 @@ type CardanoClient interface {
 	GetBlock(hashOrNumber string) (*providertypes.Block, error)
 	BlockHeight() (int, error)
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
-	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
 	ProtocolParams() (*cardano.ProtocolParams, error)
 	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
+	Balance(address string, maxBlock int64) (*cardano.Value, error)
+	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
 }
 
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
@@ -222,6 +223,20 @@ func (b *DefaultCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error)
 
 func (b *DefaultCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
 	return b.inner.AddressUTXOs(ctx, address, query)
+}
+
+func (b *DefaultCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	balance := cardano.NewValue(0)
+	utxos, err := b.inner.AddressUTXOs(context.Background(), address, providertypes.APIQueryParams{To: fmt.Sprint("%d", maxBlock)})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, utxo := range utxos {
+		balance = balance.Add(utxo.Amount)
+	}
+
+	return balance, nil
 }
 
 // SubmitTx implements CardanoClient

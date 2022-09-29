@@ -221,3 +221,16 @@ func (w *Watcher) CardanoUtxos(addr string, maxBlock uint64) ([]cardano.UTxO, er
 		To: fmt.Sprint(maxBlock),
 	})
 }
+
+func (w *Watcher) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	return w.client.Balance(address, maxBlock)
+}
+
+// Tip returns the node's current tip
+func (w *Watcher) Tip() (*cardano.NodeTip, error) {
+	return nil, nil
+}
+
+func (w *Watcher) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+	return w.client.SubmitTx(tx)
+}
