@@ -3,13 +3,16 @@ package cardano
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/blockfrost/blockfrost-go"
+	"github.com/echovl/cardano-go"
 	"github.com/ethereum/go-ethereum/common/math"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/config"
 
 	_ "github.com/lib/pq"
@@ -37,50 +40,61 @@ func ConnectDB(cfg config.SyncDbConfig) (*sql.DB, error) {
 	return db, nil
 }
 
-func (s *SyncDB) Health(ctx context.Context) (blockfrost.Health, error) {
-	return blockfrost.Health{IsHealthy: true}, nil
+func (s *SyncDB) Health(ctx context.Context) (bool, error) {
+	// TODO: Check connection with db sync.
+	return true, nil
 }
 
-func (s *SyncDB) BlockLatest(ctx context.Context) (blockfrost.Block, error) {
+func (s *SyncDB) BlockLatest(ctx context.Context) (*providertypes.Block, error) {
 	rows, err := s.DB.Query("SELECT block_no, epoch_no, slot_no FROM block ORDER BY id DESC LIMIT 1")
 	if err != nil {
-		return blockfrost.Block{}, err
+		return nil, err
 	}
 
 	defer rows.Close()
 	rows.Next()
 	var height, epoch, slot sql.NullInt64
 	if err := rows.Scan(&height, &epoch, &slot); err != nil {
-		return blockfrost.Block{}, err
+		return nil, err
 	}
 
-	return blockfrost.Block{
+	return &providertypes.Block{
 		Height: int(height.Int64),
 		Epoch:  int(epoch.Int64),
 		Slot:   int(slot.Int64),
 	}, nil
 }
 
-func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error) {
-	num, err := strconv.Atoi(hashOrNumber)
+func (s *SyncDB) Block(ctx context.Context, number string) (*providertypes.Block, error) {
+	num, err := strconv.Atoi(number)
 	if err != nil {
-		return blockfrost.Block{}, err
+		return nil, err
 	}
 
-	rows, err := s.DB.Query("select id from block where block_no = $1", num)
+	rows, err := s.DB.Query("select encode(hash, 'hex'), block_no, slot_no, epoch_no from block where block_no = $1", num)
 	if err != nil {
-		return blockfrost.Block{}, err
+		return nil, err
 	}
 
-	if !rows.Next() {
-		err := fmt.Errorf("block %d not found", num)
-		return blockfrost.Block{}, err
+	rows.Next()
+	var (
+		blockNumber, slot, epoch sql.NullInt64
+		hash                     sql.NullString
+	)
+
+	if err := rows.Scan(&hash, &blockNumber, &slot, &epoch); err != nil {
+		return nil, err
 	}
 
-	return blockfrost.Block{Height: num}, nil
+	return &providertypes.Block{
+		Height: int(blockNumber.Int64),
+		Hash:   hash.String,
+		Slot:   int(slot.Int64),
+		Epoch:  int(epoch.Int64),
+	}, nil
 }
 
-func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error) {
+func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error) {
 	from, err := strconv.Atoi(query.From)
 	if err != nil {
 		return nil, err
@@ -103,34 +117,34 @@ func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query 
 		txs = append(txs, rc.String)
 	}
 
-	res := make([]blockfrost.AddressTransactions, 0, len(txs))
+	res := make([]*providertypes.AddressTransactions, 0, len(txs))
 	for _, tx := range txs {
-		res = append(res, blockfrost.AddressTransactions{TxHash: tx})
+		res = append(res, &providertypes.AddressTransactions{TxHash: tx})
 	}
 
 	return res, nil
 }
 
-func (s *SyncDB) BlockTransactions(_ context.Context, height string) ([]blockfrost.Transaction, error) {
+func (s *SyncDB) BlockTransactions(_ context.Context, height string) ([]string, error) {
 	h, err := strconv.Atoi(height)
 	if err != nil {
-		return []blockfrost.Transaction{}, err
+		return nil, err
 	}
 
 	rows, err := s.DB.Query("SELECT encode(hash, 'hex') FROM tx WHERE block_id in (SELECT id FROM block WHERE block_no = $1)", h)
 	if err != nil {
-		return []blockfrost.Transaction{}, err
+		return nil, err
 	}
 
 	defer rows.Close()
-	txs := make([]blockfrost.Transaction, 0)
+	txs := make([]string, 0)
 	for rows.Next() {
 		var rc sql.NullString
 		if err := rows.Scan(&rc); err != nil {
-			return []blockfrost.Transaction{}, err
+			return nil, err
 		}
 
-		txs = append(txs, blockfrost.Transaction(rc.String))
+		txs = append(txs, rc.String)
 	}
 
 	return txs, nil
@@ -152,45 +166,42 @@ func (s *SyncDB) BlockHeight() (int, error) {
 	return int(blockNum.Int64), nil
 }
 
-func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error) {
+func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error) {
 	hash = "\\x" + hash
 	res, err := s.GetTxOutIDs(ctx, hash)
 	if err != nil {
-		return blockfrost.TransactionUTXOs{}, err
+		return nil, err
 	}
 
-	outputs := make([]struct {
-		Address string                `json:"address"`
-		Amount  []blockfrost.TxAmount `json:"amount"`
-	}, 0)
+	outputs := make([]providertypes.TransactionUTXOsOutput, 0)
 
 	for index, id := range res.Ids {
 		rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", id)
 		if err != nil {
-			return blockfrost.TransactionUTXOs{}, err
+			return nil, err
 		}
 
-		txAmounts := make([]blockfrost.TxAmount, 0)
+		txAmounts := make([]providertypes.TxAmount, 0)
 		for rows.Next() {
 			var quantity sql.NullString
 			var maID sql.NullInt64
 			if err := rows.Scan(&quantity, &maID); err != nil {
-				return blockfrost.TransactionUTXOs{}, err
+				return nil, err
 			}
 
 			maRow, err := s.DB.Query("SELECT encode(policy, 'hex'), encode(name, 'hex') FROM multi_asset where id = $1", maID.Int64)
 			if err != nil {
-				return blockfrost.TransactionUTXOs{}, err
+				return nil, err
 			}
 
 			maRow.Next()
 			var policy, maName sql.NullString
 			if err := maRow.Scan(&policy, &maName); err != nil {
-				return blockfrost.TransactionUTXOs{}, err
+				return nil, err
 			}
 			maRow.Close()
 
-			txAmount := blockfrost.TxAmount{
+			txAmount := providertypes.TxAmount{
 				Quantity: quantity.String,
 				Unit:     policy.String + maName.String,
 			}
@@ -198,21 +209,21 @@ func (s *SyncDB) TransactionUTXOs(ctx context.Context, hash string) (blockfrost.
 		}
 		rows.Close()
 
-		txAmounts = append(txAmounts, blockfrost.TxAmount{
+		txAmounts = append(txAmounts, providertypes.TxAmount{
 			Quantity: strconv.FormatInt(res.Values[index], 10),
 			Unit:     "lovelace",
 		})
 
 		outputs = append(outputs, struct {
-			Address string                `json:"address"`
-			Amount  []blockfrost.TxAmount `json:"amount"`
+			Address string                   `json:"address"`
+			Amount  []providertypes.TxAmount `json:"amount"`
 		}{
 			Address: res.Addresses[index],
 			Amount:  txAmounts,
 		})
 	}
 
-	return blockfrost.TransactionUTXOs{
+	return &providertypes.TransactionUTXOs{
 		Hash:    hash,
 		Outputs: outputs,
 	}, nil
@@ -254,7 +265,7 @@ func (s *SyncDB) GetTxOutIDs(_ context.Context, hash string) (GetTxOutIDsResult,
 	}, nil
 }
 
-func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfrost.TransactionMetadata, error) {
+func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]*providertypes.TransactionMetadata, error) {
 	hash = "\\x" + hash
 	query := `SELECT key, json FROM tx_metadata WHERE tx_id = (SELECT id FROM tx WHERE hash ='` + hash + `')`
 	rows, err := s.DB.Query(query)
@@ -263,7 +274,7 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfro
 	}
 
 	defer rows.Close()
-	res := make([]blockfrost.TransactionMetadata, 0)
+	res := make([]*providertypes.TransactionMetadata, 0)
 	for rows.Next() {
 		var label, metadata sql.NullString
 		if err := rows.Scan(&label, &metadata); err != nil {
@@ -272,12 +283,12 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfro
 
 		m := map[string]interface{}{}
 		if err := json.Unmarshal([]byte(metadata.String), &m); err == nil {
-			res = append(res, blockfrost.TransactionMetadata{
+			res = append(res, &providertypes.TransactionMetadata{
 				JsonMetadata: m,
 				Label:        label.String,
 			})
 		} else {
-			res = append(res, blockfrost.TransactionMetadata{
+			res = append(res, &providertypes.TransactionMetadata{
 				JsonMetadata: metadata.String,
 				Label:        label.String,
 			})
@@ -287,12 +298,12 @@ func (s *SyncDB) TransactionMetadata(_ context.Context, hash string) ([]blockfro
 	return res, nil
 }
 
-func (s *SyncDB) LatestEpochParameters(ctx context.Context) (blockfrost.EpochParameters, error) {
+func (s *SyncDB) LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error) {
 	query := "SELECT min_fee_a, min_fee_b, max_block_size, max_tx_size, max_bh_size, key_deposit, pool_deposit," +
 		" max_epoch, optimal_pool_count, coins_per_utxo_size FROM epoch_param ORDER BY id DESC LIMIT 1"
 	rows, err := s.DB.Query(query)
 	if err != nil {
-		return blockfrost.EpochParameters{}, err
+		return nil, err
 	}
 
 	defer rows.Close()
@@ -303,20 +314,35 @@ func (s *SyncDB) LatestEpochParameters(ctx context.Context) (blockfrost.EpochPar
 	)
 	if err := rows.Scan(&minFeeA, &minFeeB, &maxBlockSize, &maxTxSize, &maxBlockHeaderSize, &keyDeposit,
 		&poolDeposit, &maxEpoch, &nopt, &minUTXOValue); err != nil {
-		return blockfrost.EpochParameters{}, err
+		return nil, err
 	}
 
-	return blockfrost.EpochParameters{
-		Epoch:              int(maxEpoch.Int64),
-		KeyDeposit:         keyDeposit.String,
-		MaxBlockHeaderSize: int(maxBlockHeaderSize.Int64),
-		MaxBlockSize:       int(maxBlockSize.Int64),
-		MaxTxSize:          int(maxTxSize.Int64),
-		MinFeeA:            int(minFeeA.Int64),
-		MinFeeB:            int(minFeeB.Int64),
-		MinUtxo:            minUTXOValue.String,
-		NOpt:               int(nopt.Int64),
-		PoolDeposit:        poolDeposit.String,
+	keyDepositInt, err := strconv.ParseUint(keyDeposit.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	minUTXO, err := strconv.ParseUint(minUTXOValue.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	poolDepositInt, err := strconv.ParseUint(poolDeposit.String, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cardano.ProtocolParams{
+		MaxEpoch:           uint(maxEpoch.Int64),
+		KeyDeposit:         cardano.Coin(keyDepositInt),
+		MaxBlockHeaderSize: uint(maxBlockHeaderSize.Int64),
+		MaxBlockBodySize:   uint(maxBlockSize.Int64),
+		MaxTxSize:          uint(maxTxSize.Int64),
+		MinFeeA:            cardano.Coin(minFeeA.Int64),
+		MinFeeB:            cardano.Coin(minFeeB.Int64),
+		CoinsPerUTXOWord:   cardano.Coin(minUTXO),
+		NOpt:               uint(nopt.Int64),
+		PoolDeposit:        cardano.Coin(poolDepositInt),
 	}, nil
 }
 
@@ -347,16 +373,21 @@ type TxInfo struct {
 }
 
 // AddressUTXOs queries address's utxos at specific block height
-func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error) {
-	to, err := strconv.ParseUint(query.To, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-
-	maxBlock := int(to)
-	// check overflow here because postgresql only support int32 type
-	if to > math.MaxInt32 {
+func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
+	var maxBlock int
+	if len(query.To) == 0 {
 		maxBlock = math.MaxInt32
+	} else {
+		to, err := strconv.ParseUint(query.To, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		maxBlock = int(to)
+		// check overflow here because postgresql only support int32 type
+		if to > math.MaxInt32 {
+			maxBlock = math.MaxInt32
+		}
 	}
 
 	txIDs, txInfoMap, err := s.getAddressTxsUntilMaxBlock(address, maxBlock)
@@ -393,7 +424,11 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 		}
 	}
 
-	res := make([]blockfrost.AddressUTXO, 0)
+	res := make([]cardano.UTxO, 0)
+	spender, err := cardano.NewAddress(address)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, txOut := range unusedTxOuts {
 		addressAmounts, err := s.getAddressAmountFromTxOut(txOut)
@@ -401,16 +436,16 @@ func (s *SyncDB) AddressUTXOs(ctx context.Context, address string, query blockfr
 			return nil, err
 		}
 
-		block, err := s.GetBlockByID(ctx, txInfoMap[txOut.TxID].BlockID)
+		txHash, err := cardano.NewHash32(txInfoMap[txOut.TxID].TxHash)
 		if err != nil {
 			return nil, err
 		}
 
-		res = append(res, blockfrost.AddressUTXO{
-			TxHash:      txInfoMap[txOut.TxID].TxHash,
-			OutputIndex: txOut.Index,
-			Amount:      addressAmounts,
-			Block:       block.Hash,
+		res = append(res, cardano.UTxO{
+			TxHash:  txHash,
+			Index:   uint64(txOut.Index),
+			Amount:  addressAmounts,
+			Spender: spender,
 		})
 	}
 
@@ -445,13 +480,19 @@ func (s *SyncDB) getAddressTxsUntilMaxBlock(address string, maxBlock int) ([]int
 	return txIDs, txInfoMap, nil
 }
 
-func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]blockfrost.AddressAmount, error) {
+func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) (*cardano.Value, error) {
 	rows, err := s.DB.Query("SELECT quantity, ident FROM ma_tx_out WHERE tx_out_id = $1", txOut.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	addressAmounts := make([]blockfrost.AddressAmount, 0)
+	coinValue, err := strconv.Atoi(txOut.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	addressAmounts := cardano.NewValue(cardano.Coin(coinValue))
+
 	for rows.Next() {
 		var quantity sql.NullString
 		var maID sql.NullInt64
@@ -471,18 +512,40 @@ func (s *SyncDB) getAddressAmountFromTxOut(txOut TxOut) ([]blockfrost.AddressAmo
 		}
 		maRow.Close()
 
-		amount := blockfrost.AddressAmount{
-			Quantity: quantity.String,
-			Unit:     policy.String + maName.String,
+		bz, err := hex.DecodeString(policy.String)
+		if err != nil {
+			return nil, err
 		}
-		addressAmounts = append(addressAmounts, amount)
-	}
-	defer rows.Close()
+		policyID := cardano.NewPolicyIDFromHash(cardano.Hash28(bz))
+		assetName, err := hex.DecodeString(maName.String)
+		if err != nil {
+			return nil, err
+		}
 
-	addressAmounts = append(addressAmounts, blockfrost.AddressAmount{
-		Unit:     "lovelace",
-		Quantity: txOut.Value,
-	})
+		assetValue, err := strconv.Atoi(quantity.String)
+		if err != nil {
+			return nil, err
+		}
+
+		currentAssets := addressAmounts.MultiAsset.Get(policyID)
+		if currentAssets != nil {
+			currentAssets.Set(
+				cardano.NewAssetName(string(assetName)),
+				cardano.BigNum(assetValue),
+			)
+		} else {
+			addressAmounts.MultiAsset.Set(
+				policyID,
+				cardano.NewAssets().
+					Set(
+						cardano.NewAssetName(string(assetName)),
+						cardano.BigNum(assetValue),
+					),
+			)
+		}
+	}
+
+	defer rows.Close()
 
 	return addressAmounts, nil
 }
@@ -571,6 +634,30 @@ func (s *SyncDB) GetBlockByID(_ context.Context, id int) (blockfrost.Block, erro
 	}, nil
 }
 
+func (s *SyncDB) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	latestBlock, err := s.BlockLatest(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	if blockHeight > uint64(latestBlock.Height) {
+		blockHeight = uint64(latestBlock.Height)
+	}
+
+	block, err := s.Block(context.Background(), fmt.Sprintf("%d", blockHeight))
+	if err != nil {
+		return nil, err
+	}
+
+	return &cardano.NodeTip{
+		Block: uint64(block.Height),
+		Epoch: uint64(block.Epoch),
+		Slot:  uint64(block.Slot),
+	}, nil
+}
+
+// buildQueryFromIntArray is a function that creates string arguments for an array of integers. It
+// is safe from SQL injection.
 func buildQueryFromIntArray(arr []int64) string {
 	strArr := make([]string, 0, len(arr))
 	for _, element := range arr {

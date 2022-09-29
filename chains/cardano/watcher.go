@@ -1,6 +1,7 @@
 package cardano
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -8,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blockfrost/blockfrost-go"
+	"github.com/echovl/cardano-go"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -17,6 +18,7 @@ import (
 	"github.com/sisu-network/lib/log"
 	"go.uber.org/atomic"
 
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
 
@@ -98,8 +100,8 @@ func (w *Watcher) scanChain() {
 				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
 			} else {
 
-				log.Verbosef("Block %d not found. We need to wait more. w.blockTime = %d\n",
-					latestBlock.Height, w.blockTime)
+				log.Verbosef("%s: Block %d not found. We need to wait more. w.blockTime = %d\n",
+					w.cfg.Chain, latestBlock.Height, w.blockTime)
 			}
 			continue
 		}
@@ -173,7 +175,7 @@ func (w *Watcher) scanChain() {
 	}
 }
 
-func (w *Watcher) getNextBlock() (*blockfrost.Block, error) {
+func (w *Watcher) getNextBlock() (*providertypes.Block, error) {
 	lastScanBlock := int(w.lastBlockHeight.Load())
 	nextBlock := lastScanBlock + 1
 	if lastScanBlock == 0 {
@@ -206,5 +208,29 @@ func (w *Watcher) SetVault(addr string) {
 }
 
 func (w *Watcher) TrackTx(txHash string) {
+	log.Verbosef("Tracking cardano tx with hash: %s", txHash)
 	w.txTrackCache.Add(txHash, true)
+}
+
+func (w *Watcher) ProtocolParams() (*cardano.ProtocolParams, error) {
+	return w.client.ProtocolParams()
+}
+
+func (w *Watcher) CardanoUtxos(addr string, maxBlock uint64) ([]cardano.UTxO, error) {
+	return w.client.AddressUTXOs(context.Background(), addr, providertypes.APIQueryParams{
+		To: fmt.Sprint(maxBlock),
+	})
+}
+
+func (w *Watcher) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	return w.client.Balance(address, maxBlock)
+}
+
+// Tip returns the node's current tip
+func (w *Watcher) Tip(maxBlock uint64) (*cardano.NodeTip, error) {
+	return w.client.Tip(maxBlock)
+}
+
+func (w *Watcher) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+	return w.client.SubmitTx(tx)
 }

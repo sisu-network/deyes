@@ -10,34 +10,42 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blockfrost/blockfrost-go"
 	"github.com/echovl/cardano-go"
 	"github.com/sisu-network/deyes/chains/cardano/utils"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
+
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 )
 
 type CardanoClient interface {
 	IsHealthy() bool
-	LatestBlock() (*blockfrost.Block, error)
-	GetBlock(hashOrNumber string) (*blockfrost.Block, error)
+	LatestBlock() (*providertypes.Block, error)
+	GetBlock(hashOrNumber string) (*providertypes.Block, error)
 	BlockHeight() (int, error)
 	NewTxs(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
+	ProtocolParams() (*cardano.ProtocolParams, error)
+	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
+	Balance(address string, maxBlock int64) (*cardano.Value, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
+	Tip(blockHeight uint64) (*cardano.NodeTip, error)
 }
 
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
 
 type Provider interface {
-	Health(ctx context.Context) (blockfrost.Health, error)
-	BlockLatest(ctx context.Context) (blockfrost.Block, error)
-	Block(ctx context.Context, hashOrNumber string) (blockfrost.Block, error)
-	AddressTransactions(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressTransactions, error)
-	TransactionMetadata(ctx context.Context, hash string) ([]blockfrost.TransactionMetadata, error)
-	TransactionUTXOs(ctx context.Context, hash string) (blockfrost.TransactionUTXOs, error)
-	BlockTransactions(ctx context.Context, height string) ([]blockfrost.Transaction, error)
-	LatestEpochParameters(ctx context.Context) (blockfrost.EpochParameters, error)
-	AddressUTXOs(ctx context.Context, address string, query blockfrost.APIQueryParams) ([]blockfrost.AddressUTXO, error)
+	Health(ctx context.Context) (bool, error)
+	Tip(blockHeight uint64) (*cardano.NodeTip, error)
+	BlockTransactions(ctx context.Context, height string) ([]string, error)
+	LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error)
+	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
+
+	// TODO: Convert provider type to cardano type to simplify our data model.
+	BlockLatest(ctx context.Context) (*providertypes.Block, error)
+	Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error)
+	AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error)
+	TransactionMetadata(ctx context.Context, hash string) ([]*providertypes.TransactionMetadata, error)
+	TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error)
 }
 
 const (
@@ -57,7 +65,6 @@ type DefaultCardanoClient struct {
 
 	// cache assets
 	policyAssets map[string]*cardano.Assets
-	bfAssetCache map[string]*blockfrost.Asset
 	lock         *sync.RWMutex
 }
 
@@ -67,40 +74,28 @@ func NewDefaultCardanoClient(inner Provider, submitTxURL, secret string) *Defaul
 		secret:       secret,
 		submitTxURL:  submitTxURL,
 		policyAssets: make(map[string]*cardano.Assets),
-		bfAssetCache: make(map[string]*blockfrost.Asset),
 		lock:         &sync.RWMutex{},
 	}
 }
 
 // IsHealthy implements CardanoClient
 func (b *DefaultCardanoClient) IsHealthy() bool {
-	health, err := b.inner.Health(context.Background())
+	healthy, err := b.inner.Health(context.Background())
 	if err != nil {
 		log.Error("Blockfrost is not healthy")
 		return false
 	}
 
-	return health.IsHealthy
+	return healthy
 }
 
 // LatestBlock implements CardanoClient
-func (b *DefaultCardanoClient) LatestBlock() (*blockfrost.Block, error) {
-	block, err := b.inner.BlockLatest(b.getContext())
-	if err != nil {
-		log.Error("Failed to get latest cardano block, err = ", err)
-		return nil, err
-	}
-
-	return &block, nil
+func (b *DefaultCardanoClient) LatestBlock() (*providertypes.Block, error) {
+	return b.inner.BlockLatest(b.getContext())
 }
 
-func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
-	block, err := b.inner.Block(b.getContext(), hashOrNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	return &block, nil
+func (b *DefaultCardanoClient) GetBlock(hashOrNumber string) (*providertypes.Block, error) {
+	return b.inner.Block(b.getContext(), hashOrNumber)
 }
 
 // BlockHeight implements CardanoClient
@@ -153,11 +148,11 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.Ca
 					Index:    i,
 					Address:  output.Address,
 					Metadata: metadata,
-					Amount:   make([]types.TxAmount, len(output.Amount)),
+					Amount:   make([]providertypes.TxAmount, len(output.Amount)),
 				}
 
 				for j, amount := range output.Amount {
-					tx.Amount[j] = types.TxAmount{
+					tx.Amount[j] = providertypes.TxAmount{
 						Quantity: amount.Quantity,
 						Unit:     amount.Unit,
 					}
@@ -171,7 +166,7 @@ func (b *DefaultCardanoClient) NewTxs(fromHeight int, vault string) ([]*types.Ca
 	return txs, nil
 }
 
-func (b *DefaultCardanoClient) shouldIncludeTx(utxos blockfrost.TransactionUTXOs, vault string) bool {
+func (b *DefaultCardanoClient) shouldIncludeTx(utxos *providertypes.TransactionUTXOs, vault string) bool {
 	for _, output := range utxos.Outputs {
 		if strings.EqualFold(output.Address, vault) {
 			return true
@@ -212,6 +207,32 @@ func (b *DefaultCardanoClient) GetTransactionMetadata(txHash string) (*types.Car
 
 func (b *DefaultCardanoClient) getContext() context.Context {
 	return context.Background()
+}
+
+func (b *DefaultCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
+	return b.inner.LatestEpochParameters(context.Background())
+}
+
+func (b *DefaultCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
+	return b.inner.AddressUTXOs(ctx, address, query)
+}
+
+func (b *DefaultCardanoClient) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	return b.inner.Tip(blockHeight)
+}
+
+func (b *DefaultCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	balance := cardano.NewValue(0)
+	utxos, err := b.inner.AddressUTXOs(context.Background(), address, providertypes.APIQueryParams{To: fmt.Sprintf("%d", maxBlock)})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, utxo := range utxos {
+		balance = balance.Add(utxo.Amount)
+	}
+
+	return balance, nil
 }
 
 // SubmitTx implements CardanoClient

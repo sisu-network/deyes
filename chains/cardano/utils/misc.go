@@ -1,6 +1,8 @@
 package utils
 
-import "github.com/echovl/cardano-go"
+import (
+	"github.com/echovl/cardano-go"
+)
 
 func GetAddressFromCardanoPubkey(pubkey []byte) cardano.Address {
 	keyHash, err := cardano.Blake224Hash(pubkey)

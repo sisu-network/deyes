@@ -1,19 +1,17 @@
 package types
 
-type TxAmount struct {
-	// The quantity of the unit
-	Quantity string `json:"quantity"`
+import (
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
+)
 
-	// The unit of the value
-	Unit string `json:"unit"`
-}
+///////////////////////////////////////////////////////////////
 
 type CardanoTransactionUtxo struct {
-	Hash     string             `json:"hash"`
-	Index    int                `json:"index"`
-	Address  string             `json:"Address"`
-	Amount   []TxAmount         `json:"amount"`
-	Metadata *CardanoTxMetadata `json:"metadata"`
+	Hash     string                   `json:"hash"`
+	Index    int                      `json:"index"`
+	Address  string                   `json:"Address"`
+	Amount   []providertypes.TxAmount `json:"amount"`
+	Metadata *CardanoTxMetadata       `json:"metadata"`
 }
 
 type CardanoTxMetadata struct {

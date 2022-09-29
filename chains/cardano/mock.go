@@ -1,18 +1,24 @@
 package cardano
 
 import (
-	"github.com/blockfrost/blockfrost-go"
+	"context"
+
 	"github.com/echovl/cardano-go"
+	providertypes "github.com/sisu-network/deyes/chains/cardano/types"
 	"github.com/sisu-network/deyes/types"
 )
 
 type MockCardanoClient struct {
-	IsHealthyFunc   func() bool
-	LatestBlockFunc func() (*blockfrost.Block, error)
-	BlockHeightFunc func() (int, error)
-	NewTxsFunc      func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
-	SubmitTxFunc    func(tx *cardano.Tx) (*cardano.Hash32, error)
-	GetBlockFunc    func(hashOrNumber string) (*blockfrost.Block, error)
+	IsHealthyFunc      func() bool
+	LatestBlockFunc    func() (*providertypes.Block, error)
+	GetBlockFunc       func(hashOrNumber string) (*providertypes.Block, error)
+	BlockHeightFunc    func() (int, error)
+	NewTxsFunc         func(fromHeight int, gateway string) ([]*types.CardanoTransactionUtxo, error)
+	SubmitTxFunc       func(tx *cardano.Tx) (*cardano.Hash32, error)
+	ProtocolParamsFunc func() (*cardano.ProtocolParams, error)
+	AddressUTXOsFunc   func(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
+	BalanceFunc        func(address string, maxBlock int64) (*cardano.Value, error)
+	TipFunc            func(blockHeight uint64) (*cardano.NodeTip, error)
 }
 
 func (c *MockCardanoClient) IsHealthy() bool {
@@ -23,7 +29,7 @@ func (c *MockCardanoClient) IsHealthy() bool {
 	return false
 }
 
-func (c *MockCardanoClient) LatestBlock() (*blockfrost.Block, error) {
+func (c *MockCardanoClient) LatestBlock() (*providertypes.Block, error) {
 	if c.LatestBlockFunc != nil {
 		return c.LatestBlockFunc()
 	}
@@ -55,9 +61,41 @@ func (c *MockCardanoClient) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
 	return nil, nil
 }
 
-func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*blockfrost.Block, error) {
+func (c *MockCardanoClient) GetBlock(hashOrNumber string) (*providertypes.Block, error) {
 	if c.GetBlockFunc != nil {
 		return c.GetBlockFunc(hashOrNumber)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
+	if c.ProtocolParamsFunc != nil {
+		return c.ProtocolParamsFunc()
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
+	if c.AddressUTXOsFunc != nil {
+		return c.AddressUTXOsFunc(ctx, address, query)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	if c.BalanceFunc != nil {
+		return c.BalanceFunc(address, maxBlock)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	if c.TipFunc != nil {
+		return c.TipFunc(blockHeight)
 	}
 
 	return nil, nil
