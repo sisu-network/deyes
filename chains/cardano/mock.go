@@ -17,6 +17,7 @@ type MockCardanoClient struct {
 	SubmitTxFunc       func(tx *cardano.Tx) (*cardano.Hash32, error)
 	ProtocolParamsFunc func() (*cardano.ProtocolParams, error)
 	AddressUTXOsFunc   func(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
+	BalanceFunc        func(address string, maxBlock int64) (*cardano.Value, error)
 }
 
 func (c *MockCardanoClient) IsHealthy() bool {
@@ -78,6 +79,14 @@ func (c *MockCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error) {
 func (c *MockCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
 	if c.AddressUTXOsFunc != nil {
 		return c.AddressUTXOsFunc(ctx, address, query)
+	}
+
+	return nil, nil
+}
+
+func (c *MockCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+	if c.BalanceFunc != nil {
+		return c.BalanceFunc(address, maxBlock)
 	}
 
 	return nil, nil

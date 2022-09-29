@@ -120,6 +120,11 @@ func (api *ApiHandler) CardanoTip(chain string) (*cardano.NodeTip, error) {
 }
 
 func (api *ApiHandler) CardanoSubmitTx(chain string, tx *cardano.Tx) (*cardano.Hash32, error) {
+	if !libchain.IsCardanoChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
 
-	return nil, nil
+	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
+
+	return watcher.SubmitTx(tx)
 }
