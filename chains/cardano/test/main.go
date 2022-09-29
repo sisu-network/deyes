@@ -558,7 +558,7 @@ func testSyncDb() {
 		panic(err)
 	}
 
-	fmt.Println("block = ", block)
+	log.Verbose("block = ", block)
 }
 
 func main() {

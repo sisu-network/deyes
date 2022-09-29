@@ -123,8 +123,6 @@ func (api *ApiHandler) CardanoTip(chain string, blockHeight uint64) (*cardano.No
 	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
 
 	tip, err := watcher.Tip(blockHeight)
-	fmt.Println("Tip = ", tip)
-
 	return tip, err
 }
 
