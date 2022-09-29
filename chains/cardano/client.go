@@ -28,12 +28,17 @@ type CardanoClient interface {
 	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 	Balance(address string, maxBlock int64) (*cardano.Value, error)
 	SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error)
+	Tip(blockHeight uint64) (*cardano.NodeTip, error)
 }
 
 var _ CardanoClient = (*DefaultCardanoClient)(nil)
 
 type Provider interface {
 	Health(ctx context.Context) (bool, error)
+	Tip(blockHeight uint64) (*cardano.NodeTip, error)
+	BlockTransactions(ctx context.Context, height string) ([]string, error)
+	LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error)
+	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 
 	// TODO: Convert provider type to cardano type to simplify our data model.
 	BlockLatest(ctx context.Context) (*providertypes.Block, error)
@@ -41,10 +46,6 @@ type Provider interface {
 	AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error)
 	TransactionMetadata(ctx context.Context, hash string) ([]*providertypes.TransactionMetadata, error)
 	TransactionUTXOs(ctx context.Context, hash string) (*providertypes.TransactionUTXOs, error)
-
-	BlockTransactions(ctx context.Context, height string) ([]string, error)
-	LatestEpochParameters(ctx context.Context) (*cardano.ProtocolParams, error)
-	AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error)
 }
 
 const (
@@ -223,6 +224,10 @@ func (b *DefaultCardanoClient) ProtocolParams() (*cardano.ProtocolParams, error)
 
 func (b *DefaultCardanoClient) AddressUTXOs(ctx context.Context, address string, query providertypes.APIQueryParams) ([]cardano.UTxO, error) {
 	return b.inner.AddressUTXOs(ctx, address, query)
+}
+
+func (b *DefaultCardanoClient) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	return b.inner.Tip(blockHeight)
 }
 
 func (b *DefaultCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {

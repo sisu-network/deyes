@@ -65,23 +65,33 @@ func (s *SyncDB) BlockLatest(ctx context.Context) (*providertypes.Block, error) 
 	}, nil
 }
 
-func (s *SyncDB) Block(ctx context.Context, hashOrNumber string) (*providertypes.Block, error) {
-	num, err := strconv.Atoi(hashOrNumber)
+func (s *SyncDB) Block(ctx context.Context, number string) (*providertypes.Block, error) {
+	num, err := strconv.Atoi(number)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := s.DB.Query("select id from block where block_no = $1", num)
+	rows, err := s.DB.Query("select encode(hash, 'hex'), block_no, slot_no, epoch_no from block where block_no = $1", num)
 	if err != nil {
 		return nil, err
 	}
 
-	if !rows.Next() {
-		err := fmt.Errorf("block %d not found", num)
+	rows.Next()
+	var (
+		blockNumber, slot, epoch sql.NullInt64
+		hash                     sql.NullString
+	)
+
+	if err := rows.Scan(&hash, &blockNumber, &slot, &epoch); err != nil {
 		return nil, err
 	}
 
-	return &providertypes.Block{Height: num}, nil
+	return &providertypes.Block{
+		Height: int(blockNumber.Int64),
+		Hash:   hash.String,
+		Slot:   int(slot.Int64),
+		Epoch:  int(epoch.Int64),
+	}, nil
 }
 
 func (s *SyncDB) AddressTransactions(ctx context.Context, address string, query providertypes.APIQueryParams) ([]*providertypes.AddressTransactions, error) {
@@ -624,6 +634,30 @@ func (s *SyncDB) GetBlockByID(_ context.Context, id int) (blockfrost.Block, erro
 	}, nil
 }
 
+func (s *SyncDB) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	latestBlock, err := s.BlockLatest(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	if blockHeight > uint64(latestBlock.Height) {
+		blockHeight = uint64(latestBlock.Height)
+	}
+
+	block, err := s.Block(context.Background(), fmt.Sprintf("%d", blockHeight))
+	if err != nil {
+		return nil, err
+	}
+
+	return &cardano.NodeTip{
+		Block: uint64(block.Height),
+		Epoch: uint64(block.Epoch),
+		Slot:  uint64(block.Slot),
+	}, nil
+}
+
+// buildQueryFromIntArray is a function that creates string arguments for an array of integers. It
+// is safe from SQL injection.
 func buildQueryFromIntArray(arr []int64) string {
 	strArr := make([]string, 0, len(arr))
 	for _, element := range arr {

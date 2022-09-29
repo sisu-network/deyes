@@ -227,8 +227,8 @@ func (w *Watcher) Balance(address string, maxBlock int64) (*cardano.Value, error
 }
 
 // Tip returns the node's current tip
-func (w *Watcher) Tip() (*cardano.NodeTip, error) {
-	return nil, nil
+func (w *Watcher) Tip(maxBlock uint64) (*cardano.NodeTip, error) {
+	return w.client.Tip(maxBlock)
 }
 
 func (w *Watcher) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {

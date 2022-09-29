@@ -260,3 +260,16 @@ func (b blockfrostProvider) AddressUTXOs(ctx context.Context, address string, pa
 
 	return utxos, nil
 }
+
+func (b blockfrostProvider) Tip(blockHeight uint64) (*cardano.NodeTip, error) {
+	block, err := b.inner.Block(context.Background(), fmt.Sprintf("%d", blockHeight))
+	if err != nil {
+		return nil, err
+	}
+
+	return &cardano.NodeTip{
+		Block: uint64(block.Height),
+		Epoch: uint64(block.Epoch),
+		Slot:  uint64(block.Slot),
+	}, nil
+}

@@ -115,8 +115,17 @@ func (api *ApiHandler) CardanoBalance(chain string, address string, maxBlock int
 }
 
 // Tip returns the node's current tip
-func (api *ApiHandler) CardanoTip(chain string) (*cardano.NodeTip, error) {
-	return nil, nil
+func (api *ApiHandler) CardanoTip(chain string, blockHeight uint64) (*cardano.NodeTip, error) {
+	if !libchain.IsCardanoChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
+
+	tip, err := watcher.Tip(blockHeight)
+	fmt.Println("Tip = ", tip)
+
+	return tip, err
 }
 
 func (api *ApiHandler) CardanoSubmitTx(chain string, tx *cardano.Tx) (*cardano.Hash32, error) {

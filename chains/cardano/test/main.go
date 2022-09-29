@@ -543,13 +543,32 @@ func testDbSyncSubmitTx() {
 	log.Verbose("Hash = ", hash)
 }
 
+func testSyncDb() {
+	cfg := loadConfig()
+	log.Verbose(cfg)
+
+	db, err := chainscardano.ConnectDB(cfg.Chains["cardano-testnet"].SyncDB)
+	if err != nil {
+		panic(err)
+	}
+	syncDB := chainscardano.NewSyncDBConnector(db)
+
+	block, err := syncDB.Block(context.Background(), "12345")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("block = ", block)
+}
+
 func main() {
 	loadEnv()
 
-	// testWatcherSyncDB()
+	testSyncDb()
 
+	// testWatcherSyncDB()
 	// testDbSyncSubmitTx()
-	transfer("addr_test1vqp9rec4rzljt64ykvp5qersc8aldhhr94uae9p9gpmr88s4494xt", 150*1_000_000)
+	// transfer("addr_test1vqp9rec4rzljt64ykvp5qersc8aldhhr94uae9p9gpmr88s4494xt", 150*1_000_000)
 
 	// transferWithMetadata("ganache1",
 	// 	"0x3A84fBbeFD21D6a5ce79D54d348344EE11EBd45C",
