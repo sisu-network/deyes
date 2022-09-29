@@ -232,7 +232,7 @@ func (b *DefaultCardanoClient) Tip(blockHeight uint64) (*cardano.NodeTip, error)
 
 func (b *DefaultCardanoClient) Balance(address string, maxBlock int64) (*cardano.Value, error) {
 	balance := cardano.NewValue(0)
-	utxos, err := b.inner.AddressUTXOs(context.Background(), address, providertypes.APIQueryParams{To: fmt.Sprint("%d", maxBlock)})
+	utxos, err := b.inner.AddressUTXOs(context.Background(), address, providertypes.APIQueryParams{To: fmt.Sprintf("%d", maxBlock)})
 	if err != nil {
 		return nil, err
 	}
