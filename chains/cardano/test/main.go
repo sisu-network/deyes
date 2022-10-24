@@ -168,7 +168,7 @@ func testWatcher() {
 		make(chan *chainstypes.TrackUpdate, 3),
 		chainscardano.NewDefaultCardanoClient(provider, blockfrost.CardanoTestNet+"/tx/submit", projectId))
 	watcher.Start()
-	watcher.SetVault("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t")
+	watcher.SetVault("addr_test1vrfcqffcl8h6j45ndq658qdwdxy2nhpqewv5dlxlmaatducz6k63t", "")
 
 	go func() {
 		w := getWallet()

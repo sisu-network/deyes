@@ -103,7 +103,7 @@ func (w *Watcher) init() {
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
 }
 
-func (w *Watcher) SetVault(addr string) {
+func (w *Watcher) SetVault(addr string, token string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 

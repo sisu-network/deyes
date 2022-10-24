@@ -195,7 +195,7 @@ func (w *Watcher) getNextBlock() (*providertypes.Block, error) {
 	return block, nil
 }
 
-func (w *Watcher) SetVault(addr string) {
+func (w *Watcher) SetVault(addr string, token string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 

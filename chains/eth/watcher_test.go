@@ -43,7 +43,7 @@ func TestWatcher_TestProcessBlock(t *testing.T) {
 		[]EthClient{client}).(*Watcher)
 
 	gateway := common.Address{1}
-	watcher.SetVault(gateway.Hex())
+	watcher.SetVault(gateway.Hex(), "")
 
 	trans := []*etypes.Transaction{
 		signTx(t, etypes.NewTransaction(0, gateway, big.NewInt(1), 22000, big.NewInt(1), nil)),

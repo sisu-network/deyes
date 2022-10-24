@@ -154,10 +154,10 @@ func (p *Processor) listen() {
 	}
 }
 
-func (tp *Processor) SetVault(chain, addr string) {
+func (tp *Processor) SetVault(chain, addr string, token string) {
 	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]
-	watcher.SetVault(addr)
+	watcher.SetVault(addr, token)
 }
 
 func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
