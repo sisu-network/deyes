@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/echovl/cardano-go"
+	cardanogo "github.com/echovl/cardano-go"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -62,11 +62,12 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	var err error
-	w.vault, err = w.db.GetVault(w.cfg.Chain)
+	vaults, err := w.db.GetVaults(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
+
+	w.vault = vaults[0]
 
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
 
@@ -76,10 +77,10 @@ func (w *Watcher) init() {
 func (w *Watcher) Start() {
 	w.init()
 
-	go w.scanChain()
+	go w.scanBlocks()
 }
 
-func (w *Watcher) scanChain() {
+func (w *Watcher) scanBlocks() {
 	log.Info("Start scanning chain: ", w.cfg.Chain)
 
 	for {
@@ -199,7 +200,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	err := w.db.SetVault(w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr, "")
 	if err == nil {
 		w.vault = addr
 	} else {
@@ -212,25 +213,25 @@ func (w *Watcher) TrackTx(txHash string) {
 	w.txTrackCache.Add(txHash, true)
 }
 
-func (w *Watcher) ProtocolParams() (*cardano.ProtocolParams, error) {
+func (w *Watcher) ProtocolParams() (*cardanogo.ProtocolParams, error) {
 	return w.client.ProtocolParams()
 }
 
-func (w *Watcher) CardanoUtxos(addr string, maxBlock uint64) ([]cardano.UTxO, error) {
+func (w *Watcher) CardanoUtxos(addr string, maxBlock uint64) ([]cardanogo.UTxO, error) {
 	return w.client.AddressUTXOs(context.Background(), addr, providertypes.APIQueryParams{
 		To: fmt.Sprint(maxBlock),
 	})
 }
 
-func (w *Watcher) Balance(address string, maxBlock int64) (*cardano.Value, error) {
+func (w *Watcher) Balance(address string, maxBlock int64) (*cardanogo.Value, error) {
 	return w.client.Balance(address, maxBlock)
 }
 
 // Tip returns the node's current tip
-func (w *Watcher) Tip(maxBlock uint64) (*cardano.NodeTip, error) {
+func (w *Watcher) Tip(maxBlock uint64) (*cardanogo.NodeTip, error) {
 	return w.client.Tip(maxBlock)
 }
 
-func (w *Watcher) SubmitTx(tx *cardano.Tx) (*cardano.Hash32, error) {
+func (w *Watcher) SubmitTx(tx *cardanogo.Tx) (*cardanogo.Hash32, error) {
 	return w.client.SubmitTx(tx)
 }

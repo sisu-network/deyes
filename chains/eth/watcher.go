@@ -94,11 +94,11 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 }
 
 func (w *Watcher) init() {
-	var err error
-	w.vault, err = w.db.GetVault(w.cfg.Chain)
+	vaults, err := w.db.GetVaults(w.cfg.Chain)
 	if err != nil {
 		panic(err)
 	}
+	w.vault = vaults[0]
 
 	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
 }
@@ -107,7 +107,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	err := w.db.SetVault(w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr, token)
 	if err == nil {
 		w.vault = strings.ToLower(addr)
 	} else {
