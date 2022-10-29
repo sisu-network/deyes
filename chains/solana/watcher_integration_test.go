@@ -1,62 +1,79 @@
 package solana
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"testing"
 
-	bin "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
+	solanatypes "github.com/sisu-network/deyes/chains/solana/types"
+
+	"github.com/mr-tron/base58"
+	"github.com/near/borsh-go"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
 )
 
+const RPC = ""
+
 // Sanity testing
 func TestWatcherBlockScanning(t *testing.T) {
 	t.Skip()
 
-	w := NewWatcher(config.Chain{Chain: "solana-devnet"}, nil, nil, nil)
-	result, err := w.getBlockNumber(171905242)
+	cfg := config.Chain{
+		Chain:                 "solana-devnet",
+		Rpcs:                  []string{RPC},
+		SolanaBridgeProgramId: "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED",
+	}
+
+	w := NewWatcher(cfg, nil, nil, nil)
+	result, err := w.getBlockNumber(172121080)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, outerTx := range result.Transactions {
-		tx, err := outerTx.GetTransaction()
-		if err != nil {
-			panic(err)
-		}
+		if w.acceptTx(outerTx) {
+			log.Info("Bridge program id found!!!!!")
 
-		decodedTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(outerTx.Transaction.GetBinary()))
-		for _, acc := range tx.Message.AccountKeys {
-			if acc.String() == "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED" {
-				log.Verbose("Bridge program ID found!!!")
+			for _, ix := range outerTx.TransactionInner.Message.Instructions {
+				fmt.Println(ix.Data)
+				bytesArr, err := base58.Decode(ix.Data)
+				if err != nil {
+					panic(err)
+				}
 
-				log.Verbose("decodedTx.Message.Instructions[0].ProgramIDIndex = ", decodedTx.Message.Instructions[0].Data)
-				data := decodedTx.Message.Instructions[0].Data
-				log.Verbose([]byte(data))
+				borshBz := bytesArr[1:]
+				transferData := new(solanatypes.TransferOutData)
+				err = borsh.Deserialize(transferData, borshBz)
+				if err != nil {
+					panic(err)
+				}
+
+				fmt.Println(*transferData)
 			}
 		}
 	}
 }
 
 func TestFullWatcher(t *testing.T) {
-	// t.Skip()
+	t.Skip()
 
 	txsCh := make(chan *types.Txs)
 	txTrackCh := make(chan *chainstypes.TrackUpdate)
 
 	w := NewWatcher(config.Chain{
-		Chain:      "solana-devnet",
-		BlockTime:  1000,
-		AdjustTime: 500,
-		Rpcs:       []string{"SOLANA_URL"},
+		Chain:                 "solana-devnet",
+		BlockTime:             1000,
+		AdjustTime:            500,
+		Rpcs:                  []string{RPC},
+		SolanaBridgeProgramId: "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED",
 	}, nil, txsCh, txTrackCh)
 
-	w.SetVault("ckv5WFUVu8wjsgNRydx4ib3cDq2jHQ1RkiG4WL6wbJi", "ADA")
+	w.SetVault("8kBCKTsqi1FpCgUiigJCLa5PGyyyeXETxYAiSRnXRArX", "SISU")
 
 	w.Start()
 
