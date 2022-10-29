@@ -35,4 +35,5 @@ type Block struct {
 	BlockHeight  int            `json:"blockHeight"`
 	Transactions []*Transaction `json:"transactions"`
 	ParentSlot   int            `json:"parentSlot"`
+	BlockHash    string         `json:"blockhash"`
 }

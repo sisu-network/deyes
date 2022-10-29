@@ -2,9 +2,6 @@ package solana
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 
 	solanatypes "github.com/sisu-network/deyes/chains/solana/types"
@@ -73,11 +70,10 @@ func TestFullWatcher(t *testing.T) {
 		SolanaBridgeProgramId: "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED",
 	}, nil, txsCh, txTrackCh)
 
-	w.SetVault("8kBCKTsqi1FpCgUiigJCLa5PGyyyeXETxYAiSRnXRArX", "SISU")
-
 	w.Start()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGSEGV)
-	<-c
+	select {
+	case txs := <-txsCh:
+		fmt.Println("There is a transaction, txs = ", txs)
+	}
 }

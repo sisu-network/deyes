@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"encoding/json"
@@ -30,7 +29,6 @@ type Watcher struct {
 	client       jsonrpc.RPCClient
 	txTrackCache *lru.Cache
 	db           database.Database
-	tokenAta     *sync.Map
 
 	txsCh     chan *types.Txs
 	txTrackCh chan *chainstypes.TrackUpdate
@@ -44,7 +42,6 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 		db:           db,
 		txsCh:        txsCh,
 		txTrackCache: lru.New(1000),
-		tokenAta:     &sync.Map{},
 		txTrackCh:    txTrackCh,
 		client:       jsonrpc.NewClient(cfg.Rpcs[0]),
 	}
@@ -120,6 +117,18 @@ func (w *Watcher) scanBlocks() {
 						Success:    true,
 					})
 				}
+			}
+
+			if len(txArr) > 0 {
+				txs := types.Txs{
+					Chain:     w.cfg.Chain,
+					Block:     int64(block.ParentSlot + 1),
+					BlockHash: block.BlockHash,
+					Arr:       txArr,
+				}
+
+				// Broadcast the result
+				w.txsCh <- &txs
 			}
 		}
 	}
@@ -280,7 +289,7 @@ func (w *Watcher) getBlockNumber(slot uint64) (*solanatypes.Block, error) {
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
-	w.tokenAta.Store(addr, true)
+	// Do nothing as we are not watching any token change.
 }
 
 func (w *Watcher) TrackTx(txHash string) {
