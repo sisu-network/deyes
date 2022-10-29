@@ -49,6 +49,9 @@ type Chain struct {
 
 	// SyncDB config
 	SyncDB SyncDbConfig `toml:"sync_db" json:"sync_db"`
+
+	// Solana
+	SolanaBridgeProgramId string `toml:"solana_bridge_program_id" json:"solana_bridge_program_id"`
 }
 
 type Deyes struct {

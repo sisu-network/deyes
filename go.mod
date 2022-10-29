@@ -15,7 +15,6 @@ require (
 	github.com/golang-migrate/migrate v3.5.4+incompatible
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/mock v1.4.3
-	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/joho/godotenv v1.3.0
 	github.com/lib/pq v1.10.7
 	github.com/logdna/logdna-go v1.0.2

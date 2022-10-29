@@ -98,9 +98,13 @@ func (w *Watcher) init() {
 	if err != nil {
 		panic(err)
 	}
-	w.vault = vaults[0]
 
-	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
+	if len(vaults) > 0 {
+		w.vault = vaults[0]
+		log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
+	} else {
+		log.Infof("Vault for chain %s is not set yet", w.cfg.Chain)
+	}
 }
 
 func (w *Watcher) SetVault(addr string, token string) {

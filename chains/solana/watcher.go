@@ -2,11 +2,14 @@ package solana
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
+	"github.com/golang/groupcache/lru"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -18,11 +21,12 @@ import (
 const BLOCK_CHUNK_SIZE = 10
 
 type Watcher struct {
-	cfg          config.Chain
-	lastSlot     atomic.Uint64
-	client       *rpc.Client
-	txTrackCache *lru.Cache
-	db           database.Database
+	cfg             config.Chain
+	lastSlot        atomic.Uint64
+	client          *rpc.Client
+	txTrackCache    *lru.Cache
+	db              database.Database
+	lastBlockHeight atomic.Int32
 
 	txsCh     chan *types.Txs
 	txTrackCh chan *chainstypes.TrackUpdate
@@ -40,11 +44,12 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 	}
 
 	return &Watcher{
-		cfg:       cfg,
-		db:        db,
-		txsCh:     txsCh,
-		txTrackCh: txTrackCh,
-		client:    client,
+		cfg:          cfg,
+		db:           db,
+		txsCh:        txsCh,
+		txTrackCache: lru.New(1000),
+		txTrackCh:    txTrackCh,
+		client:       client,
 	}
 }
 
@@ -53,7 +58,11 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) scanBlocks() {
+	log.Verbose("Start scanning solana block...")
+
 	for {
+		time.Sleep(300 * time.Millisecond)
+
 		block, err := w.getNextBlock()
 		if err != nil {
 		} else {
@@ -94,7 +103,6 @@ func (w *Watcher) scanBlocks() {
 
 				// Check to see if this is a transaction sent to one of our token accounts.
 				if w.acceptTx(outerTx) {
-
 				}
 			}
 		}
@@ -102,7 +110,6 @@ func (w *Watcher) scanBlocks() {
 }
 
 func (w *Watcher) acceptTx(outerTx rpc.TransactionWithMeta) bool {
-
 	return false
 }
 
@@ -116,14 +123,48 @@ func (w *Watcher) getNextBlock() (*rpc.GetBlockResult, error) {
 			return nil, err
 		}
 
-		w.lastSlot.Store(slot)
+		w.lastSlot.Store(slot - 1)
 	}
 
-	return w.getBlockNumber(slot)
+	nextSlot := slot
+
+	for {
+		nextSlot = nextSlot + 1
+		fmt.Println("nextSlot = ", nextSlot)
+
+		result, err := w.getBlockNumber(nextSlot)
+		if err != nil {
+			rpcErr, ok := err.(*jsonrpc.RPCError)
+
+			fmt.Println("Error scanning block, err = ", err)
+			if ok {
+				fmt.Println("rpcErr.Code = ", rpcErr.Code)
+				// -32007: Slot 171913340 was skipped, or missing due to ledger jump to recent snapshot
+				// -32015: Transaction version (0) is not supported by the requesting client. Please try the request again with the following configuration parameter: \"maxSupportedTransactionVersion\": 0"
+				if rpcErr.Code == -32007 || rpcErr.Code == -32015 {
+					// Slot is skipped, try the next one.
+					w.lastSlot.Store(nextSlot)
+					continue
+				}
+			}
+
+			return nil, err
+		}
+
+		// Update last scanned block
+		w.lastSlot.Store(nextSlot)
+
+		return result, err
+	}
 }
 
 func (w *Watcher) getBlockNumber(slot uint64) (*rpc.GetBlockResult, error) {
-	return w.client.GetBlock(context.Background(), slot)
+	maxTxVersion := uint64(10)
+
+	return w.client.GetBlockWithOpts(context.Background(), slot, &rpc.GetBlockOpts{
+		// TransactionDetails: "full",
+		MaxSupportedTransactionVersion: &maxTxVersion,
+	})
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
