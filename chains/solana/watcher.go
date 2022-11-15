@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 
 	"github.com/golang/groupcache/lru"
-	"github.com/mr-tron/base58"
-	"github.com/near/borsh-go"
 	solanatypes "github.com/sisu-network/deyes/chains/solana/types"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
@@ -168,38 +166,6 @@ func (w *Watcher) acceptTx(outerTx *solanatypes.Transaction) bool {
 	return false
 }
 
-func (w *Watcher) getTransferOutData(outerTx *solanatypes.Transaction) (*solanatypes.TransferOutData, error) {
-	accounts := outerTx.TransactionInner.Message.AccountKeys
-
-	// Check that there is at least one instruction sent to the program id
-	for _, ix := range outerTx.TransactionInner.Message.Instructions {
-		if accounts[ix.ProgramIdIndex] != w.cfg.SolanaBridgeProgramId {
-			continue
-		}
-
-		// Decode the instruction
-		bytesArr, err := base58.Decode(ix.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(bytesArr) == 0 {
-			return nil, fmt.Errorf("Data is empty")
-		}
-
-		borshBz := bytesArr[1:]
-		transferData := new(solanatypes.TransferOutData)
-		err = borsh.Deserialize(transferData, borshBz)
-		if err != nil {
-			return nil, err
-		}
-
-		return transferData, nil
-	}
-
-	return nil, fmt.Errorf("TransferOut Instruction not found")
-}
-
 func (w *Watcher) getNextBlock() (*solanatypes.Block, error) {
 	var slot uint64
 	slot = w.lastSlot.Load()
@@ -262,7 +228,6 @@ func (w *Watcher) getBlockNumber(slot uint64) (*solanatypes.Block, error) {
 		MaxSupportedTransactionVersion: 100,
 	}
 
-	log.Verbose("Getting block with slot ", slot)
 	res, err := w.client.Call(context.Background(), "getBlock", slot, request)
 	if err != nil {
 		return nil, err

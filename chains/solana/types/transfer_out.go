@@ -1,6 +1,8 @@
 package types
 
-import "math/big"
+import (
+	"math/big"
+)
 
 type TransferOutData struct {
 	Amount       big.Int

@@ -3,7 +3,7 @@ package utils
 import "math/big"
 
 var (
-	ONE_ETHER_IN_WEI = big.NewInt(1000000000000000000)
+	ONE_ETHER_IN_WEI = big.NewInt(1_000_000_000_000_000_000)
 )
 
 func FloatToWei(value float64) *big.Int {
