@@ -67,9 +67,12 @@ func (w *Watcher) init() {
 		panic(err)
 	}
 
-	w.vault = vaults[0]
-
-	log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
+	if len(vaults) > 0 {
+		w.vault = vaults[0]
+		log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
+	} else {
+		log.Infof("Vault for chain %s is not set yet", w.cfg.Chain)
+	}
 
 	w.lastBlockHeight.Store(0)
 }
