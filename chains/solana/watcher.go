@@ -19,12 +19,13 @@ import (
 	"github.com/ybbus/jsonrpc/v3"
 )
 
-const BLOCK_CHUNK_SIZE = 10
+const FetcherCount = 5
 
 type Watcher struct {
 	cfg          config.Chain
 	lastSlot     atomic.Uint64
 	client       jsonrpc.RPCClient
+	rpcUrl       string
 	txTrackCache *lru.Cache
 	db           database.Database
 
@@ -41,6 +42,7 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 		txsCh:        txsCh,
 		txTrackCache: lru.New(1000),
 		txTrackCh:    txTrackCh,
+		rpcUrl:       cfg.Rpcs[0],
 		client:       jsonrpc.NewClient(cfg.Rpcs[0]),
 	}
 }
@@ -50,85 +52,100 @@ func (w *Watcher) Start() {
 }
 
 func (w *Watcher) scanBlocks() {
-	log.Verbose("Start scanning solana block...")
-
+	var slot uint64
 	for {
-		time.Sleep(300 * time.Millisecond)
-
-		block, err := w.getNextBlock()
-		if err != nil || block == nil {
-			continue
-		} else {
-			log.Verbose("Block height && blocktime for Solana Scanner = ", block.ParentSlot+1)
-			if block.Transactions == nil {
-				log.Error("Err is not nil but transactions list is nil. block = ", block)
-				continue
-			}
-
-			txArr := make([]*types.Tx, 0)
-
-			// Process all transaction in the block
-			for _, outerTx := range block.Transactions {
-				innerTx := outerTx.TransactionInner
-
-				if len(innerTx.Signatures) == 0 {
-					log.Error("Decoded solana transaction does not have signature")
-					continue
-				}
-
-				bz, err := json.Marshal(outerTx)
-				if err != nil {
-					log.Error("Failed to marshal outer tx")
-					continue
-				}
-
-				txId := innerTx.Signatures[0]
-
-				if _, ok := w.txTrackCache.Get(txId); ok {
-					log.Verbose("Confirming solana tx with hash = ", txId)
-
-					result := chainstypes.TrackResultConfirmed
-					if outerTx.Meta.Err != nil {
-						result = chainstypes.TrackResultFailure
-					}
-
-					// This is a transction that we are tracking. Inform Sisu about this.
-					w.txTrackCh <- &chainstypes.TrackUpdate{
-						Chain:       w.cfg.Chain,
-						Bytes:       bz,
-						Hash:        txId,
-						BlockHeight: int64(block.ParentSlot + 1),
-						Result:      result,
-					}
-
-					continue
-				}
-
-				// Check to see if this is a transaction sent to one of our token accounts.
-				if w.acceptTx(outerTx) {
-					log.Verbose("Found a transaction sent to our bridge")
-
-					txArr = append(txArr, &types.Tx{
-						Hash:       outerTx.TransactionInner.Signatures[0],
-						Serialized: bz,
-						To:         w.cfg.SolanaBridgeProgramId,
-						Success:    true,
-					})
-				}
-			}
-
-			if len(txArr) > 0 {
-				txs := types.Txs{
-					Chain:     w.cfg.Chain,
-					Block:     int64(block.ParentSlot + 1),
-					BlockHash: block.BlockHash,
-					Arr:       txArr,
-				}
-
-				// Broadcast the result
-				w.txsCh <- &txs
-			}
+		var err error
+		slot, err = w.getSlot()
+		if err == nil {
+			break
 		}
+
+		time.Sleep(time.Second * 3)
+	}
+
+	n := uint64(FetcherCount)
+	blockChs := make([]chan *BlockResult, n)
+	for i := uint64(0); i < n; i++ {
+		index := (slot + i) % n
+		blockChs[index] = make(chan *BlockResult)
+		fetch := newFetcher(w.rpcUrl, uint64(n), slot+i, blockChs[index])
+		go fetch.start()
+	}
+
+	for i := 0; ; i++ {
+		index := (slot + uint64(i)) % n
+		result := <-blockChs[index]
+		if result.Skip {
+			continue
+		}
+
+		w.processBlock(result.Block)
+	}
+}
+
+func (w *Watcher) processBlock(block *solanatypes.Block) {
+	txArr := make([]*types.Tx, 0)
+
+	// Process all transaction in the block
+	for _, outerTx := range block.Transactions {
+		innerTx := outerTx.TransactionInner
+
+		if len(innerTx.Signatures) == 0 {
+			log.Error("Decoded solana transaction does not have signature")
+			continue
+		}
+
+		bz, err := json.Marshal(outerTx)
+		if err != nil {
+			log.Error("Failed to marshal outer tx")
+			continue
+		}
+
+		txId := innerTx.Signatures[0]
+
+		if _, ok := w.txTrackCache.Get(txId); ok {
+			log.Verbose("Confirming solana tx with hash = ", txId)
+
+			result := chainstypes.TrackResultConfirmed
+			if outerTx.Meta.Err != nil {
+				result = chainstypes.TrackResultFailure
+			}
+
+			// This is a transction that we are tracking. Inform Sisu about this.
+			w.txTrackCh <- &chainstypes.TrackUpdate{
+				Chain:       w.cfg.Chain,
+				Bytes:       bz,
+				Hash:        txId,
+				BlockHeight: int64(block.ParentSlot + 1),
+				Result:      result,
+			}
+
+			continue
+		}
+
+		// Check to see if this is a transaction sent to one of our token accounts.
+		if w.acceptTx(outerTx) {
+			log.Verbose("Found a transaction sent to our bridge")
+
+			txArr = append(txArr, &types.Tx{
+				Hash:       outerTx.TransactionInner.Signatures[0],
+				Serialized: bz,
+				To:         w.cfg.SolanaBridgeProgramId,
+				Success:    true,
+			})
+		}
+	}
+
+	if len(txArr) > 0 {
+		txs := types.Txs{
+			Chain:     w.cfg.Chain,
+			Block:     int64(block.ParentSlot + 1),
+			BlockHash: block.BlockHash,
+			Arr:       txArr,
+		}
+
+		// Broadcast the result
+		w.txsCh <- &txs
 	}
 }
 

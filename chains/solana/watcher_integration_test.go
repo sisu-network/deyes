@@ -1,7 +1,6 @@
 package solana
 
 import (
-	"fmt"
 	"testing"
 
 	solanatypes "github.com/sisu-network/deyes/chains/solana/types"
@@ -37,7 +36,6 @@ func TestWatcherBlockScanning(t *testing.T) {
 			log.Info("Bridge program id found!!!!!")
 
 			for _, ix := range outerTx.TransactionInner.Message.Instructions {
-				fmt.Println(ix.Data)
 				bytesArr, err := base58.Decode(ix.Data)
 				if err != nil {
 					panic(err)
@@ -50,7 +48,7 @@ func TestWatcherBlockScanning(t *testing.T) {
 					panic(err)
 				}
 
-				fmt.Println(*transferData)
+				log.Verbose(*transferData)
 			}
 		}
 	}
@@ -74,6 +72,6 @@ func TestFullWatcher(t *testing.T) {
 
 	select {
 	case txs := <-txsCh:
-		fmt.Println("There is a transaction, txs = ", txs)
+		log.Verbose("There is a transaction, txs = ", txs)
 	}
 }
