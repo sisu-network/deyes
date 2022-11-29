@@ -80,7 +80,7 @@ func (p *Processor) Start() {
 			dispatcher = cardano.NewDispatcher(client)
 		} else if libchain.IsSolanaChain(chain) { // Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
-			dispatcher = solana.NewDispatcher()
+			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}

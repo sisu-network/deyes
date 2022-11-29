@@ -44,6 +44,7 @@ type Chain struct {
 	BlockTime  int        `toml:"block_time" json:"block_time"`
 	AdjustTime int        `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string   `toml:"rpcs" json:"rpcs"`
+	Wss        []string   `toml:"wss" json:"wss"`
 	ClientType ClientType `toml:"client_type" json:"client_type"`
 	RpcSecret  string     `toml:"rpc_secret" json:"rpc_secret"`
 

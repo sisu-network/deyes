@@ -277,3 +277,25 @@ func (w *Watcher) SetVault(addr string, token string) {
 func (w *Watcher) TrackTx(txHash string) {
 
 }
+
+func (w *Watcher) QueryRecentBlock() (string, int64, error) {
+	result, err := w.client.Call(context.Background(), "getLatestBlockhash")
+	if err != nil {
+		return "", 0, err
+	}
+
+	type RpcResponse struct {
+		Value struct {
+			BlockHash            string `json:"blockHash"`
+			LastValidBlockHeight int64  `json:"lastValidBlockHeight"`
+		} `json:"value"`
+	}
+
+	var response RpcResponse
+	err = result.GetObject(&response)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return response.Value.BlockHash, response.Value.LastValidBlockHeight, nil
+}

@@ -11,11 +11,13 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
+
+	"github.com/stretchr/testify/require"
 )
 
-const RPC = ""
+const RPC = "https://api.devnet.solana.com"
 
-// Sanity testing
+// Sanity testing. Uncomment t.Skip to run this test.
 func TestWatcherBlockScanning(t *testing.T) {
 	t.Skip()
 
@@ -74,4 +76,17 @@ func TestFullWatcher(t *testing.T) {
 	case txs := <-txsCh:
 		log.Verbose("There is a transaction, txs = ", txs)
 	}
+}
+
+func TestQueryRecentBlock(t *testing.T) {
+	t.Skip()
+
+	w := NewWatcher(config.Chain{
+		Rpcs: []string{RPC},
+	}, nil, nil, nil)
+
+	hash, height, err := w.QueryRecentBlock()
+	require.Nil(t, err)
+
+	log.Verbose("Hash and height = ", hash, " ", height)
 }

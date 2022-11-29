@@ -6,6 +6,7 @@ import (
 	"github.com/echovl/cardano-go"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
+	chainssolana "github.com/sisu-network/deyes/chains/solana"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
 
@@ -134,4 +135,22 @@ func (api *ApiHandler) CardanoSubmitTx(chain string, tx *cardano.Tx) (*cardano.H
 	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
 
 	return watcher.SubmitTx(tx)
+}
+
+///// Solana
+func (api *ApiHandler) SolanaQueryRecentBlock(chain string) (*types.SolanaQueryRecentBlockResult, error) {
+	if !libchain.IsSolanaChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainssolana.Watcher)
+	hash, height, err := watcher.QueryRecentBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SolanaQueryRecentBlockResult{
+		Hash:   hash,
+		Height: height,
+	}, nil
 }
