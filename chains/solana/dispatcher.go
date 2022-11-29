@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -67,7 +68,14 @@ func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dispatc
 	}
 
 	for i := range d.clients {
-		signature, err := d.clients[i].SendTransaction(context.Background(), &decodedTx)
+		signature, err := d.clients[i].SendEncodedTransactionWithOpts(
+			context.Background(),
+			base64.StdEncoding.EncodeToString(request.Tx),
+			rpc.TransactionOpts{
+				SkipPreflight:       false,
+				PreflightCommitment: "",
+			},
+		)
 		if err != nil {
 			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i])
 			continue
