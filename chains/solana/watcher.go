@@ -275,7 +275,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 }
 
 func (w *Watcher) TrackTx(txHash string) {
-
+	w.txTrackCache.Add(txHash, true)
 }
 
 func (w *Watcher) QueryRecentBlock() (string, int64, error) {
