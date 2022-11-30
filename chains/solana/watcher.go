@@ -42,7 +42,7 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 		txsCh:        txsCh,
 		txTrackCache: lru.New(1000),
 		txTrackCh:    txTrackCh,
-		rpcUrl:       cfg.Rpcs[0],
+		rpcUrl:       cfg.Rpcs[0], // TODO: Use multiple RPC
 		client:       jsonrpc.NewClient(cfg.Rpcs[0]),
 	}
 }

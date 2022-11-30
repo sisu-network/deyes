@@ -14,8 +14,6 @@ import (
 )
 
 func TestStartManager(t *testing.T) {
-	t.Parallel()
-
 	ctrl := gomock.NewController(t)
 	t.Cleanup(func() {
 		ctrl.Finish()
