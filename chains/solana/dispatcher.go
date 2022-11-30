@@ -54,20 +54,8 @@ func (d *Dispatcher) Start() {
 }
 
 func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
-	decoder := bin.NewBinDecoder(request.Tx)
-	decodedTx := solanago.Transaction{}
-	err := decodedTx.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		log.Error("Failed to decode tx, err = ", err)
-		return &types.DispatchedTxResult{
-			Success: false,
-			Err:     types.ErrGeneric,
-			Chain:   request.Chain,
-			TxHash:  request.TxHash,
-		}
-	}
-
 	for i := range d.clients {
+		log.Verbosef("Dispatching solana tx using url %s", d.clientUrls[i])
 		signature, err := d.clients[i].SendEncodedTransactionWithOpts(
 			context.Background(),
 			base64.StdEncoding.EncodeToString(request.Tx),

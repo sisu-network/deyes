@@ -175,6 +175,7 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 		log.Error(fmt.Errorf("unknown chain %s", chain))
 		result = types.NewDispatchTxError(request, types.ErrGeneric)
 	} else {
+		log.Verbosef("Dispatching tx for chain %s with hash", request.Chain, request.TxHash)
 		result = dispatcher.Dispatch(request)
 	}
 
