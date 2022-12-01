@@ -23,6 +23,7 @@ func GetSolanaPrivateKey(mnemonic string) solanago.PrivateKey {
 }
 
 func TestDispatch(t *testing.T) {
+	t.Skip()
 	mnemonic := os.Getenv("MNEMONIC")
 	owner := GetSolanaPrivateKey(mnemonic)
 
