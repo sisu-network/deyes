@@ -44,11 +44,15 @@ type Chain struct {
 	BlockTime  int        `toml:"block_time" json:"block_time"`
 	AdjustTime int        `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string   `toml:"rpcs" json:"rpcs"`
+	Wss        []string   `toml:"wss" json:"wss"`
 	ClientType ClientType `toml:"client_type" json:"client_type"`
 	RpcSecret  string     `toml:"rpc_secret" json:"rpc_secret"`
 
 	// SyncDB config
 	SyncDB SyncDbConfig `toml:"sync_db" json:"sync_db"`
+
+	// Solana
+	SolanaBridgeProgramId string `toml:"solana_bridge_program_id" json:"solana_bridge_program_id"`
 }
 
 type Deyes struct {

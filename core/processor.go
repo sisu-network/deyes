@@ -6,8 +6,8 @@ import (
 
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/chains/cardano"
-	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
+	"github.com/sisu-network/deyes/chains/solana"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
 	"github.com/sisu-network/deyes/config"
@@ -76,8 +76,11 @@ func (p *Processor) Start() {
 		} else if libchain.IsCardanoChain(chain) { // Cardano chain
 			client := p.getCardanoClient(cfg)
 
-			watcher = chainscardano.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
-			dispatcher = chainscardano.NewDispatcher(client)
+			watcher = cardano.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
+			dispatcher = cardano.NewDispatcher(client)
+		} else if libchain.IsSolanaChain(chain) { // Solana
+			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
+			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
@@ -89,9 +92,9 @@ func (p *Processor) Start() {
 	}
 }
 
-func (p *Processor) getCardanoClient(cfg config.Chain) *chainscardano.DefaultCardanoClient {
+func (p *Processor) getCardanoClient(cfg config.Chain) *cardano.DefaultCardanoClient {
 	var (
-		provider  chainscardano.Provider
+		provider  cardano.Provider
 		submitURL string
 	)
 
@@ -102,18 +105,18 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *chainscardano.DefaultCar
 		submitURL = "https://cardano-preprod.blockfrost.io/api/v0" + "/tx/submit"
 	} else if cfg.ClientType == config.ClientTypeSelfHost {
 		log.Info("Use Self-host client")
-		db, err := chainscardano.ConnectDB(cfg.SyncDB)
+		db, err := cardano.ConnectDB(cfg.SyncDB)
 		if err != nil {
 			panic(err)
 		}
 
-		provider = chainscardano.NewSyncDBConnector(db)
+		provider = cardano.NewSyncDBConnector(db)
 		submitURL = cfg.SyncDB.SubmitURL
 	} else {
 		panic(fmt.Errorf("unknown cardano client type: %s", cfg.ClientType))
 	}
 
-	return chainscardano.NewDefaultCardanoClient(
+	return cardano.NewDefaultCardanoClient(
 		provider,
 		submitURL,
 		cfg.RpcSecret, // only used for Blockfrost API
@@ -154,10 +157,10 @@ func (p *Processor) listen() {
 	}
 }
 
-func (tp *Processor) SetVault(chain, addr string) {
+func (tp *Processor) SetVault(chain, addr string, token string) {
 	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
 	watcher := tp.watchers[chain]
-	watcher.SetVault(addr)
+	watcher.SetVault(addr, token)
 }
 
 func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
@@ -172,6 +175,7 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 		log.Error(fmt.Errorf("unknown chain %s", chain))
 		result = types.NewDispatchTxError(request, types.ErrGeneric)
 	} else {
+		log.Verbosef("Dispatching tx for chain %s with hash", request.Chain, request.TxHash)
 		result = dispatcher.Dispatch(request)
 	}
 

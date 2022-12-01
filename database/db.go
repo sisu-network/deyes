@@ -27,8 +27,8 @@ type Database interface {
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
 	// Vault address
-	SetVault(chain, address string) error
-	GetVault(chain string) (string, error)
+	SetVault(chain, address string, token string) error
+	GetVaults(chain string) ([]string, error)
 
 	// Token price
 	SaveTokenPrices(tokenPrices []*types.TokenPrice)
@@ -247,8 +247,8 @@ func (d *DefaultDatabase) SaveTxs(chain string, blockHeight int64, txs *types.Tx
 	}
 }
 
-func (d *DefaultDatabase) SetVault(chain, address string) error {
-	return d.addWatchAddress(chain, address, "vault")
+func (d *DefaultDatabase) SetVault(chain, address string, token string) error {
+	return d.addWatchAddress(chain, address, fmt.Sprintf("vault__%s", token))
 }
 
 func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
@@ -265,31 +265,32 @@ func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 	return err
 }
 
-func (d *DefaultDatabase) GetVault(chain string) (string, error) {
-	return d.getWatchAddress(chain, "vault")
+func (d *DefaultDatabase) GetVaults(chain string) ([]string, error) {
+	return d.getWatchAddress(chain, "'vault__%'")
 }
 
-func (d *DefaultDatabase) getWatchAddress(chain, typ string) (string, error) {
-	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=? and type=?", chain, typ)
+func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
+	rows, err := d.db.Query("SELECT address FROM watch_address WHERE chain=? and type LIKE ?", chain, typ)
 	if err != nil {
 		log.Error("Failed to load watch address for chain ", chain, ". Error = ", err)
-		return "", err
+		return nil, err
 	}
 
 	defer rows.Close()
+	ret := make([]string, 0)
 
 	if rows.Next() {
 		var addr sql.NullString
 		err = rows.Scan(&addr)
 
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		return addr.String, nil
+		ret = append(ret, addr.String)
 	}
 
-	return "", nil
+	return ret, nil
 }
 
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {

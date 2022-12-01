@@ -6,6 +6,7 @@ import (
 	"github.com/echovl/cardano-go"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
+	chainssolana "github.com/sisu-network/deyes/chains/solana"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
 
@@ -37,8 +38,8 @@ func (api *ApiHandler) SetSisuReady(isReady bool) {
 	api.processor.SetSisuReady(isReady)
 }
 
-func (api *ApiHandler) SetVaultAddress(chain string, addr string) {
-	api.processor.SetVault(chain, addr)
+func (api *ApiHandler) SetVaultAddress(chain string, addr string, token string) {
+	api.processor.SetVault(chain, addr, token)
 }
 
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
@@ -134,4 +135,22 @@ func (api *ApiHandler) CardanoSubmitTx(chain string, tx *cardano.Tx) (*cardano.H
 	watcher := api.processor.GetWatcher(chain).(*chainscardano.Watcher)
 
 	return watcher.SubmitTx(tx)
+}
+
+///// Solana
+func (api *ApiHandler) SolanaQueryRecentBlock(chain string) (*types.SolanaQueryRecentBlockResult, error) {
+	if !libchain.IsSolanaChain(chain) {
+		return nil, fmt.Errorf("Invalid Cardano chain %s", chain)
+	}
+
+	watcher := api.processor.GetWatcher(chain).(*chainssolana.Watcher)
+	hash, height, err := watcher.QueryRecentBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SolanaQueryRecentBlockResult{
+		Hash:   hash,
+		Height: height,
+	}, nil
 }
