@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"os"
 
 	bin "github.com/gagliardetto/binary"
@@ -27,9 +26,6 @@ type Dispatcher struct {
 func NewDispatcher(clientUrls, wsUrls []string) *Dispatcher {
 	clients := make([]*rpc.Client, 0)
 	wsClients := make([]*ws.Client, 0)
-
-	fmt.Println("clientUrls = ", clientUrls)
-	fmt.Println("wsUrls = ", wsUrls)
 
 	for i := range clientUrls {
 		client := rpc.New(clientUrls[i])

@@ -1,13 +1,13 @@
 package oracle
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/lib/log"
 )
 
 func TestGettingTokenPrice(t *testing.T) {
@@ -37,7 +37,7 @@ func TestGettingTokenPrice(t *testing.T) {
 	select {
 	case prices := <-outCh:
 		for _, price := range prices {
-			fmt.Println(price.Id, " ", price.Price)
+			log.Verbose(price.Id, " ", price.Price)
 		}
 
 		tpm.Stop()
