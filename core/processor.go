@@ -70,15 +70,17 @@ func (p *Processor) Start() {
 
 		var watcher chains.Watcher
 		var dispatcher chains.Dispatcher
-		if libchain.IsETHBasedChain(chain) { // ETH chain
+		if libchain.IsETHBasedChain(chain) {
+			// ETH chain
 			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
 			dispatcher = chainseth.NewEhtDispatcher(chain, cfg.Rpcs)
-		} else if libchain.IsCardanoChain(chain) { // Cardano chain
+		} else if libchain.IsCardanoChain(chain) {
+			// Cardano chain
 			client := p.getCardanoClient(cfg)
-
 			watcher = cardano.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
 			dispatcher = cardano.NewDispatcher(client)
-		} else if libchain.IsSolanaChain(chain) { // Solana
+		} else if libchain.IsSolanaChain(chain) {
+			// Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
 		} else {
@@ -159,20 +161,26 @@ func (p *Processor) listen() {
 
 func (tp *Processor) SetVault(chain, addr string, token string) {
 	log.Infof("Setting gateway, chain = %s, addr = %s", chain, addr)
-	watcher := tp.watchers[chain]
+	watcher := tp.GetWatcher(chain)
 	watcher.SetVault(addr, token)
 }
 
 func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	chain := request.Chain
+	watcher := tp.GetWatcher(chain)
+	if watcher == nil {
+		log.Errorf("Cannot find watcher for chain %s", chain)
+		tp.sisuClient.PostDeploymentResult(types.NewDispatchTxError(request, types.ErrGeneric))
+		return
+	}
 
 	// If dispatching successful, add the tx to tracking.
-	tp.watchers[chain].TrackTx(request.TxHash)
+	watcher.TrackTx(request.TxHash)
 
 	dispatcher := tp.dispatchers[chain]
 	var result *types.DispatchedTxResult
 	if dispatcher == nil {
-		log.Error(fmt.Errorf("unknown chain %s", chain))
+		log.Error(fmt.Errorf("Cannot find dispatcher for chain %s", chain))
 		result = types.NewDispatchTxError(request, types.ErrGeneric)
 	} else {
 		log.Verbosef("Dispatching tx for chain %s with hash", request.Chain, request.TxHash)
@@ -183,17 +191,17 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 	tp.sisuClient.PostDeploymentResult(result)
 }
 
-func (tp *Processor) GetNonce(chain string, address string) int64 {
+func (tp *Processor) GetNonce(chain string, address string) (int64, error) {
 	if !libchain.IsETHBasedChain(chain) {
-		return -1
+		return 0, fmt.Errorf("%s is not an ETH chain", chain)
 	}
 
-	watcher := tp.watchers[chain].(*chainseth.Watcher)
-	if watcher == nil {
-		return -1
+	watcher := tp.GetWatcher(chain)
+	if watcher != nil {
+		return 0, fmt.Errorf("Cannot find watcher for chain %s", chain)
 	}
 
-	return watcher.GetNonce(address)
+	return watcher.(*chainseth.Watcher).GetNonce(address), nil
 }
 
 func (tp *Processor) GetWatcher(chain string) chains.Watcher {

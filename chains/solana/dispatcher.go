@@ -77,7 +77,7 @@ func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dispatc
 		}
 	}
 
-	return nil
+	return types.NewDispatchTxError(request, types.ErrSubmitTx)
 }
 
 // analyzeTx is a function for debugging transaction.
