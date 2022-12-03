@@ -61,7 +61,7 @@ func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dispatc
 			},
 		)
 		if err != nil {
-			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i])
+			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i], " err = ", err)
 			continue
 		}
 

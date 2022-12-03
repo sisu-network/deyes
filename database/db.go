@@ -266,7 +266,7 @@ func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 }
 
 func (d *DefaultDatabase) GetVaults(chain string) ([]string, error) {
-	return d.getWatchAddress(chain, "'vault__%'")
+	return d.getWatchAddress(chain, "vault__")
 }
 
 func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
