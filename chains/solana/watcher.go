@@ -24,8 +24,8 @@ const FetcherCount = 5
 type Watcher struct {
 	cfg          config.Chain
 	lastSlot     atomic.Uint64
-	client       jsonrpc.RPCClient
-	rpcUrl       string
+	clients      []jsonrpc.RPCClient
+	rpcUrls      []string
 	txTrackCache *lru.Cache
 	db           database.Database
 
@@ -35,6 +35,10 @@ type Watcher struct {
 
 func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 	txTrackCh chan *chainstypes.TrackUpdate) *Watcher {
+	clients := make([]jsonrpc.RPCClient, 0)
+	for _, url := range cfg.Rpcs {
+		clients = append(clients, jsonrpc.NewClient(url))
+	}
 
 	return &Watcher{
 		cfg:          cfg,
@@ -42,8 +46,8 @@ func NewWatcher(cfg config.Chain, db database.Database, txsCh chan *types.Txs,
 		txsCh:        txsCh,
 		txTrackCache: lru.New(1000),
 		txTrackCh:    txTrackCh,
-		rpcUrl:       cfg.Rpcs[0], // TODO: Use multiple RPC
-		client:       jsonrpc.NewClient(cfg.Rpcs[0]),
+		rpcUrls:      cfg.Rpcs,
+		clients:      clients,
 	}
 }
 
@@ -68,7 +72,7 @@ func (w *Watcher) scanBlocks() {
 	for i := uint64(0); i < n; i++ {
 		index := (slot + i) % n
 		blockChs[index] = make(chan *BlockResult)
-		fetch := newFetcher(w.rpcUrl, uint64(n), slot+i, blockChs[index])
+		fetch := newFetcher(w.clients, uint64(n), slot+i, blockChs[index])
 		go fetch.start()
 	}
 
@@ -225,49 +229,53 @@ func (w *Watcher) getNextBlock() (*solanatypes.Block, error) {
 }
 
 func (w *Watcher) getSlot() (uint64, error) {
-	res, err := w.client.Call(context.Background(), "getSlot")
-	if err != nil {
-		return 0, err
-	}
+	return executeWithClients(w.clients, func(client jsonrpc.RPCClient) (uint64, bool, error) {
+		res, err := client.Call(context.Background(), "getSlot")
+		if err != nil {
+			return 0, false, err
+		}
 
-	var result uint64
-	err = res.GetObject(&result)
-	if err != nil {
-		return 0, err
-	}
+		var result uint64
 
-	return result, nil
+		err = res.GetObject(&result)
+		if err != nil {
+			return result, true, err
+		}
+
+		return result, true, nil
+	})
 }
 
 func (w *Watcher) getBlockNumber(slot uint64) (*solanatypes.Block, error) {
-	var request = &solanatypes.GetBlockRequest{
-		TransactionDetails:             "full",
-		MaxSupportedTransactionVersion: 100,
-	}
+	return executeWithClients(w.clients, func(client jsonrpc.RPCClient) (*solanatypes.Block, bool, error) {
+		var request = &solanatypes.GetBlockRequest{
+			TransactionDetails:             "full",
+			MaxSupportedTransactionVersion: 100,
+		}
 
-	res, err := w.client.Call(context.Background(), "getBlock", slot, request)
-	if err != nil {
-		return nil, err
-	}
+		res, err := client.Call(context.Background(), "getBlock", slot, request)
+		if err != nil {
+			return nil, false, err
+		}
 
-	if res.Error != nil {
-		return nil, res.Error
-	}
+		if res.Error != nil {
+			return nil, true, err
+		}
 
-	block := new(solanatypes.Block)
-	err = res.GetObject(&block)
-	if err != nil {
-		return nil, err
-	}
+		block := new(solanatypes.Block)
+		err = res.GetObject(&block)
+		if err != nil {
+			return nil, true, err
+		}
 
-	if block == nil {
-		err := fmt.Errorf("Error is nil but block is also nil. Slot = %d", slot)
-		log.Error(err)
+		if block == nil {
+			err := fmt.Errorf("Error is nil but block is also nil. Slot = %d", slot)
+			log.Error(err)
+			return nil, true, err
+		}
 
-		return nil, err
-	}
-
-	return block, nil
+		return block, true, nil
+	})
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
@@ -279,11 +287,6 @@ func (w *Watcher) TrackTx(txHash string) {
 }
 
 func (w *Watcher) QueryRecentBlock() (string, int64, error) {
-	result, err := w.client.Call(context.Background(), "getLatestBlockhash")
-	if err != nil {
-		return "", 0, err
-	}
-
 	type RpcResponse struct {
 		Value struct {
 			BlockHash            string `json:"blockHash"`
@@ -291,11 +294,24 @@ func (w *Watcher) QueryRecentBlock() (string, int64, error) {
 		} `json:"value"`
 	}
 
-	var response RpcResponse
-	err = result.GetObject(&response)
+	res, err := executeWithClients(w.clients, func(client jsonrpc.RPCClient) (*RpcResponse, bool, error) {
+		result, err := client.Call(context.Background(), "getLatestBlockhash")
+		if err != nil {
+			return nil, false, err
+		}
+
+		response := &RpcResponse{}
+		err = result.GetObject(response)
+		if err != nil {
+			return nil, true, err
+		}
+
+		return response, true, nil
+	})
+
 	if err != nil {
 		return "", 0, err
 	}
 
-	return response.Value.BlockHash, response.Value.LastValidBlockHeight, nil
+	return res.Value.BlockHash, res.Value.LastValidBlockHeight, nil
 }
