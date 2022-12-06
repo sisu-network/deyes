@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"os"
 
 	bin "github.com/gagliardetto/binary"
@@ -27,9 +26,6 @@ type Dispatcher struct {
 func NewDispatcher(clientUrls, wsUrls []string) *Dispatcher {
 	clients := make([]*rpc.Client, 0)
 	wsClients := make([]*ws.Client, 0)
-
-	fmt.Println("clientUrls = ", clientUrls)
-	fmt.Println("wsUrls = ", wsUrls)
 
 	for i := range clientUrls {
 		client := rpc.New(clientUrls[i])
@@ -65,7 +61,7 @@ func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dispatc
 			},
 		)
 		if err != nil {
-			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i])
+			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i], " err = ", err)
 			continue
 		}
 
@@ -77,7 +73,7 @@ func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dispatc
 		}
 	}
 
-	return nil
+	return types.NewDispatchTxError(request, types.ErrSubmitTx)
 }
 
 // analyzeTx is a function for debugging transaction.

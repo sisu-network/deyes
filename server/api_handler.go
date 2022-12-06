@@ -46,7 +46,7 @@ func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
 	api.processor.DispatchTx(request)
 }
 
-func (api *ApiHandler) GetNonce(chain string, address string) int64 {
+func (api *ApiHandler) GetNonce(chain string, address string) (int64, error) {
 	return api.processor.GetNonce(chain, address)
 }
 

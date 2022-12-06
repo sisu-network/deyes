@@ -111,6 +111,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
+	log.Verbosef("Setting vault for chain %s with address %s", w.cfg.Chain, addr)
 	err := w.db.SetVault(w.cfg.Chain, addr, token)
 	if err == nil {
 		w.vault = strings.ToLower(addr)
