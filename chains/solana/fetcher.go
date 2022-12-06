@@ -19,16 +19,16 @@ type BlockResult struct {
 type fetcher struct {
 	n            uint64
 	startingSlot uint64
-	client       jsonrpc.RPCClient
+	clients      []jsonrpc.RPCClient
 	blockCh      chan *BlockResult
 }
 
-func newFetcher(rpcUrl string, n, startingSlot uint64, blockCh chan *BlockResult) *fetcher {
+func newFetcher(clients []jsonrpc.RPCClient, n, startingSlot uint64, blockCh chan *BlockResult) *fetcher {
 	return &fetcher{
 		n:            n,
 		startingSlot: startingSlot,
 		blockCh:      blockCh,
-		client:       jsonrpc.NewClient(rpcUrl),
+		clients:      clients,
 	}
 }
 
@@ -81,32 +81,34 @@ func (f *fetcher) start() {
 }
 
 func (f *fetcher) getBlockNumber(slot uint64) (*solanatypes.Block, error) {
-	var request = &solanatypes.GetBlockRequest{
-		TransactionDetails:             "full",
-		MaxSupportedTransactionVersion: 100,
-	}
+	return executeWithClients(f.clients, func(client jsonrpc.RPCClient) (*solanatypes.Block, bool, error) {
+		var request = &solanatypes.GetBlockRequest{
+			TransactionDetails:             "full",
+			MaxSupportedTransactionVersion: 100,
+		}
 
-	res, err := f.client.Call(context.Background(), "getBlock", slot, request)
-	if err != nil {
-		return nil, err
-	}
+		res, err := client.Call(context.Background(), "getBlock", slot, request)
+		if err != nil {
+			return nil, false, err
+		}
 
-	if res.Error != nil {
-		return nil, res.Error
-	}
+		if res.Error != nil {
+			return nil, true, res.Error
+		}
 
-	block := new(solanatypes.Block)
-	err = res.GetObject(&block)
-	if err != nil {
-		return nil, err
-	}
+		block := new(solanatypes.Block)
+		err = res.GetObject(&block)
+		if err != nil {
+			return block, true, err
+		}
 
-	if block == nil {
-		err := fmt.Errorf("Error is nil but block is also nil. Slot = %d", slot)
-		log.Error(err)
+		if block == nil {
+			err := fmt.Errorf("Error is nil but block is also nil. Slot = %d", slot)
+			log.Error(err)
 
-		return nil, err
-	}
+			return block, true, err
+		}
 
-	return block, nil
+		return block, true, nil
+	})
 }

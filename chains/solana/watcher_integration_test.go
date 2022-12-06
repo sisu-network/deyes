@@ -24,7 +24,7 @@ func TestWatcherBlockScanning(t *testing.T) {
 	cfg := config.Chain{
 		Chain:                 "solana-devnet",
 		Rpcs:                  []string{RPC},
-		SolanaBridgeProgramId: "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED",
+		SolanaBridgeProgramId: "3tqV2dLdFGKeyKkySetgy9ipaThgX6gc4oxFfMqs7Dzr",
 	}
 
 	w := NewWatcher(cfg, nil, nil, nil)
@@ -67,7 +67,7 @@ func TestFullWatcher(t *testing.T) {
 		BlockTime:             1000,
 		AdjustTime:            500,
 		Rpcs:                  []string{RPC},
-		SolanaBridgeProgramId: "GWP9AoY6ZvUqLzm4fS5jqSJAJ8rnrMf4d1kiU1wSXwED",
+		SolanaBridgeProgramId: "3tqV2dLdFGKeyKkySetgy9ipaThgX6gc4oxFfMqs7Dzr",
 	}, nil, txsCh, txTrackCh)
 
 	w.Start()
