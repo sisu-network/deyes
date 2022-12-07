@@ -81,7 +81,7 @@ func (d *DefaultDatabase) Connect() error {
 	var database *sql.DB
 	var err error
 	if d.cfg.InMemory {
-		database, err = sql.Open("ramsql", "TestDB")
+		database, err = sql.Open("sqlite3", ":memory:")
 		if err != nil {
 			return err
 		}
