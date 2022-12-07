@@ -80,7 +80,12 @@ func (d *DefaultDatabase) Connect() error {
 
 	var database *sql.DB
 	var err error
-	if !d.cfg.InMemory {
+	if d.cfg.InMemory {
+		database, err = sql.Open("ramsql", "TestDB")
+		if err != nil {
+			return err
+		}
+	} else {
 		// Connect to the db
 		url := fmt.Sprintf("%s:%s@tcp(%s:%d)/", username, password, host, port)
 		database, err := sql.Open("mysql", url)
@@ -92,14 +97,7 @@ func (d *DefaultDatabase) Connect() error {
 			return err
 		}
 		database.Close()
-	}
 
-	if d.cfg.InMemory {
-		database, err = sql.Open("sqlite3", ":memory:")
-		if err != nil {
-			return err
-		}
-	} else {
 		database, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", username, password, host, port, schema))
 		if err != nil {
 			return err
