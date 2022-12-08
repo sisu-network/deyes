@@ -5,58 +5,69 @@ import (
 	"testing"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database/postgres"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
+const (
+	TestSchema = "deyes"
+)
+
+// To run a single test in a test suite, specify the -testify.m option.
 type DbTestSuite struct {
 	suite.Suite
-}
-
-func connect() (*sqlx.DB, error) {
-	db, err := sqlx.Connect("postgres", "host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable")
-	return db, err
+	embeddedDb *embeddedpostgres.EmbeddedPostgres
+	sisuDb     Database
 }
 
 func (suite *DbTestSuite) SetupTest() {
-	database := embeddedpostgres.NewDatabase()
+	host := "localhost"
+	port := 5431
+	username := "postgres"
+	password := "postgres"
+	schema := TestSchema
 
-	if err := database.Start(); err != nil {
+	// Start the embedded server
+	dbConfig := embeddedpostgres.DefaultConfig()
+	dbConfig = dbConfig.Port(uint32(port)).Username(username).Password(password).Database("postgres")
+	suite.embeddedDb = embeddedpostgres.NewDatabase(dbConfig)
+
+	if err := suite.embeddedDb.Start(); err != nil {
+		fmt.Println("Err = ", err)
 		panic(err)
 	}
 
-	defer func() {
-		if err := database.Stop(); err != nil {
+	deyesCfg := &config.Deyes{
+		DbHost:     host,
+		DbPort:     port,
+		DbUsername: username,
+		DbPassword: password,
+		DbSchema:   schema,
+	}
+
+	db := NewDb(deyesCfg)
+	err := db.Init()
+	if err != nil {
+		panic(err)
+	}
+
+	suite.sisuDb = db
+}
+
+func (suite *DbTestSuite) TearDownTest() {
+	fmt.Println("Tearing down test....")
+	if suite.sisuDb != nil {
+		err := suite.sisuDb.(*DefaultDatabase).dropSchema(TestSchema)
+		if err != nil {
 			panic(err)
 		}
-	}()
-
-	db, err := connect()
-	if err != nil {
-		panic(err)
 	}
 
-	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
-	if err != nil {
+	if err := suite.embeddedDb.Stop(); err != nil {
 		panic(err)
 	}
-
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
-		"mysql",
-		driver,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	m.Log = &dbLogger{}
-	m.Up()
 }
 
 func getTestDb(t *testing.T) Database {

@@ -3,16 +3,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database/mysql"
+	"github.com/golang-migrate/migrate/database/postgres"
 	_ "github.com/golang-migrate/migrate/source/file"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/types"
@@ -78,30 +74,19 @@ func (d *DefaultDatabase) Connect() error {
 	password := d.cfg.DbPassword
 	schema := d.cfg.DbSchema
 
-	var database *sql.DB
-	var err error
-	if d.cfg.InMemory {
-		database, err = sql.Open("sqlite3", ":memory:")
-		if err != nil {
-			return err
-		}
-	} else {
-		// Connect to the db
-		url := fmt.Sprintf("%s:%s@tcp(%s:%d)/", username, password, host, port)
-		database, err := sql.Open("mysql", url)
-		if err != nil {
-			return err
-		}
-		_, err = database.Exec("CREATE DATABASE IF NOT EXISTS " + schema)
-		if err != nil {
-			return err
-		}
-		database.Close()
+	// // Connect to the postgres db
+	url := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s sslmode=disable",
+		host, port, username, password,
+	)
+	database, err := sql.Open("postgres", url)
+	if err != nil {
+		return err
+	}
 
-		database, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", username, password, host, port, schema))
-		if err != nil {
-			return err
-		}
+	err = d.createDeyesTables(database, schema)
+	if err != nil {
+		return err
 	}
 
 	d.db = database
@@ -109,8 +94,30 @@ func (d *DefaultDatabase) Connect() error {
 	return nil
 }
 
+func (d *DefaultDatabase) createDeyesTables(database *sql.DB, schema string) error {
+	rows, err := database.Query("SELECT FROM pg_catalog.pg_database WHERE datname = $1", schema)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		log.Infof("CREATING %s DATABASE", schema)
+		// Postgres does not allow using params for table name. Make sure that this schema is safe to
+		// pass in.
+		_, err := database.Exec("CREATE DATABASE " + schema)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Infof("The schema %s already existed", schema)
+	}
+
+	return nil
+}
+
 func (d *DefaultDatabase) doSqlMigration() error {
-	driver, err := mysql.WithInstance(d.db, &mysql.Config{})
+	driver, err := postgres.WithInstance(d.db, &postgres.Config{})
 	if err != nil {
 		return err
 	}
@@ -125,7 +132,7 @@ func (d *DefaultDatabase) doSqlMigration() error {
 
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://"+migrationDir,
-		"mysql",
+		"postgres",
 		driver,
 	)
 
@@ -139,48 +146,6 @@ func (d *DefaultDatabase) doSqlMigration() error {
 	return nil
 }
 
-// inMemoryMigration does sql migration for in-memory db. We manually do migration instead of using
-// "golang-migrate/migrate" lib because there are some query in "golang-migrate/migrate" not
-// supported by sqlite3 in-memory (like SELECT DATABASE() or SELECT GET_LOCK()).
-func (d *DefaultDatabase) inMemoryMigration() error {
-	log.Verbose("Running in-memory migration...")
-
-	migrationDir, err := MigrationsTempDir()
-	if err != nil {
-		return fmt.Errorf("failed to create temporary directory for migrations: %w", err)
-	}
-	defer os.RemoveAll(migrationDir)
-
-	files, err := ioutil.ReadDir(migrationDir)
-	if err != nil {
-		return err
-	}
-
-	migrationFiles := make([]string, 0)
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".up.sql") {
-			migrationFiles = append(migrationFiles, f.Name())
-		}
-	}
-
-	// Read query from the migration files and execute.
-	sort.Strings(migrationFiles)
-	for _, f := range migrationFiles {
-		dat, err := os.ReadFile(filepath.Join(migrationDir, f))
-		if err != nil {
-			return err
-		}
-		query := string(dat)
-
-		_, err = d.db.Exec(query)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (d *DefaultDatabase) Init() error {
 	err := d.Connect()
 	if err != nil {
@@ -188,12 +153,7 @@ func (d *DefaultDatabase) Init() error {
 		return err
 	}
 
-	if d.cfg.InMemory {
-		err = d.inMemoryMigration()
-	} else {
-		err = d.doSqlMigration()
-	}
-
+	err = d.doSqlMigration()
 	if err != nil {
 		return err
 	}
@@ -334,4 +294,12 @@ func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
 	defer rows.Close()
 
 	return prices
+}
+
+// dropSchema drops a table. This should be only be used in unit test to reset the embedded db.
+func (d *DefaultDatabase) dropSchema(schema string) error {
+	// Postgres does not allow using params for table name. Make sure that this schema is safe to
+	// pass in.
+	_, err := d.db.Exec("DROP DATABASE " + schema)
+	return err
 }
