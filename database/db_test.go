@@ -3,8 +3,25 @@ package database
 import (
 	"testing"
 
+	"github.com/sisu-network/deyes/config"
 	"github.com/stretchr/testify/require"
 )
+
+const (
+	DbSchema = "TestDb"
+)
+
+func getTestDbConfig() config.Deyes {
+	cfg := config.Deyes{
+		DbHost:     "localhost",
+		DbPort:     3306,
+		DbUsername: "root",
+		DbPassword: "password",
+		DbSchema:   DbSchema,
+	}
+
+	return cfg
+}
 
 func testSetVaults(t *testing.T, inMemory bool) {
 	cfg := getTestDbConfig()
@@ -39,4 +56,6 @@ func testSetVaults(t *testing.T, inMemory bool) {
 	vault3, err = db.GetVaults(chain3)
 	require.Nil(t, err)
 	require.Equal(t, []string{"addr3_3", "addr3_2"}, vault3)
+
+	db.Close()
 }

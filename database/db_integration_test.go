@@ -1,30 +1,29 @@
 package database
 
 import (
-	"math/big"
+	"fmt"
 	"testing"
 
-	"github.com/sisu-network/deyes/types"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-// This file contains integration test for sanity checking
-func TestTokenPrice(t *testing.T) {
-	t.Skip()
+type IntegrationDbSuite struct {
+	suite.Suite
+}
 
+func resetDb() {
 	cfg := getTestDbConfig()
+	db := NewDb(&cfg).(*DefaultDatabase)
+	db.Init()
+	db.db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", DbSchema))
+	db.Close()
+}
 
-	db := NewDb(&cfg)
-	err := db.Init()
-	require.Nil(t, err)
+func (suite *IntegrationDbSuite) TestSetVaults() {
+	resetDb()
+	testSetVaults(suite.T(), false)
+}
 
-	tokenPrices := []*types.TokenPrice{
-		{
-			Id:       "ETH",
-			PublicId: "ETH",
-			Price:    big.NewInt(10000),
-		},
-	}
-
-	db.SaveTokenPrices(tokenPrices)
+func TestIntegrationSuite(t *testing.T) {
+	suite.Run(t, new(IntegrationDbSuite))
 }

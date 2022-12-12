@@ -265,7 +265,6 @@ func (d *DefaultDatabase) SetVault(chain, address string, token string) error {
 func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 	var err error
 	if d.cfg.InMemory {
-		// _, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, typ)
 		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON CONFLICT(chain, type) DO UPDATE SET address=?", chain, address, typ, address)
 	} else {
 		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
