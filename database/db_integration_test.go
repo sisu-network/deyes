@@ -30,5 +30,6 @@ func (suite *IntegrationDbSuite) TestTokenPrices() {
 }
 
 func TestIntegrationSuite(t *testing.T) {
-	suite.Run(t, new(IntegrationDbSuite))
+	// Uncomment this line to run the entire suite.
+	// suite.Run(t, new(IntegrationDbSuite))
 }
