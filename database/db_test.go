@@ -65,7 +65,8 @@ func testSetVaults(t *testing.T, inMemory bool) {
 	require.Nil(t, err)
 	require.Equal(t, []string{"addr3_3", "addr3_2"}, vault3)
 
-	db.Close()
+	err = db.Close()
+	require.Nil(t, err)
 }
 
 func testTokenPrice(t *testing.T, inMemory bool) {
@@ -98,4 +99,7 @@ func testTokenPrice(t *testing.T, inMemory bool) {
 		prices,
 		actualPrices,
 	)
+
+	err := db.Close()
+	require.Nil(t, err)
 }

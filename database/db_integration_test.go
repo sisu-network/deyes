@@ -26,7 +26,7 @@ func (suite *IntegrationDbSuite) TestSetVaults() {
 
 func (suite *IntegrationDbSuite) TestTokenPrices() {
 	resetDb()
-	testSetVaults(suite.T(), false)
+	testTokenPrice(suite.T(), false)
 }
 
 func TestIntegrationSuite(t *testing.T) {
