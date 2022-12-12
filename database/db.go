@@ -24,6 +24,8 @@ import (
 // go:generate mockgen -source database/db.go -destination=tests/mock/database/db.go -package=mock
 type Database interface {
 	Init() error
+	Close() error
+
 	SaveTxs(chain string, blockHeight int64, txs *types.Txs)
 
 	// Vault address
@@ -87,6 +89,7 @@ func (d *DefaultDatabase) Connect() error {
 		if err != nil {
 			return err
 		}
+
 		_, err = database.Exec("CREATE DATABASE IF NOT EXISTS " + schema)
 		if err != nil {
 			return err
@@ -205,6 +208,14 @@ func (d *DefaultDatabase) Init() error {
 	return nil
 }
 
+func (d *DefaultDatabase) Close() error {
+	log.Info("Closing database")
+	err := d.db.Close()
+	log.Info("Closing database finishes, err = ", err)
+
+	return err
+}
+
 // Listen to request to save into datbase.
 func (d *DefaultDatabase) listen() {
 	for {
@@ -254,7 +265,8 @@ func (d *DefaultDatabase) SetVault(chain, address string, token string) error {
 func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 	var err error
 	if d.cfg.InMemory {
-		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, typ)
+		// _, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?)", chain, address, typ)
+		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON CONFLICT(chain, type) DO UPDATE SET address=?", chain, address, typ, address)
 	} else {
 		_, err = d.db.Exec("INSERT INTO watch_address (chain, address, type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE address=?", chain, address, typ, address)
 	}
@@ -266,7 +278,7 @@ func (d *DefaultDatabase) addWatchAddress(chain, address, typ string) error {
 }
 
 func (d *DefaultDatabase) GetVaults(chain string) ([]string, error) {
-	return d.getWatchAddress(chain, "vault__")
+	return d.getWatchAddress(chain, "vault__%")
 }
 
 func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
@@ -279,7 +291,7 @@ func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
 	defer rows.Close()
 	ret := make([]string, 0)
 
-	if rows.Next() {
+	for rows.Next() {
 		var addr sql.NullString
 		err = rows.Scan(&addr)
 
@@ -296,7 +308,7 @@ func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 	for _, tokenPrice := range tokenPrices {
 		_, err := d.db.Exec(
-			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
+			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
 			tokenPrice.Id,
 			tokenPrice.PublicId,
 			tokenPrice.Price.String(),
