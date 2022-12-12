@@ -306,13 +306,25 @@ func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
 
 func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
 	for _, tokenPrice := range tokenPrices {
-		_, err := d.db.Exec(
-			"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
-			tokenPrice.Id,
-			tokenPrice.PublicId,
-			tokenPrice.Price.String(),
-			tokenPrice.Price.String(),
-		)
+		var err error
+		if d.cfg.InMemory {
+			_, err = d.db.Exec(
+				"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
+				tokenPrice.Id,
+				tokenPrice.PublicId,
+				tokenPrice.Price.String(),
+				tokenPrice.Price.String(),
+			)
+		} else {
+			_, err = d.db.Exec(
+				"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
+				tokenPrice.Id,
+				tokenPrice.PublicId,
+				tokenPrice.Price.String(),
+				tokenPrice.Price.String(),
+			)
+		}
+
 		if err != nil {
 			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
 		}

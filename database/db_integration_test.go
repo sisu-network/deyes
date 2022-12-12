@@ -24,6 +24,11 @@ func (suite *IntegrationDbSuite) TestSetVaults() {
 	testSetVaults(suite.T(), false)
 }
 
+func (suite *IntegrationDbSuite) TestTokenPrices() {
+	resetDb()
+	testSetVaults(suite.T(), false)
+}
+
 func TestIntegrationSuite(t *testing.T) {
 	suite.Run(t, new(IntegrationDbSuite))
 }

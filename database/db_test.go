@@ -1,9 +1,11 @@
 package database
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,12 +25,18 @@ func getTestDbConfig() config.Deyes {
 	return cfg
 }
 
-func testSetVaults(t *testing.T, inMemory bool) {
+func getTestDb(t *testing.T, inMemory bool) Database {
 	cfg := getTestDbConfig()
 	cfg.InMemory = inMemory
 	db := NewDb(&cfg)
 	err := db.Init()
 	require.Nil(t, err)
+
+	return db
+}
+
+func testSetVaults(t *testing.T, inMemory bool) {
+	db := getTestDb(t, inMemory)
 
 	chain1 := "ganache1"
 	db.SetVault(chain1, "addr1", "")
@@ -58,4 +66,36 @@ func testSetVaults(t *testing.T, inMemory bool) {
 	require.Equal(t, []string{"addr3_3", "addr3_2"}, vault3)
 
 	db.Close()
+}
+
+func testTokenPrice(t *testing.T, inMemory bool) {
+	db := getTestDb(t, inMemory)
+
+	prices := []*types.TokenPrice{
+		{
+			Id:    "token1",
+			Price: big.NewInt(1000),
+		},
+		{
+			Id:    "token2",
+			Price: big.NewInt(2000),
+		},
+	}
+	db.SaveTokenPrices(prices)
+
+	actualPrices := db.LoadPrices()
+	require.Equal(
+		t,
+		prices,
+		actualPrices,
+	)
+
+	prices[0].Price = big.NewInt(1100)
+	db.SaveTokenPrices(prices)
+	actualPrices = db.LoadPrices()
+	require.Equal(
+		t,
+		prices,
+		actualPrices,
+	)
 }
