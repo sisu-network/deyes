@@ -72,7 +72,8 @@ func (p *Processor) Start() {
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) {
 			// ETH chain
-			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getEthClients(cfg.Rpcs))
+			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh,
+				chainseth.NewEthClients(cfg.Rpcs, cfg.Chain))
 			dispatcher = chainseth.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) {
 			// Cardano chain
@@ -123,10 +124,6 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *cardano.DefaultCardanoCl
 		submitURL,
 		cfg.RpcSecret, // only used for Blockfrost API
 	)
-}
-
-func (p *Processor) getEthClients(rpcs []string) chainseth.EthClient {
-	return chainseth.NewEthClients(rpcs)
 }
 
 func (p *Processor) listen() {
