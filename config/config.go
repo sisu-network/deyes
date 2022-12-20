@@ -41,6 +41,7 @@ const (
 
 type Chain struct {
 	Chain      string   `toml:"chain" json:"chain"`
+	ChainId    int64    `toml:"chain_id" json:"chain_id"`
 	BlockTime  int      `toml:"block_time" json:"block_time"`
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
@@ -71,7 +72,9 @@ type Deyes struct {
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
 
-	Chains map[string]Chain `toml:"chains"`
+	// Chains config
+	Chains              map[string]Chain `toml:"chains"`
+	UseExternalRpcsInfo bool             `toml:"use_external_rpc_info"`
 
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 

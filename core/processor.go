@@ -72,8 +72,10 @@ func (p *Processor) Start() {
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) {
 			// ETH chain
-			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh,
-				chainseth.NewEthClients(cfg.Rpcs, cfg.Chain))
+			client := chainseth.NewEthClients(cfg.Rpcs, cfg, p.cfg.UseExternalRpcsInfo)
+			client.Start()
+
+			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, client)
 			dispatcher = chainseth.NewEhtDispatcher(chain, cfg.Rpcs)
 		} else if libchain.IsCardanoChain(chain) {
 			// Cardano chain

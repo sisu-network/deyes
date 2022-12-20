@@ -9,11 +9,18 @@ import (
 )
 
 type MockEthClient struct {
+	StartFunc              func()
 	BlockNumberFunc        func(ctx context.Context) (uint64, error)
 	BlockByNumberFunc      func(ctx context.Context, number *big.Int) (*ethtypes.Block, error)
 	TransactionReceiptFunc func(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error)
 	SuggestGasPriceFunc    func(ctx context.Context) (*big.Int, error)
 	PendingNonceAtFunc     func(ctx context.Context, account common.Address) (uint64, error)
+}
+
+func (c *MockEthClient) Start() {
+	if c.StartFunc != nil {
+		c.StartFunc()
+	}
 }
 
 func (c *MockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
