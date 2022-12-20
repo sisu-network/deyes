@@ -17,6 +17,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
+	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 	"golang.org/x/net/html"
 )
@@ -46,7 +47,6 @@ type EthClient interface {
 
 type defaultEthClient struct {
 	chain           string
-	chainId         int64
 	useExternalRpcs bool
 
 	clients     []*ethclient.Client
@@ -60,7 +60,6 @@ type defaultEthClient struct {
 func NewEthClients(initialRpcs []string, cfg config.Chain, useExternalRpcs bool) EthClient {
 	c := &defaultEthClient{
 		chain:           cfg.Chain,
-		chainId:         cfg.ChainId,
 		useExternalRpcs: useExternalRpcs,
 		initialRpcs:     initialRpcs,
 		lock:            &sync.RWMutex{},
@@ -70,8 +69,6 @@ func NewEthClients(initialRpcs []string, cfg config.Chain, useExternalRpcs bool)
 }
 
 func (c *defaultEthClient) Start() {
-	c.updateRpcs()
-
 	go c.loopCheck()
 }
 
@@ -92,9 +89,9 @@ func (c *defaultEthClient) updateRpcs() {
 
 	if c.useExternalRpcs {
 		// Get external rpcs.
-		externals, err := c.GetExtraRpcs(c.chainId)
+		externals, err := c.GetExtraRpcs()
 		if err != nil {
-			log.Errorf("Failed to get external rpc info")
+			log.Errorf("Failed to get external rpc info, err = ", err)
 		} else {
 			rpcs = append(rpcs, externals...)
 		}
@@ -115,15 +112,6 @@ func (c *defaultEthClient) updateRpcs() {
 	}
 
 	c.rpcs, c.clients, c.healthies = rpcs, clients, healthies
-
-	fmt.Println("Healthy RPCs for chain: ", c.chain)
-	for i, healthy := range c.healthies {
-		if healthy {
-			fmt.Println(c.rpcs[i])
-		}
-	}
-	fmt.Println()
-
 	c.lock.Unlock()
 }
 
@@ -200,9 +188,10 @@ func (c *defaultEthClient) processData(text string) []string {
 	return ret
 }
 
-func (c *defaultEthClient) GetExtraRpcs(chainId int64) ([]string, error) {
+func (c *defaultEthClient) GetExtraRpcs() ([]string, error) {
+	chainId := libchain.GetChainIntFromId(c.chain)
 	url := fmt.Sprintf("https://chainlist.org/chain/%d", chainId)
-	log.Verbose("Getting extra rpcs status from remote link %s for chain %s", url, c.chain)
+	log.Verbosef("Getting extra rpcs status from remote link %s for chain %s", url, c.chain)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -259,7 +248,12 @@ func (c *defaultEthClient) shuffle() ([]*ethclient.Client, []bool, []string) {
 
 func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, int) {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
+	if c.clients == nil {
+		c.lock.RUnlock()
+		c.updateRpcs()
+	} else {
+		c.lock.RUnlock()
+	}
 
 	// Shuffle rpcs so that we will use different healthy rpc
 	clients, healthies, _ := c.shuffle()

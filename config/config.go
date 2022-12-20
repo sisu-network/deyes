@@ -41,7 +41,6 @@ const (
 
 type Chain struct {
 	Chain      string   `toml:"chain" json:"chain"`
-	ChainId    int64    `toml:"chain_id" json:"chain_id"`
 	BlockTime  int      `toml:"block_time" json:"block_time"`
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
@@ -72,9 +71,13 @@ type Deyes struct {
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
 
+	// This variable indicates if we should use some external rpcs or not (in chainlist.org). If you
+	// are running local node or you are certain that your node is always online, you don't need to
+	// enable this variable. If your rpcs are unstable, you might want to turn on this variable at
+	// limited time.
+	UseExternalRpcsInfo bool `toml:"use_external_rpcs_info"`
 	// Chains config
-	Chains              map[string]Chain `toml:"chains"`
-	UseExternalRpcsInfo bool             `toml:"use_external_rpc_info"`
+	Chains map[string]Chain `toml:"chains"`
 
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 
