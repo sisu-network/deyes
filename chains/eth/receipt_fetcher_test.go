@@ -19,7 +19,7 @@ func TestReceiptFetcher(t *testing.T) {
 			},
 		}
 
-		fetcher := newReceiptFetcher(nil, []EthClient{client}, "ganache1").(*defaultReceiptFetcher)
+		fetcher := newReceiptFetcher(nil, client, "ganache1").(*defaultReceiptFetcher)
 
 		blockHeight := 12
 		blockHash := "hash_12"
@@ -50,7 +50,7 @@ func TestReceiptFetcher(t *testing.T) {
 			},
 		}
 
-		fetcher := newReceiptFetcher(nil, []EthClient{client}, "ganache1").(*defaultReceiptFetcher)
+		fetcher := newReceiptFetcher(nil, client, "ganache1").(*defaultReceiptFetcher)
 		fetcher.retryTime = 0
 		response := fetcher.getResponse(&txReceiptRequest{
 			txs: []*etypes.Transaction{
@@ -72,7 +72,7 @@ func TestReceiptFetcher(t *testing.T) {
 			},
 		}
 
-		fetcher := newReceiptFetcher(nil, []EthClient{client}, "ganache1").(*defaultReceiptFetcher)
+		fetcher := newReceiptFetcher(nil, client, "ganache1").(*defaultReceiptFetcher)
 		fetcher.retryTime = 0
 		response := fetcher.getResponse(&txReceiptRequest{
 			txs: []*etypes.Transaction{

@@ -65,3 +65,17 @@ func (h *mockTrieHasher) Update([]byte, []byte) {}
 func (h *mockTrieHasher) Hash() common.Hash {
 	return [32]byte{}
 }
+
+//////
+
+type mockRpcChecker struct {
+	GetExtraRpcsFunc func(chainId int) ([]string, error)
+}
+
+func (m *mockRpcChecker) GetExtraRpcs(chainId int) ([]string, error) {
+	if m.GetExtraRpcsFunc != nil {
+		return m.GetExtraRpcsFunc(chainId)
+	}
+
+	return nil, nil
+}

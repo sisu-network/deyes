@@ -20,50 +20,41 @@ type EthClient interface {
 }
 
 type defaultEthClient struct {
-	client *ethclient.Client
+	clients []*ethclient.Client
 }
 
-func NewEthClients(rpcs []string) []EthClient {
-	clients := make([]EthClient, 0)
+func NewEthClients(rpcs []string) EthClient {
+	clients := make([]*ethclient.Client, 0)
 
 	for _, rpc := range rpcs {
-		client, err := dial(rpc)
+		client, err := ethclient.Dial(rpc)
 		if err == nil {
 			clients = append(clients, client)
 			log.Info("Adding eth client at rpc: ", rpc)
 		}
 	}
 
-	return clients
-}
-
-func dial(rawurl string) (EthClient, error) {
-	client, err := ethclient.Dial(rawurl)
-	if err != nil {
-		return nil, err
-	}
-
 	return &defaultEthClient{
-		client: client,
-	}, nil
+		clients: clients,
+	}
 }
 
 func (c *defaultEthClient) BlockNumber(ctx context.Context) (uint64, error) {
-	return c.client.BlockNumber(ctx)
+	return c.clients[0].BlockNumber(ctx)
 }
 
 func (c *defaultEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error) {
-	return c.client.BlockByNumber(ctx, number)
+	return c.clients[0].BlockByNumber(ctx, number)
 }
 
 func (c *defaultEthClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error) {
-	return c.client.TransactionReceipt(ctx, txHash)
+	return c.clients[0].TransactionReceipt(ctx, txHash)
 }
 
 func (c *defaultEthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	return c.client.SuggestGasPrice(ctx)
+	return c.clients[0].SuggestGasPrice(ctx)
 }
 
 func (c *defaultEthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return c.client.PendingNonceAt(ctx, account)
+	return c.clients[0].PendingNonceAt(ctx, account)
 }

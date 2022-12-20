@@ -125,13 +125,8 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *cardano.DefaultCardanoCl
 	)
 }
 
-func (p *Processor) getEthClients(rpcs []string) []chainseth.EthClient {
-	clients := chainseth.NewEthClients(rpcs)
-	if len(clients) == 0 {
-		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
-	}
-
-	return clients
+func (p *Processor) getEthClients(rpcs []string) chainseth.EthClient {
+	return chainseth.NewEthClients(rpcs)
 }
 
 func (p *Processor) listen() {

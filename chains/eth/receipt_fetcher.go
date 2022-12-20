@@ -38,15 +38,15 @@ type defaultReceiptFetcher struct {
 	responseCh chan *txReceiptResponse
 	retryTime  time.Duration
 
-	clients []EthClient
+	client EthClient
 }
 
-func newReceiptFetcher(responseCh chan *txReceiptResponse, clients []EthClient, chain string) receiptFetcher {
+func newReceiptFetcher(responseCh chan *txReceiptResponse, client EthClient, chain string) receiptFetcher {
 	return &defaultReceiptFetcher{
 		chain:      chain,
 		requestCh:  make(chan *txReceiptRequest, 20),
 		responseCh: responseCh,
-		clients:    clients,
+		client:     client,
 		retryTime:  time.Second * 5,
 	}
 }
@@ -79,17 +79,16 @@ func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txRecei
 
 		tx := txQueue[0]
 		ok := false
-		for _, client := range rf.clients {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			receipt, err := client.TransactionReceipt(ctx, tx.Hash())
-			cancel()
 
-			if err == nil && receipt != nil {
-				ok = true
-				response.txs = append(response.txs, tx)
-				response.receipts = append(response.receipts, receipt)
-				break
-			}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		receipt, err := rf.client.TransactionReceipt(ctx, tx.Hash())
+		cancel()
+
+		if err == nil && receipt != nil {
+			ok = true
+			response.txs = append(response.txs, tx)
+			response.receipts = append(response.receipts, receipt)
+			break
 		}
 
 		if ok {
