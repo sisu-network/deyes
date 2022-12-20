@@ -15,6 +15,8 @@ type MockEthClient struct {
 	TransactionReceiptFunc func(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error)
 	SuggestGasPriceFunc    func(ctx context.Context) (*big.Int, error)
 	PendingNonceAtFunc     func(ctx context.Context, account common.Address) (uint64, error)
+	SendTransactionFunc    func(ctx context.Context, tx *ethtypes.Transaction) error
+	BalanceAtFunc          func(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error)
 }
 
 func (c *MockEthClient) Start() {
@@ -59,6 +61,22 @@ func (c *MockEthClient) PendingNonceAt(ctx context.Context, account common.Addre
 	}
 
 	return 0, nil
+}
+
+func (c *MockEthClient) SendTransaction(ctx context.Context, tx *ethtypes.Transaction) error {
+	if c.SendTransactionFunc != nil {
+		return c.SendTransactionFunc(ctx, tx)
+	}
+
+	return nil
+}
+
+func (c *MockEthClient) BalanceAt(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error) {
+	if c.BalanceAtFunc != nil {
+		return c.BalanceAtFunc(ctx, from, block)
+	}
+
+	return nil, nil
 }
 
 //////

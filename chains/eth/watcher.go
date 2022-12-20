@@ -68,22 +68,22 @@ type Watcher struct {
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
-	txTrackCh chan *chainstypes.TrackUpdate, clients EthClient) chains.Watcher {
+	txTrackCh chan *chainstypes.TrackUpdate, client EthClient) chains.Watcher {
 	blockCh := make(chan *etypes.Block)
 	receiptResponseCh := make(chan *txReceiptResponse)
 
 	w := &Watcher{
 		receiptResponseCh: receiptResponseCh,
 		blockCh:           blockCh,
-		blockFetcher:      newBlockFetcher(cfg, blockCh, clients),
-		receiptFetcher:    newReceiptFetcher(receiptResponseCh, clients, cfg.Chain),
+		blockFetcher:      newBlockFetcher(cfg, blockCh, client),
+		receiptFetcher:    newReceiptFetcher(receiptResponseCh, client, cfg.Chain),
 		db:                db,
 		cfg:               cfg,
 		txsCh:             txsCh,
 		txTrackCh:         txTrackCh,
 		blockTime:         cfg.BlockTime,
 		gasPrice:          atomic.NewInt64(0),
-		client:            clients,
+		client:            client,
 		lock:              &sync.RWMutex{},
 		txTrackCache:      lru.New(TxTrackCacheSize),
 	}

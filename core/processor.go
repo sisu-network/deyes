@@ -76,7 +76,7 @@ func (p *Processor) Start() {
 			client.Start()
 
 			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, client)
-			dispatcher = chainseth.NewEhtDispatcher(chain, cfg.Rpcs)
+			dispatcher = chainseth.NewEhtDispatcher(chain, client)
 		} else if libchain.IsCardanoChain(chain) {
 			// Cardano chain
 			client := p.getCardanoClient(cfg)

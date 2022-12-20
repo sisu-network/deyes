@@ -43,6 +43,8 @@ type EthClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	SendTransaction(ctx context.Context, tx *ethtypes.Transaction) error
+	BalanceAt(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error)
 }
 
 type defaultEthClient struct {
@@ -322,4 +324,21 @@ func (c *defaultEthClient) PendingNonceAt(ctx context.Context, account common.Ad
 	})
 
 	return nonce.(uint64), err
+}
+
+func (c *defaultEthClient) SendTransaction(ctx context.Context, tx *ethtypes.Transaction) error {
+	_, err := c.execute(func(client *ethclient.Client) (any, error) {
+		err := client.SendTransaction(ctx, tx)
+		return 0, err
+	})
+
+	return err
+}
+
+func (c *defaultEthClient) BalanceAt(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error) {
+	balance, err := c.execute(func(client *ethclient.Client) (any, error) {
+		return client.BalanceAt(ctx, from, block)
+	})
+
+	return balance.(*big.Int), err
 }
