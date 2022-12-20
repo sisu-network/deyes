@@ -104,6 +104,9 @@ func (c *defaultEthClient) shuffle() ([]*ethclient.Client, []bool, []string) {
 }
 
 func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, int) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
 	// Shuffle rpcs so that we will use different healthy rpc
 	clients, healthies, _ := c.shuffle()
 	for i, healthy := range healthies {
@@ -116,14 +119,10 @@ func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, int) {
 }
 
 func (c *defaultEthClient) execute(f func(client *ethclient.Client) (any, error)) (any, error) {
-	c.lock.Lock()
-
 	client, index := c.getHealthyClient()
 	if client == nil {
 		return nil, NewNoHealthyClientErr(c.chain)
 	}
-
-	c.lock.Unlock()
 
 	ret, err := f(client)
 	if err == nil {
@@ -131,8 +130,11 @@ func (c *defaultEthClient) execute(f func(client *ethclient.Client) (any, error)
 	}
 
 	if err != ethereum.NotFound {
+		c.lock.Lock()
+		fmt.Println("DDDDD Setting rpc to be unhealthy: ", c.rpcs[index], " err = ", err)
 		// This client is not healthy anymore. We need to update the healthiness status.
 		c.healthy[index] = false
+		c.lock.Unlock()
 	}
 
 	return ret, err
