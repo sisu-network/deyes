@@ -334,7 +334,7 @@ func (c *defaultEthClient) BalanceAt(ctx context.Context, from common.Address, b
 	balance, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		balance, err := client.BalanceAt(ctx, from, block)
 		if err == nil && balance != nil && balance.Cmp(big.NewInt(0)) == 0 {
-			log.Warnf("Balance is 0 for using URL ", rpc)
+			log.Verbosef("Balance is 0 for using URL %s", rpc)
 		}
 
 		return balance, err
