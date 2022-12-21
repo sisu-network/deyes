@@ -71,6 +71,12 @@ type Deyes struct {
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
 
+	// This variable indicates if we should use some external rpcs or not (in chainlist.org). If you
+	// are running local node or you are certain that your node is always online, you don't need to
+	// enable this variable. If your rpcs are unstable, you might want to turn on this variable at
+	// limited time.
+	UseExternalRpcsInfo bool `toml:"use_external_rpcs_info"`
+	// Chains config
 	Chains map[string]Chain `toml:"chains"`
 
 	LogDNA log.LogDNAConfig `toml:"log_dna"`

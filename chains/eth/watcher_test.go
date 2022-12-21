@@ -2,7 +2,6 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -40,7 +39,7 @@ func TestWatcher_TestProcessBlock(t *testing.T) {
 		Chain: "ganache1",
 	}
 	watcher := NewWatcher(db, cfg, make(chan *types.Txs), make(chan *chainstypes.TrackUpdate),
-		[]EthClient{client}).(*Watcher)
+		client).(*Watcher)
 
 	gateway := common.Address{1}
 	watcher.SetVault(gateway.Hex(), "")
@@ -66,48 +65,4 @@ func signTx(t *testing.T, tx *etypes.Transaction) *etypes.Transaction {
 	require.Nil(t, err)
 
 	return signedTx
-}
-
-func TestWatcher_MultipleRpcs(t *testing.T) {
-	t.Run("RPC should be successful if one RPC call fails and the other successful", func(t *testing.T) {
-		expectedErr := fmt.Errorf("Cannot connect to RPC")
-		expectedGasPrice := big.NewInt(10)
-		expectedNonce := uint64(10)
-
-		// Client1 does not work.
-		client1 := &MockEthClient{
-			SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
-				return nil, expectedErr
-			},
-
-			PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
-				return 0, expectedErr
-			},
-		}
-
-		// Client2 works.
-		client2 := &MockEthClient{
-			SuggestGasPriceFunc: func(ctx context.Context) (*big.Int, error) {
-				return expectedGasPrice, nil
-			},
-
-			PendingNonceAtFunc: func(ctx context.Context, account common.Address) (uint64, error) {
-				return expectedNonce, nil
-			},
-		}
-
-		watcher := Watcher{
-			clients: []EthClient{client1, client2},
-			cfg: config.Chain{
-				Chain: "ganache1",
-			},
-		}
-
-		gasPrice, err := watcher.getSuggestedGasPrice()
-		require.Equal(t, nil, err)
-		require.Equal(t, expectedGasPrice, gasPrice)
-
-		nonce := uint64(watcher.GetNonce("0x123"))
-		require.Equal(t, expectedNonce, nonce)
-	})
 }

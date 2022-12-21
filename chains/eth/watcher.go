@@ -47,7 +47,7 @@ func (e *BlockHeightExceededError) Error() string {
 // TODO: Move this to the chains package.
 type Watcher struct {
 	cfg             config.Chain
-	clients         []EthClient
+	client          EthClient
 	blockTime       int
 	db              database.Database
 	txsCh           chan *types.Txs
@@ -68,22 +68,22 @@ type Watcher struct {
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
-	txTrackCh chan *chainstypes.TrackUpdate, clients []EthClient) chains.Watcher {
+	txTrackCh chan *chainstypes.TrackUpdate, client EthClient) chains.Watcher {
 	blockCh := make(chan *etypes.Block)
 	receiptResponseCh := make(chan *txReceiptResponse)
 
 	w := &Watcher{
 		receiptResponseCh: receiptResponseCh,
 		blockCh:           blockCh,
-		blockFetcher:      newBlockFetcher(cfg, blockCh, clients),
-		receiptFetcher:    newReceiptFetcher(receiptResponseCh, clients, cfg.Chain),
+		blockFetcher:      newBlockFetcher(cfg, blockCh, client),
+		receiptFetcher:    newReceiptFetcher(receiptResponseCh, client, cfg.Chain),
 		db:                db,
 		cfg:               cfg,
 		txsCh:             txsCh,
 		txTrackCh:         txTrackCh,
 		blockTime:         cfg.BlockTime,
 		gasPrice:          atomic.NewInt64(0),
-		clients:           clients,
+		client:            client,
 		lock:              &sync.RWMutex{},
 		txTrackCache:      lru.New(TxTrackCacheSize),
 	}
@@ -243,17 +243,10 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 }
 
 func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
-	for _, client := range w.clients {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
-		gasPrice, err := client.SuggestGasPrice(ctx)
-		cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
+	defer cancel()
 
-		if err == nil {
-			return gasPrice, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Gas price not found")
+	return w.client.SuggestGasPrice(ctx)
 }
 
 func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
@@ -299,13 +292,11 @@ func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.A
 
 func (w *Watcher) GetNonce(address string) int64 {
 	cAddr := common.HexToAddress(address)
-	for _, client := range w.clients {
-		nonce, err := client.PendingNonceAt(context.Background(), cAddr)
-		if err == nil {
-			return int64(nonce)
-		} else {
-			log.Error("cannot get nonce of chain", w.cfg.Chain, " at", address)
-		}
+	nonce, err := w.client.PendingNonceAt(context.Background(), cAddr)
+	if err == nil {
+		return int64(nonce)
+	} else {
+		log.Error("cannot get nonce of chain", w.cfg.Chain, " at", address)
 	}
 
 	return 0
@@ -348,14 +339,12 @@ func (w *Watcher) TrackTx(txHash string) {
 }
 
 func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*etypes.Receipt, error) {
-	for _, client := range w.clients {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		receipt, err := client.TransactionReceipt(ctx, txHash)
-		cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	receipt, err := w.client.TransactionReceipt(ctx, txHash)
 
-		if err == nil {
-			return receipt, nil
-		}
+	if err == nil {
+		return receipt, nil
 	}
 
 	return nil, fmt.Errorf("Cannot find receipt for tx hash: %s", txHash.String())
