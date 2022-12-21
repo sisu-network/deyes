@@ -75,10 +75,12 @@ func (c *defaultEthClient) Start() {
 
 // loopCheck
 func (c *defaultEthClient) loopCheck() {
-	// Sleep time = 10 mins.
-	sleepTime := time.Second * 60 * 30
 	for {
+		// Sleep a random time between 20 & 30 minutes
+		mins := rand.Intn(10) + 20
+		sleepTime := time.Second * time.Duration(60*mins)
 		time.Sleep(sleepTime)
+
 		c.updateRpcs()
 	}
 }
