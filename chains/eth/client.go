@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -76,10 +75,12 @@ func (c *defaultEthClient) Start() {
 
 // loopCheck
 func (c *defaultEthClient) loopCheck() {
-	// Sleep time = 10 mins.
-	sleepTime := time.Second * 60 * 30
 	for {
+		// Sleep a random time between 20 & 30 minutes
+		mins := rand.Intn(10) + 20
+		sleepTime := time.Second * time.Duration(60*mins)
 		time.Sleep(sleepTime)
+
 		c.updateRpcs()
 	}
 }
@@ -248,7 +249,7 @@ func (c *defaultEthClient) shuffle() ([]*ethclient.Client, []bool, []string) {
 	return clients, healthy, rpcs
 }
 
-func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, int) {
+func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, string) {
 	c.lock.RLock()
 	if c.clients == nil {
 		c.lock.RUnlock()
@@ -258,36 +259,32 @@ func (c *defaultEthClient) getHealthyClient() (*ethclient.Client, int) {
 	}
 
 	// Shuffle rpcs so that we will use different healthy rpc
-	clients, healthies, _ := c.shuffle()
+	clients, healthies, rpcs := c.shuffle()
 	for i, healthy := range healthies {
 		if healthy {
-			return clients[i], i
+			return clients[i], rpcs[i]
 		}
 	}
 
-	return nil, -1
+	return nil, ""
 }
 
-func (c *defaultEthClient) execute(f func(client *ethclient.Client) (any, error)) (any, error) {
-	client, _ := c.getHealthyClient()
+func (c *defaultEthClient) execute(f func(client *ethclient.Client, rpc string) (any, error)) (any, error) {
+	client, rpc := c.getHealthyClient()
 	if client == nil {
 		return nil, NewNoHealthyClientErr(c.chain)
 	}
 
-	ret, err := f(client)
+	ret, err := f(client, rpc)
 	if err == nil {
 		return ret, nil
-	}
-
-	if err != ethereum.NotFound {
-		// Report that a RPC could be unhealthy.
 	}
 
 	return ret, err
 }
 
 func (c *defaultEthClient) BlockNumber(ctx context.Context) (uint64, error) {
-	num, err := c.execute(func(client *ethclient.Client) (any, error) {
+	num, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		return client.BlockNumber(ctx)
 	})
 
@@ -295,7 +292,7 @@ func (c *defaultEthClient) BlockNumber(ctx context.Context) (uint64, error) {
 }
 
 func (c *defaultEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error) {
-	block, err := c.execute(func(client *ethclient.Client) (any, error) {
+	block, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		return client.BlockByNumber(ctx, number)
 	})
 
@@ -303,7 +300,7 @@ func (c *defaultEthClient) BlockByNumber(ctx context.Context, number *big.Int) (
 }
 
 func (c *defaultEthClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error) {
-	receipt, err := c.execute(func(client *ethclient.Client) (any, error) {
+	receipt, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		return client.TransactionReceipt(ctx, txHash)
 	})
 
@@ -311,7 +308,7 @@ func (c *defaultEthClient) TransactionReceipt(ctx context.Context, txHash common
 }
 
 func (c *defaultEthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	gas, err := c.execute(func(client *ethclient.Client) (any, error) {
+	gas, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		return client.SuggestGasPrice(ctx)
 	})
 
@@ -319,7 +316,7 @@ func (c *defaultEthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error
 }
 
 func (c *defaultEthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	nonce, err := c.execute(func(client *ethclient.Client) (any, error) {
+	nonce, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		return client.PendingNonceAt(ctx, account)
 	})
 
@@ -327,7 +324,7 @@ func (c *defaultEthClient) PendingNonceAt(ctx context.Context, account common.Ad
 }
 
 func (c *defaultEthClient) SendTransaction(ctx context.Context, tx *ethtypes.Transaction) error {
-	_, err := c.execute(func(client *ethclient.Client) (any, error) {
+	_, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
 		err := client.SendTransaction(ctx, tx)
 		return 0, err
 	})
@@ -336,8 +333,13 @@ func (c *defaultEthClient) SendTransaction(ctx context.Context, tx *ethtypes.Tra
 }
 
 func (c *defaultEthClient) BalanceAt(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error) {
-	balance, err := c.execute(func(client *ethclient.Client) (any, error) {
-		return client.BalanceAt(ctx, from, block)
+	balance, err := c.execute(func(client *ethclient.Client, rpc string) (any, error) {
+		balance, err := client.BalanceAt(ctx, from, block)
+		if err == nil && balance != nil && balance.Cmp(big.NewInt(0)) == 0 {
+			log.Verbosef("Balance is 0 for using URL %s", rpc)
+		}
+
+		return balance, err
 	})
 
 	return balance.(*big.Int), err
