@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
 	"golang.org/x/net/html"
@@ -123,15 +125,48 @@ func (c *defaultEthClient) getRpcsHealthiness(allRpcs []string) ([]string, []*et
 	rpcs := make([]string, 0)
 	healthies := make([]bool, 0)
 
+	type healthyNode struct {
+		client *ethclient.Client
+		rpc    string
+		height int64
+	}
+
+	nodes := make([]*healthyNode, 0)
 	for _, rpc := range allRpcs {
 		client, err := ethclient.Dial(rpc)
 		if err == nil {
-			block, err := client.BlockByNumber(context.Background(), nil)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*10))
+			block, err := client.BlockByNumber(ctx, nil)
+			cancel()
+
 			if err == nil && block.Number() != nil {
-				clients = append(clients, client)
-				rpcs = append(rpcs, rpc)
-				healthies = append(healthies, true)
+				nodes = append(nodes, &healthyNode{
+					client: client,
+					rpc:    rpc,
+					height: block.Number().Int64(),
+				})
 			}
+
+			client.Close()
+		}
+	}
+
+	if len(nodes) == 0 {
+		return rpcs, clients, healthies
+	}
+
+	// Sorts all nodes by height
+	sort.SliceStable(nodes, func(i, j int) bool {
+		return nodes[i].height > nodes[j].height
+	})
+
+	// Only select some nodes within a certain height from the median
+	height := nodes[len(nodes)/2].height
+	for _, node := range nodes {
+		if utils.AbsInt64(node.height-height) < 5 {
+			rpcs = append(rpcs, node.rpc)
+			clients = append(clients, node.client)
+			healthies = append(healthies, true)
 		}
 	}
 
