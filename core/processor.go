@@ -191,7 +191,7 @@ func (tp *Processor) GetNonce(chain string, address string) (int64, error) {
 	}
 
 	watcher := tp.GetWatcher(chain)
-	if watcher != nil {
+	if watcher == nil {
 		return 0, fmt.Errorf("Cannot find watcher for chain %s", chain)
 	}
 
