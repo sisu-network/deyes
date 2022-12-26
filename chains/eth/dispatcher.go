@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethcore "github.com/ethereum/go-ethereum/core"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/sisu-network/deyes/chains"
@@ -67,6 +68,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 
 	// Dispath tx.
 	err = d.tryDispatchTx(tx, request.Chain, from)
+	resultErr := types.ErrNil
 	if err == nil {
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
 			" txHash =", tx.Hash())
@@ -77,9 +79,15 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		}
 	} else {
 		log.Error("Failed to dispatch tx, err = ", err)
+		switch err {
+		case ethcore.ErrNonceTooLow:
+			resultErr = types.ErrNonceTooLow
+		default:
+			resultErr = types.ErrSubmitTx
+		}
 	}
 
-	return types.NewDispatchTxError(request, types.ErrSubmitTx)
+	return types.NewDispatchTxError(request, resultErr)
 }
 
 func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {
