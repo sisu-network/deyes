@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/sisu-network/deyes/chains/lisk"
+
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
@@ -83,6 +85,8 @@ func (p *Processor) Start() {
 			// Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
+		} else if chain == "lisk-devnet" {
+			watcher = lisk.NewWatcher(p.db, cfg)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}

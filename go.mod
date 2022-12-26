@@ -10,6 +10,7 @@ require (
 	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.2
 	github.com/echovl/cardano-go v0.1.14
 	github.com/ethereum/go-ethereum v1.10.21
+	github.com/gagliardetto/binary v0.7.7
 	github.com/gagliardetto/solana-go v1.8.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang-migrate/migrate v3.5.4+incompatible
@@ -56,7 +57,6 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/echovl/ed25519 v0.2.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/gagliardetto/binary v0.7.7 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
