@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	ethcore "github.com/ethereum/go-ethereum/core"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/sisu-network/deyes/chains"
@@ -46,7 +45,13 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	// Check the balance to see if we have enough native token.
 	balance, err := d.client.BalanceAt(context.Background(), from, nil)
 	if balance == nil {
-		err = fmt.Errorf("Cannot get balance for account %s", from)
+		log.Errorf("Cannot get balance for account %s", from)
+		return &types.DispatchedTxResult{
+			Success: false,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
+			Err:     types.ErrGeneric,
+		}
 	}
 
 	minimum := new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas())))
@@ -66,9 +71,30 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		}
 	}
 
+	// Check nonce
+	nonce, err := d.client.PendingNonceAt(context.Background(), from)
+	if err != nil {
+		log.Errorf("Failed to get pending nonce for %s", from.String())
+		return &types.DispatchedTxResult{
+			Success: false,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
+			Err:     types.ErrGeneric,
+		}
+	}
+
+	if nonce != tx.Nonce() {
+		log.Errorf("Nonce does not match. Tx nonce = %d, expected nonce = %d", tx.Nonce(), nonce)
+		return &types.DispatchedTxResult{
+			Success: false,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
+			Err:     types.ErrNonceNotMatched,
+		}
+	}
+
 	// Dispath tx.
 	err = d.tryDispatchTx(tx, request.Chain, from)
-	resultErr := types.ErrNil
 	if err == nil {
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
 			" txHash =", tx.Hash())
@@ -79,15 +105,9 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		}
 	} else {
 		log.Error("Failed to dispatch tx, err = ", err)
-		switch err {
-		case ethcore.ErrNonceTooLow:
-			resultErr = types.ErrNonceTooLow
-		default:
-			resultErr = types.ErrSubmitTx
-		}
 	}
 
-	return types.NewDispatchTxError(request, resultErr)
+	return types.NewDispatchTxError(request, types.ErrSubmitTx)
 }
 
 func (d *EthDispatcher) tryDispatchTx(tx *eTypes.Transaction, chain string, from common.Address) error {

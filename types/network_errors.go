@@ -8,5 +8,5 @@ const (
 	ErrNotEnoughBalance
 	ErrMarshal
 	ErrSubmitTx
-	ErrNonceTooLow
+	ErrNonceNotMatched
 )
