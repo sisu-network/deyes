@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -243,7 +242,7 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 }
 
 func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(w.blockTime)*2*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 	defer cancel()
 
 	return w.client.SuggestGasPrice(ctx)
@@ -339,7 +338,7 @@ func (w *Watcher) TrackTx(txHash string) {
 }
 
 func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*etypes.Receipt, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 	defer cancel()
 	receipt, err := w.client.TransactionReceipt(ctx, txHash)
 

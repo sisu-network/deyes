@@ -80,7 +80,7 @@ func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txRecei
 		tx := txQueue[0]
 		ok := false
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 		receipt, err := rf.client.TransactionReceipt(ctx, tx.Hash())
 		cancel()
 
