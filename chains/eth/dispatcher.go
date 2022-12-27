@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	eTypes "github.com/ethereum/go-ethereum/core/types"
@@ -98,6 +99,15 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	if err == nil {
 		log.Verbose("Tx is dispatched successfully for chain ", request.Chain, " from ", from,
 			" txHash =", tx.Hash())
+		return &types.DispatchedTxResult{
+			Success: true,
+			Chain:   request.Chain,
+			TxHash:  request.TxHash,
+		}
+	} else if strings.Index(err.Error(), "already known") >= 0 {
+		// This is a tx submission duplication. It's possible that another node has submitted the same
+		// transaction. This is counted as successful submission despite a returned error. Ethereum does
+		// not return error code in its JSON RPC, so we have to rely on string matching.
 		return &types.DispatchedTxResult{
 			Success: true,
 			Chain:   request.Chain,
