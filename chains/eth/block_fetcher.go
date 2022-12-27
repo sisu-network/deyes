@@ -2,8 +2,8 @@ package eth
 
 import (
 	"context"
-	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -17,15 +17,15 @@ type defaultBlockFetcher struct {
 	blockHeight int64
 	blockTime   int
 	cfg         config.Chain
-	clients     []EthClient
+	client      EthClient
 	blockCh     chan *etypes.Block
 }
 
-func newBlockFetcher(cfg config.Chain, blockCh chan *etypes.Block, clients []EthClient) *defaultBlockFetcher {
+func newBlockFetcher(cfg config.Chain, blockCh chan *etypes.Block, client EthClient) *defaultBlockFetcher {
 	return &defaultBlockFetcher{
 		blockCh:   blockCh,
 		cfg:       cfg,
-		clients:   clients,
+		client:    client,
 		blockTime: cfg.BlockTime,
 	}
 }
@@ -72,6 +72,16 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 			if _, ok := err.(*BlockHeightExceededError); !ok && err != ethereum.NotFound {
 				// This err is not ETH not found or our custom error.
 				log.Error("Cannot get block at height", bf.blockHeight, "for chain", bf.cfg.Chain, " err = ", err)
+
+				// Bug only on polygon network https://github.com/maticnetwork/bor/issues/387
+				// The block exists but its header hash is equivalent to empty root hash but the internal
+				// block has some transaction inside. Geth client throws an error in this situation.
+				// This rarely happens but it does happen. Skip this block for now.
+				if strings.Index(bf.cfg.Chain, "polygon") >= 0 &&
+					strings.Index(err.Error(), "server returned non-empty transaction list but block header indicates no transactions") >= 0 {
+					log.Warnf("server returned non-empty transaction at block height %d in chain %s", bf.blockHeight, bf.cfg.Chain)
+					bf.blockHeight = bf.blockHeight + 1
+				}
 			}
 
 			bf.blockTime = bf.blockTime + bf.cfg.AdjustTime
@@ -92,22 +102,14 @@ func (bf *defaultBlockFetcher) getLatestBlock() (*etypes.Block, error) {
 }
 
 func (bf *defaultBlockFetcher) getBlock(height int64) (*etypes.Block, error) {
-	for _, client := range bf.clients {
-		blockNum := big.NewInt(height)
-		if height == -1 { // latest block
-			blockNum = nil
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(bf.blockTime)*2*time.Millisecond)
-		block, err := client.BlockByNumber(ctx, blockNum)
-		cancel()
-
-		if err == nil {
-			return block, nil
-		}
+	blockNum := big.NewInt(height)
+	if height == -1 { // latest block
+		blockNum = nil
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
+	defer cancel()
 
-	return nil, ethereum.NotFound
+	return bf.client.BlockByNumber(ctx, blockNum)
 }
 
 // Get block with retry when block is not mined yet.
@@ -141,15 +143,8 @@ func (bf *defaultBlockFetcher) tryGetBlock() (*etypes.Block, error) {
 }
 
 func (bf *defaultBlockFetcher) getBlockNumber() (uint64, error) {
-	for _, client := range bf.clients {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(bf.blockTime)*2*time.Millisecond)
-		number, err := client.BlockNumber(ctx)
-		cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
+	defer cancel()
 
-		if err == nil {
-			return number, nil
-		}
-	}
-
-	return 0, fmt.Errorf("Block number not found")
+	return bf.client.BlockNumber(ctx)
 }

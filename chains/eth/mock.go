@@ -9,11 +9,20 @@ import (
 )
 
 type MockEthClient struct {
+	StartFunc              func()
 	BlockNumberFunc        func(ctx context.Context) (uint64, error)
 	BlockByNumberFunc      func(ctx context.Context, number *big.Int) (*ethtypes.Block, error)
 	TransactionReceiptFunc func(ctx context.Context, txHash common.Hash) (*ethtypes.Receipt, error)
 	SuggestGasPriceFunc    func(ctx context.Context) (*big.Int, error)
 	PendingNonceAtFunc     func(ctx context.Context, account common.Address) (uint64, error)
+	SendTransactionFunc    func(ctx context.Context, tx *ethtypes.Transaction) error
+	BalanceAtFunc          func(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error)
+}
+
+func (c *MockEthClient) Start() {
+	if c.StartFunc != nil {
+		c.StartFunc()
+	}
 }
 
 func (c *MockEthClient) BlockNumber(ctx context.Context) (uint64, error) {
@@ -54,6 +63,22 @@ func (c *MockEthClient) PendingNonceAt(ctx context.Context, account common.Addre
 	return 0, nil
 }
 
+func (c *MockEthClient) SendTransaction(ctx context.Context, tx *ethtypes.Transaction) error {
+	if c.SendTransactionFunc != nil {
+		return c.SendTransactionFunc(ctx, tx)
+	}
+
+	return nil
+}
+
+func (c *MockEthClient) BalanceAt(ctx context.Context, from common.Address, block *big.Int) (*big.Int, error) {
+	if c.BalanceAtFunc != nil {
+		return c.BalanceAtFunc(ctx, from, block)
+	}
+
+	return nil, nil
+}
+
 //////
 
 type mockTrieHasher struct{}
@@ -64,4 +89,18 @@ func (h *mockTrieHasher) Update([]byte, []byte) {}
 
 func (h *mockTrieHasher) Hash() common.Hash {
 	return [32]byte{}
+}
+
+//////
+
+type mockRpcChecker struct {
+	GetExtraRpcsFunc func(chainId int) ([]string, error)
+}
+
+func (m *mockRpcChecker) GetExtraRpcs(chainId int) ([]string, error) {
+	if m.GetExtraRpcsFunc != nil {
+		return m.GetExtraRpcsFunc(chainId)
+	}
+
+	return nil, nil
 }

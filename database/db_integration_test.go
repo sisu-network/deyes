@@ -1,0 +1,35 @@
+package database
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/suite"
+)
+
+type IntegrationDbSuite struct {
+	suite.Suite
+}
+
+func resetDb() {
+	cfg := getTestDbConfig()
+	db := NewDb(&cfg).(*DefaultDatabase)
+	db.Init()
+	db.db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", DbSchema))
+	db.Close()
+}
+
+func (suite *IntegrationDbSuite) TestSetVaults() {
+	resetDb()
+	testSetVaults(suite.T(), false)
+}
+
+func (suite *IntegrationDbSuite) TestTokenPrices() {
+	resetDb()
+	testTokenPrice(suite.T(), false)
+}
+
+func TestIntegrationSuite(t *testing.T) {
+	// Uncomment this line to run the entire suite.
+	// suite.Run(t, new(IntegrationDbSuite))
+}
