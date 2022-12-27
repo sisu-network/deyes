@@ -1,9 +1,12 @@
 package lisk
 
 import (
+	"encoding/hex"
 	"fmt"
 	etypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/golang/protobuf/proto"
 	"github.com/sisu-network/deyes/chains"
+	lisk "github.com/sisu-network/deyes/chains/lisk/types"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -11,6 +14,7 @@ import (
 	"github.com/sisu-network/lib/log"
 	"strings"
 	"sync"
+	"unsafe"
 )
 
 type Watcher struct {
@@ -84,9 +88,43 @@ func (w *Watcher) waitForReceipt() {
 	for _, client := range w.clients {
 		for {
 			tx := <-client.GetTransaction()
-			fmt.Println(tx)
+			txs := w.extractTxs(tx.Params.Transaction)
+			log.Verbose(w.cfg.Chain, ": txs sizes = ", len(txs.Arr))
+
+			if len(txs.Arr) > 0 {
+				// Send list of interested txs back to the listener.
+				w.txsCh <- txs
+			}
+
+			// Save all txs into database for later references.
+			w.db.SaveTxs(w.cfg.Chain, 0, txs)
 		}
 		client.UpdateSocket()
 	}
 
+}
+
+// extractTxs takes response from the receipt socket and converts them into deyes transactions.
+func (w *Watcher) extractTxs(response string) *types.Txs {
+	data, _ := hex.DecodeString(response)
+	transaction := &lisk.TransactionMessage{}
+	if err := proto.Unmarshal(data, transaction); err != nil {
+		log.Errorf("Failed to parse  transaction:", err)
+	}
+
+	asset := &lisk.AssetMessage{}
+	if err := proto.Unmarshal(transaction.Asset, asset); err != nil {
+		log.Errorf("Failed to parse  asset:", err)
+	}
+	fmt.Println(asset)
+	arr := make([]*types.Tx, 0)
+
+	tx := &types.Tx{Serialized: transaction.Signatures[0], Success: true, From: hex.EncodeToString(transaction.SenderPublicKey), To: hex.EncodeToString(asset.RecipientAddress)}
+	arr = append(arr, tx)
+	return &types.Txs{
+		Chain: w.cfg.Chain,
+		Block: int64(uintptr(unsafe.Pointer(&transaction.Nonce))),
+		//BlockHash: response.blockHash,
+		Arr: arr,
+	}
 }

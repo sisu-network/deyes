@@ -4,7 +4,7 @@ package example.enumerations;
 
 option go_package = "/lisk/proto";
 
-message EnumMessage {
+message TransactionMessage {
   required uint32 moduleID = 1;
   required uint32 assetID = 2;
   required uint64 nonce = 3;

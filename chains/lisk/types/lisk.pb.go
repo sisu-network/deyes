@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type EnumMessage struct {
+type TransactionMessage struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -34,8 +34,8 @@ type EnumMessage struct {
 	Signatures      [][]byte `protobuf:"bytes,7,rep,name=signatures" json:"signatures,omitempty"`
 }
 
-func (x *EnumMessage) Reset() {
-	*x = EnumMessage{}
+func (x *TransactionMessage) Reset() {
+	*x = TransactionMessage{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_enum_example_enum_example_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -43,13 +43,13 @@ func (x *EnumMessage) Reset() {
 	}
 }
 
-func (x *EnumMessage) String() string {
+func (x *TransactionMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EnumMessage) ProtoMessage() {}
+func (*TransactionMessage) ProtoMessage() {}
 
-func (x *EnumMessage) ProtoReflect() protoreflect.Message {
+func (x *TransactionMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_enum_example_enum_example_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -62,53 +62,53 @@ func (x *EnumMessage) ProtoReflect() protoreflect.Message {
 }
 
 // Deprecated: Use EnumMessage.ProtoReflect.Descriptor instead.
-func (*EnumMessage) Descriptor() ([]byte, []int) {
+func (*TransactionMessage) Descriptor() ([]byte, []int) {
 	return file_enum_example_enum_example_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *EnumMessage) GetModuleID() uint32 {
+func (x *TransactionMessage) GetModuleID() uint32 {
 	if x != nil && x.ModuleID != nil {
 		return *x.ModuleID
 	}
 	return 0
 }
 
-func (x *EnumMessage) GetAssetID() uint32 {
+func (x *TransactionMessage) GetAssetID() uint32 {
 	if x != nil && x.AssetID != nil {
 		return *x.AssetID
 	}
 	return 0
 }
 
-func (x *EnumMessage) GetNonce() uint64 {
+func (x *TransactionMessage) GetNonce() uint64 {
 	if x != nil && x.Nonce != nil {
 		return *x.Nonce
 	}
 	return 0
 }
 
-func (x *EnumMessage) GetFee() uint64 {
+func (x *TransactionMessage) GetFee() uint64 {
 	if x != nil && x.Fee != nil {
 		return *x.Fee
 	}
 	return 0
 }
 
-func (x *EnumMessage) GetSenderPublicKey() []byte {
+func (x *TransactionMessage) GetSenderPublicKey() []byte {
 	if x != nil {
 		return x.SenderPublicKey
 	}
 	return nil
 }
 
-func (x *EnumMessage) GetAsset() []byte {
+func (x *TransactionMessage) GetAsset() []byte {
 	if x != nil {
 		return x.Asset
 	}
 	return nil
 }
 
-func (x *EnumMessage) GetSignatures() [][]byte {
+func (x *TransactionMessage) GetSignatures() [][]byte {
 	if x != nil {
 		return x.Signatures
 	}
@@ -152,7 +152,7 @@ func file_enum_example_enum_example_proto_rawDescGZIP() []byte {
 
 var file_enum_example_enum_example_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_enum_example_enum_example_proto_goTypes = []interface{}{
-	(*EnumMessage)(nil), // 0: example.enumerations.EnumMessage
+	(*TransactionMessage)(nil), // 0: example.enumerations.EnumMessage
 }
 var file_enum_example_enum_example_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -169,7 +169,7 @@ func file_enum_example_enum_example_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_enum_example_enum_example_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EnumMessage); i {
+			switch v := v.(*TransactionMessage); i {
 			case 0:
 				return &v.state
 			case 1:

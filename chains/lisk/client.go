@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/gorilla/websocket"
-	lisk "github.com/sisu-network/deyes/chains/lisk/types"
-	"github.com/sisu-network/lib/log"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/gorilla/websocket"
+	lisk "github.com/sisu-network/deyes/chains/lisk/types"
+	"github.com/sisu-network/lib/log"
 )
 
 // LiskClient A wrapper around socket so that we can mock in watcher tests.
