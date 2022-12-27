@@ -106,7 +106,7 @@ func (bf *defaultBlockFetcher) getBlock(height int64) (*etypes.Block, error) {
 	if height == -1 { // latest block
 		blockNum = nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(bf.blockTime)*2*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 	defer cancel()
 
 	return bf.client.BlockByNumber(ctx, blockNum)
@@ -143,7 +143,7 @@ func (bf *defaultBlockFetcher) tryGetBlock() (*etypes.Block, error) {
 }
 
 func (bf *defaultBlockFetcher) getBlockNumber() (uint64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(bf.blockTime)*2*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 	defer cancel()
 
 	return bf.client.BlockNumber(ctx)

@@ -23,6 +23,10 @@ import (
 	"golang.org/x/net/html"
 )
 
+var (
+	RpcTimeOut = time.Second * 5
+)
+
 type NoHealthyClientErr struct {
 	chain string
 }
@@ -135,7 +139,7 @@ func (c *defaultEthClient) getRpcsHealthiness(allRpcs []string) ([]string, []*et
 	for _, rpc := range allRpcs {
 		client, err := ethclient.Dial(rpc)
 		if err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*5))
+			ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 			block, err := client.BlockByNumber(ctx, nil)
 			cancel()
 
