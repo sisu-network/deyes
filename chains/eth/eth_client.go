@@ -10,7 +10,7 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
-// A wrapper around eth.client so that we can mock in watcher tests.
+// EthClient A wrapper around eth.client so that we can mock in watcher tests.
 type EthClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error)

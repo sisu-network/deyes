@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/sisu-network/deyes/chains/lisk"
-
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
+	chainslisk "github.com/sisu-network/deyes/chains/lisk"
+
 	"github.com/sisu-network/deyes/chains/solana"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/client"
@@ -86,15 +86,18 @@ func (p *Processor) Start() {
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
 		} else if chain == "lisk-devnet" {
-			watcher = lisk.NewWatcher(p.db, cfg)
+			watcher = chainslisk.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getLiskClients(cfg.Wss))
+
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
 
 		p.watchers[chain] = watcher
 		go watcher.Start()
-		p.dispatchers[chain] = dispatcher
-		dispatcher.Start()
+		if dispatcher != nil {
+			p.dispatchers[chain] = dispatcher
+			dispatcher.Start()
+		}
 	}
 }
 
@@ -133,6 +136,15 @@ func (p *Processor) getEthClients(rpcs []string) []chainseth.EthClient {
 	clients := chainseth.NewEthClients(rpcs)
 	if len(clients) == 0 {
 		panic(fmt.Sprintf("None of the rpc server works, rpcs = %v", rpcs))
+	}
+
+	return clients
+}
+
+func (p *Processor) getLiskClients(wss []string) []chainslisk.LiskClient {
+	clients := chainslisk.NewLiskClients(wss)
+	if len(clients) == 0 {
+		panic(fmt.Sprintf("None of the ws server works, wss = %v", wss))
 	}
 
 	return clients

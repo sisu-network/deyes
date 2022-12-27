@@ -182,7 +182,7 @@ func (w *Watcher) waitForReceipt() {
 	}
 }
 
-// extractTxs takes resposne from the receipt fetcher and converts them into deyes transactions.
+// extractTxs takes response from the receipt fetcher and converts them into deyes transactions.
 func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	arr := make([]*types.Tx, 0)
 	for i, tx := range response.txs {

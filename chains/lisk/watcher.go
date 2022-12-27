@@ -1,101 +1,92 @@
 package lisk
 
 import (
+	"fmt"
+	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/sisu-network/deyes/chains"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
+	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
+	"strings"
+	"sync"
 )
 
 type Watcher struct {
-	cfg config.Chain
-	db  database.Database
+	cfg       config.Chain
+	clients   []LiskClient
+	blockTime int
+	db        database.Database
+	txsCh     chan *types.Txs
+	txTrackCh chan *chainstypes.TrackUpdate
+	vault     string
+	lock      *sync.RWMutex
+	blockCh   chan *etypes.Block
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
 
+	log.Verbosef("Setting vault for chain %s with address %s", w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr, token)
+	if err == nil {
+		w.vault = strings.ToLower(addr)
+	} else {
+		log.Error("Failed to save gateway")
+	}
 }
 
 func (w *Watcher) TrackTx(txHash string) {
-
 }
 
-func NewWatcher(db database.Database, cfg config.Chain) chains.Watcher {
+func NewWatcher(db database.Database, cfg config.Chain,
+	txsCh chan *types.Txs,
+	txTrackCh chan *chainstypes.TrackUpdate, clients []LiskClient) chains.Watcher {
+	blockCh := make(chan *etypes.Block)
+
 	w := &Watcher{
-		db:  db,
-		cfg: cfg,
+		db:        db,
+		cfg:       cfg,
+		clients:   clients,
+		blockCh:   blockCh,
+		txsCh:     txsCh,
+		txTrackCh: txTrackCh,
 	}
-	//w.
 	return w
 }
 
 func (w *Watcher) init() {
+	vaults, err := w.db.GetVaults(w.cfg.Chain)
+	if err != nil {
+		panic(err)
+	}
 
+	if len(vaults) > 0 {
+		w.vault = vaults[0]
+		log.Infof("Saved gateway in the db for chain %s is %s", w.cfg.Chain, w.vault)
+	} else {
+		log.Infof("Vault for chain %s is not set yet", w.cfg.Chain)
+	}
 }
 
 func (w *Watcher) Start() {
-	log.Info("Starting Watcher...")
+	log.Infof("Starting Watcher...")
 
 	w.init()
-	//go w.scanBlocks()
+
+	go w.waitForReceipt()
 }
 
-// extractTxs takes resposne from the receipt fetcher and converts them into deyes transactions.
-//func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
-//	arr := make([]*types.Tx, 0)
-//	for i, tx := range response.txs {
-//		receipt := response.receipts[i]
-//		bz, err := tx.MarshalBinary()
-//		if err != nil {
-//			log.Error("Cannot serialize ETH tx, err = ", err)
-//			continue
-//		}
-//
-//		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
-//			// Get Tx Receipt
-//			result := chainstypes.TrackResultConfirmed
-//			if receipt.Status == 0 {
-//				result = chainstypes.TrackResultFailure
-//			}
-//
-//			// This is a transaction that we are tracking. Inform Sisu about this.
-//			w.txTrackCh <- &chainstypes.TrackUpdate{
-//				Chain:       w.cfg.Chain,
-//				Bytes:       bz,
-//				Hash:        tx.Hash().String(),
-//				BlockHeight: response.blockNumber,
-//				Result:      result,
-//			}
-//
-//			continue
-//		}
-//
-//		var to string
-//		if tx.To() == nil {
-//			to = ""
-//		} else {
-//			to = tx.To().String()
-//		}
-//
-//		from, err := w.getFromAddress(w.cfg.Chain, tx)
-//		if err != nil {
-//			log.Errorf("cannot get from address for tx %s on chain %s, err = %v", tx.Hash().String(), w.cfg.Chain, err)
-//			continue
-//		}
-//
-//		arr = append(arr, &types.Tx{
-//			Hash:       tx.Hash().String(),
-//			Serialized: bz,
-//			From:       from.Hex(),
-//			To:         to,
-//			Success:    receipt.Status == 1,
-//		})
-//	}
-//
-//	return &types.Txs{
-//		Chain:     w.cfg.Chain,
-//		Block:     response.blockNumber,
-//		BlockHash: response.blockHash,
-//		Arr:       arr,
-//	}
-//}
+// waitForReceipt waits for receipts returned by the socket.
+func (w *Watcher) waitForReceipt() {
+	for _, client := range w.clients {
+		for {
+			tx := <-client.GetTransaction()
+			fmt.Println(tx)
+		}
+		client.UpdateSocket()
+	}
+
+}

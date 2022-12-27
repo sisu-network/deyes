@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package example.enumerations;
 
-option go_package = "/lisk/schema";
+option go_package = "/lisk/proto";
 
 message AssetMessage {
   required uint64 amount = 1;
