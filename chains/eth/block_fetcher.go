@@ -79,6 +79,7 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 				// This rarely happens but it does happen. Skip this block for now.
 				if strings.Index(bf.cfg.Chain, "polygon") >= 0 &&
 					strings.Index(err.Error(), "server returned non-empty transaction list but block header indicates no transactions") >= 0 {
+					log.Warnf("server returned non-empty transaction at block height %d in chain %s", bf.blockHeight, bf.cfg.Chain)
 					bf.blockHeight = bf.blockHeight + 1
 				}
 			}
