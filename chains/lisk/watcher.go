@@ -119,7 +119,12 @@ func (w *Watcher) extractTxs(response string) *types.Txs {
 	fmt.Println(asset)
 	arr := make([]*types.Tx, 0)
 
-	tx := &types.Tx{Serialized: transaction.Signatures[0], Success: true, From: hex.EncodeToString(transaction.SenderPublicKey), To: hex.EncodeToString(asset.RecipientAddress)}
+	tx := &types.Tx{
+		Serialized: transaction.Signatures[0],
+		Success:    true,
+		From:       hex.EncodeToString(transaction.SenderPublicKey),
+		To:         hex.EncodeToString(asset.RecipientAddress),
+	}
 	arr = append(arr, tx)
 	return &types.Txs{
 		Chain: w.cfg.Chain,

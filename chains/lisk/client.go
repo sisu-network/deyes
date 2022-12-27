@@ -99,7 +99,7 @@ func (c *defaultLiskClient) UpdateSocket() {
 		case t := <-ticker.C:
 			err := c.socket.WriteMessage(websocket.TextMessage, []byte(t.String()))
 			if err != nil {
-				panic(fmt.Errorf("write", err))
+				panic(fmt.Errorf("write %v", err))
 			}
 		case <-interrupt:
 			log.Infof("interrupt")
@@ -108,14 +108,14 @@ func (c *defaultLiskClient) UpdateSocket() {
 			// waiting (with timeout) for the server to close the connection.
 			err := c.socket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				panic(fmt.Errorf("Write close", err))
+				panic(fmt.Errorf("write close %v", err))
 
 			}
 			select {
 			case <-done:
 			case <-time.After(time.Second):
 			}
-			panic(fmt.Errorf("Write close", err))
+			panic(fmt.Errorf("write close %v", err))
 		}
 	}
 }
