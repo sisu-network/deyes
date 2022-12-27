@@ -78,8 +78,8 @@ func (c *defaultEthClient) Start() {
 // loopCheck
 func (c *defaultEthClient) loopCheck() {
 	for {
-		// Sleep a random time between 20 & 30 minutes
-		mins := rand.Intn(10) + 20
+		// Sleep a random time between 5 & 10 minutes
+		mins := rand.Intn(5) + 5
 		sleepTime := time.Second * time.Duration(60*mins)
 		time.Sleep(sleepTime)
 
@@ -135,7 +135,7 @@ func (c *defaultEthClient) getRpcsHealthiness(allRpcs []string) ([]string, []*et
 	for _, rpc := range allRpcs {
 		client, err := ethclient.Dial(rpc)
 		if err == nil {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*10))
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*5))
 			block, err := client.BlockByNumber(ctx, nil)
 			cancel()
 
@@ -169,6 +169,9 @@ func (c *defaultEthClient) getRpcsHealthiness(allRpcs []string) ([]string, []*et
 			healthies = append(healthies, true)
 		}
 	}
+
+	// Log all healthy rpcs
+	log.Verbosef("Healthy rpcs for chain %s: %s", c.chain, rpcs)
 
 	return rpcs, clients, healthies
 }
