@@ -3,6 +3,7 @@ package eth
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -71,6 +72,15 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 			if _, ok := err.(*BlockHeightExceededError); !ok && err != ethereum.NotFound {
 				// This err is not ETH not found or our custom error.
 				log.Error("Cannot get block at height", bf.blockHeight, "for chain", bf.cfg.Chain, " err = ", err)
+
+				// Bug only on polygon network https://github.com/maticnetwork/bor/issues/387
+				// The block exists but its header hash is equivalent to empty root hash but the internal
+				// block has some transaction inside. Geth client throws an error in this situation.
+				// This rarely happens but it does happen. Skip this block for now.
+				if strings.Index(bf.cfg.Chain, "polygon") >= 0 &&
+					strings.Index(err.Error(), "server returned non-empty transaction list but block header indicates no transactions") >= 0 {
+					bf.blockHeight = bf.blockHeight + 1
+				}
 			}
 
 			bf.blockTime = bf.blockTime + bf.cfg.AdjustTime
