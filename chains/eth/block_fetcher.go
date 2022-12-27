@@ -65,6 +65,9 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 
 	for {
 		log.Verbose("Block time on chain ", bf.cfg.Chain, " is ", bf.blockTime)
+		if bf.blockTime < 0 {
+			bf.blockTime = 0
+		}
 
 		// Get the blockheight
 		block, err := bf.tryGetBlock()
