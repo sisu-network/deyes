@@ -80,11 +80,11 @@ func (w *Watcher) Start() {
 
 	w.init()
 
-	go w.waitForReceipt()
+	go w.waitForBlock()
 }
 
 // waitForReceipt waits for receipts returned by the socket.
-func (w *Watcher) waitForReceipt() {
+func (w *Watcher) waitForBlock() {
 	for _, client := range w.clients {
 		for {
 			tx := <-client.GetTransaction()
@@ -99,9 +99,7 @@ func (w *Watcher) waitForReceipt() {
 			// Save all txs into database for later references.
 			w.db.SaveTxs(w.cfg.Chain, 0, txs)
 		}
-		client.UpdateSocket()
 	}
-
 }
 
 // extractTxs takes response from the receipt socket and converts them into deyes transactions.

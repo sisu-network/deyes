@@ -3,15 +3,10 @@ package lisk
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
-	"net/url"
-	"os"
-	"os/signal"
-	"time"
-
 	"github.com/gorilla/websocket"
 	lisk "github.com/sisu-network/deyes/chains/lisk/types"
 	"github.com/sisu-network/lib/log"
+	"net/url"
 )
 
 // LiskClient A wrapper around socket so that we can mock in watcher tests.
@@ -19,7 +14,6 @@ type LiskClient interface {
 	Close()
 	WriteMessage(messageType int, data []byte)
 	ReadMessage()
-	UpdateSocket()
 	GetTransaction() chan *lisk.Payload
 }
 
@@ -79,43 +73,6 @@ func ReadMessage(socket *websocket.Conn, payloadCh chan *lisk.Payload) {
 		json.Unmarshal([]byte(message), &payload)
 		if payload.Method == "app:transaction:new" {
 			payloadCh <- &payload
-		}
-	}
-}
-
-// UpdateSocket  A function to keep socket alive and  listen system event when socket interrupt
-func (c *defaultLiskClient) UpdateSocket() {
-	defer c.socket.Close()
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-	done := make(chan struct{})
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-done:
-			break
-		case t := <-ticker.C:
-			err := c.socket.WriteMessage(websocket.TextMessage, []byte(t.String()))
-			if err != nil {
-				panic(fmt.Errorf("write %v", err))
-			}
-		case <-interrupt:
-			log.Infof("interrupt")
-
-			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
-			err := c.socket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				panic(fmt.Errorf("write close %v", err))
-
-			}
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-			}
-			panic(fmt.Errorf("write close %v", err))
 		}
 	}
 }

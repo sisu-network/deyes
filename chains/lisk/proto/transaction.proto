@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package example.enumerations;
+package lisk;
 
 option go_package = "/lisk/proto";
 
