@@ -2,106 +2,138 @@ package lisk
 
 import (
 	"encoding/json"
-	"flag"
-	"github.com/gorilla/websocket"
-	lisk "github.com/sisu-network/deyes/chains/lisk/types"
-	"github.com/sisu-network/lib/log"
-	"net/url"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+	"strconv"
+
+	"github.com/sisu-network/deyes/chains/lisk/types"
+	"github.com/sisu-network/deyes/config"
 )
 
-// LiskClient A wrapper around socket so that we can mock in watcher tests.
+type APIErr struct {
+	message string
+}
+
+func NewApiErr(message string) error {
+	return &APIErr{message: message}
+}
+
+func (e *APIErr) Error() string {
+	return fmt.Sprintf(e.message)
+}
+
+// LiskClient  A wrapper around lisk.client so that we can mock in watcher tests.
 type LiskClient interface {
-	Close()
-	WriteMessage(messageType int, data []byte)
-	ReadMessage()
-	GetTransaction() chan *lisk.Payload
+	BlockNumber() (uint64, error)
+	BlockByHeight(height uint64) (*types.Block, error)
+	TransactionByBlock(block string) ([]types.Transaction, error)
 }
 
-// defaultLiskClient
 type defaultLiskClient struct {
-	socket    *websocket.Conn
-	payloadCh chan *lisk.Payload
+	chain string
+	rpc   string
 }
 
-// NewLiskClients Create new lisk client
-func NewLiskClients(wss []string) []LiskClient {
-	clients := make([]LiskClient, 0)
-
-	for _, ws := range wss {
-		client, err := dial(ws)
-		if err == nil {
-			clients = append(clients, client)
-			log.Infof("Adding lisk client at ws: ", ws)
-		}
+func NewLiskClient(cfg config.Chain) LiskClient {
+	c := &defaultLiskClient{
+		chain: cfg.Chain,
+		rpc:   cfg.Rpcs[0],
 	}
-
-	return clients
+	return c
 }
 
-// dial: Init socket
-func dial(ws string) (LiskClient, error) {
-	var addr = flag.String("addr", ws, "http service address")
-	flag.Parse()
-
-	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
-	log.Infof("connecting to %s", u.String())
-
-	socket, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+func (c *defaultLiskClient) execute(endpoint string, params map[string]string) ([]map[string]interface{}, error) {
+	keys := reflect.ValueOf(params).MapKeys()
+	req, err := http.NewRequest("GET", c.rpc+endpoint, nil)
 	if err != nil {
-		log.Errorf("dial:", err)
+		return nil, err
+	}
+	q := req.URL.Query()
+	for _, key := range keys {
+		q.Add(key.Interface().(string), params[key.Interface().(string)])
 	}
 
-	payloadCh := make(chan *lisk.Payload, 1000)
-
-	go ReadMessage(socket, payloadCh)
-
-	return &defaultLiskClient{
-		socket:    socket,
-		payloadCh: payloadCh,
-	}, nil
-}
-
-// ReadMessage Read and select message
-func ReadMessage(socket *websocket.Conn, payloadCh chan *lisk.Payload) {
-	for {
-		_, message, err := socket.ReadMessage()
-		if err != nil {
-			log.Infof("read:", err)
-		}
-
-		var payload lisk.Payload
-		json.Unmarshal([]byte(message), &payload)
-		if payload.Method == "app:transaction:new" {
-			payloadCh <- &payload
-		}
+	req.URL.RawQuery = q.Encode()
+	response, err := http.Get(req.URL.String())
+	if response == nil {
+		return nil, NewApiErr("cannot fetch data " + endpoint)
 	}
-}
 
-func (c *defaultLiskClient) Close() {
-	c.socket.Close()
-}
-
-func (c *defaultLiskClient) WriteMessage(messageType int, data []byte) {
-	err := c.socket.WriteMessage(messageType, data)
+	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Infof("write:", err)
-		return
+		return nil, err
 	}
+
+	var responseObject types.ResponseWrapper
+	json.Unmarshal(responseData, &responseObject)
+
+	return responseObject.Data, err
 }
 
-func (c *defaultLiskClient) ReadMessage() {
-	for {
-		_, message, err := c.socket.ReadMessage()
+func (c *defaultLiskClient) BlockNumber() (uint64, error) {
+	params := map[string]string{
+		"limit": "1",
+		"sort":  "height:desc",
+	}
+	blocks, err := c.execute("/blocks", params)
+	if err != nil {
+		return 0, err
+	}
+	latestBlock := blocks[0]
+	latestBlockJson, _ := json.Marshal(latestBlock)
+	var block types.Block
+	if err := json.Unmarshal(latestBlockJson, &block); err != nil {
+		return 0, err
+	}
+	return block.Height, nil
+}
+
+func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
+	params := map[string]string{
+		"limit":  "1",
+		"height": strconv.FormatUint(uint64(height), 10),
+	}
+	blocks, err := c.execute("/blocks", params)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(blocks) == 0 {
+		return nil, NewApiErr("lisk block is not found")
+	}
+	latestBlock := blocks[0]
+	latestBlockJson, err := json.Marshal(latestBlock)
+	if err != nil {
+		return nil, err
+	}
+	var block types.Block
+	if err := json.Unmarshal(latestBlockJson, &block); err != nil {
 		if err != nil {
-			log.Infof("read:", err)
+			return nil, err
 		}
-
-		var payload lisk.Payload
-		json.Unmarshal([]byte(message), &payload)
-
 	}
+	return &block, err
 }
 
-func (c *defaultLiskClient) GetTransaction() chan *lisk.Payload {
-	return c.payloadCh
+func (c *defaultLiskClient) TransactionByBlock(block string) ([]types.Transaction, error) {
+	params := map[string]string{
+		"blockId": block,
+	}
+	response, err := c.execute("/transactions", params)
+	if err != nil {
+		return nil, err
+	}
+	transactionsJson, err := json.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+	var transactions []types.Transaction
+	if err := json.Unmarshal(transactionsJson, &transactions); err != nil {
+		if err != nil {
+			return nil, err
+		}
+	}
+	return transactions, nil
 }

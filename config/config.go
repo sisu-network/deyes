@@ -16,7 +16,7 @@ var ChainParamsMap = map[string]ChainParams{
 	"xdai":             {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"arbitrum-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
 	"avaxc-testnet":    {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"lisk-devnet":      {GasPriceStartBlockHeight: 1000, Interval: 50},
+	"lisk-testnet":     {GasPriceStartBlockHeight: 1000, Interval: 50},
 }
 
 type ChainParams struct {
@@ -46,7 +46,6 @@ type Chain struct {
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
 	Wss        []string `toml:"wss" json:"wss"`
-
 	// Cardano
 	ClientType ClientType `toml:"client_type" json:"client_type"`
 	RpcSecret  string     `toml:"rpc_secret" json:"rpc_secret"`

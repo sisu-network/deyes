@@ -115,7 +115,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 	if err == nil {
 		w.vault = strings.ToLower(addr)
 	} else {
-		log.Error("Failed to save gateway")
+		log.Error("Failed to save vault")
 	}
 }
 

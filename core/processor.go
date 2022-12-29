@@ -7,7 +7,7 @@ import (
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
-	chainslisk "github.com/sisu-network/deyes/chains/lisk"
+	chainlisk "github.com/sisu-network/deyes/chains/lisk"
 
 	"github.com/sisu-network/deyes/chains/solana"
 	chainstypes "github.com/sisu-network/deyes/chains/types"
@@ -88,19 +88,19 @@ func (p *Processor) Start() {
 			// Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
-		} else if chain == "lisk-devnet" {
-			watcher = chainslisk.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, p.getLiskClients(cfg.Wss))
-
+		} else if libchain.IsLiskChain(chain) {
+			client := chainlisk.NewLiskClient(cfg)
+			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
+			dispatcher = chainlisk.NewDispatcher(client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
 
 		p.watchers[chain] = watcher
 		go watcher.Start()
-		if dispatcher != nil {
-			p.dispatchers[chain] = dispatcher
-			dispatcher.Start()
-		}
+
+		p.dispatchers[chain] = dispatcher
+		dispatcher.Start()
 	}
 }
 
@@ -111,7 +111,7 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *cardano.DefaultCardanoCl
 	)
 
 	if cfg.ClientType == config.ClientTypeBlockFrost && len(cfg.RpcSecret) > 0 {
-		log.Info("Use Blockfrost API client")
+		log.Info("Use blockfrost API client")
 		// TODO: Make this configurable
 		provider = cardano.NewBlockfrostProvider(cfg)
 		submitURL = "https://cardano-preprod.blockfrost.io/api/v0" + "/tx/submit"
@@ -133,15 +133,6 @@ func (p *Processor) getCardanoClient(cfg config.Chain) *cardano.DefaultCardanoCl
 		submitURL,
 		cfg.RpcSecret, // only used for Blockfrost API
 	)
-}
-
-func (p *Processor) getLiskClients(wss []string) []chainslisk.LiskClient {
-	clients := chainslisk.NewLiskClients(wss)
-	if len(clients) == 0 {
-		panic(fmt.Sprintf("None of the ws server works, wss = %v", wss))
-	}
-
-	return clients
 }
 
 func (p *Processor) listen() {

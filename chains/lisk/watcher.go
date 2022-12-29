@@ -1,64 +1,53 @@
 package lisk
 
 import (
-	"encoding/hex"
-	"fmt"
-	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/golang/protobuf/proto"
-	"github.com/sisu-network/deyes/chains"
-	lisk "github.com/sisu-network/deyes/chains/lisk/types"
-	chainstypes "github.com/sisu-network/deyes/chains/types"
-	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/database"
-	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/lib/log"
 	"strings"
 	"sync"
-	"unsafe"
+
+	"github.com/golang/groupcache/lru"
+	"github.com/sisu-network/deyes/chains"
+	"github.com/sisu-network/deyes/chains/lisk/types"
+	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/database"
+	ctypes "github.com/sisu-network/deyes/types"
+	"github.com/sisu-network/lib/log"
 )
 
-type Watcher struct {
-	cfg       config.Chain
-	clients   []LiskClient
-	blockTime int
-	db        database.Database
-	txsCh     chan *types.Txs
-	txTrackCh chan *chainstypes.TrackUpdate
-	vault     string
-	lock      *sync.RWMutex
-	blockCh   chan *etypes.Block
-}
+const (
+	TxTrackCacheSize = 1_000
+)
 
-func (w *Watcher) SetVault(addr string, token string) {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-
-	log.Verbosef("Setting vault for chain %s with address %s", w.cfg.Chain, addr)
-	err := w.db.SetVault(w.cfg.Chain, addr, token)
-	if err == nil {
-		w.vault = strings.ToLower(addr)
-	} else {
-		log.Error("Failed to save gateway")
-	}
-}
-
-func (w *Watcher) TrackTx(txHash string) {
-}
-
-func NewWatcher(db database.Database, cfg config.Chain,
-	txsCh chan *types.Txs,
-	txTrackCh chan *chainstypes.TrackUpdate, clients []LiskClient) chains.Watcher {
-	blockCh := make(chan *etypes.Block)
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
+	client LiskClient) chains.Watcher {
+	blockCh := make(chan *types.Block)
 
 	w := &Watcher{
-		db:        db,
-		cfg:       cfg,
-		clients:   clients,
-		blockCh:   blockCh,
-		txsCh:     txsCh,
-		txTrackCh: txTrackCh,
+		blockCh:      blockCh,
+		blockFetcher: newBlockFetcher(cfg, blockCh, client),
+		db:           db,
+		cfg:          cfg,
+		txsCh:        txsCh,
+		blockTime:    cfg.BlockTime,
+		client:       client,
+		lock:         &sync.RWMutex{},
+		txTrackCache: lru.New(TxTrackCacheSize),
 	}
 	return w
+}
+
+type Watcher struct {
+	cfg          config.Chain
+	client       LiskClient
+	blockTime    int
+	db           database.Database
+	vault        string
+	txTrackCache *lru.Cache
+	lock         *sync.RWMutex
+	txsCh        chan *ctypes.Txs
+
+	// Block fetcher
+	blockCh      chan *types.Block
+	blockFetcher *defaultBlockFetcher
 }
 
 func (w *Watcher) init() {
@@ -75,59 +64,78 @@ func (w *Watcher) init() {
 	}
 }
 
+func (w *Watcher) SetVault(addr string, token string) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	log.Verbosef("Setting vault for chain %s with address %s", w.cfg.Chain, addr)
+	err := w.db.SetVault(w.cfg.Chain, addr, token)
+	if err == nil {
+		w.vault = strings.ToLower(addr)
+	} else {
+		log.Error("Failed to save vault")
+	}
+}
+
 func (w *Watcher) Start() {
-	log.Infof("Starting Watcher...")
-
+	log.Infof("Starting Watcher for chain %s", w.cfg.Chain)
 	w.init()
+	go w.scanBlocks()
+}
 
+func (w *Watcher) scanBlocks() {
+	go w.blockFetcher.start()
 	go w.waitForBlock()
 }
 
-// waitForReceipt waits for receipts returned by the socket.
+// waitForBlock waits for new blocks from the block fetcher. It then filters interested txs and
 func (w *Watcher) waitForBlock() {
-	for _, client := range w.clients {
-		for {
-			tx := <-client.GetTransaction()
-			txs := w.extractTxs(tx.Params.Transaction)
-			log.Verbose(w.cfg.Chain, ": txs sizes = ", len(txs.Arr))
-
-			if len(txs.Arr) > 0 {
-				// Send list of interested txs back to the listener.
-				w.txsCh <- txs
+	for {
+		block := <-w.blockCh
+		// Pass this block to the receipt fetcher
+		log.Info(w.cfg.Chain, " Block length = ", block.NumberOfTransactions)
+		txArr := make([]*ctypes.Tx, 0)
+		for _, tx := range block.Transactions {
+			if strings.EqualFold(tx.Sender.Address, w.vault) {
+				log.Infof("Transfer %s from address %s to %s with message %s", tx.Asset.Amount, tx.Sender.Address, tx.Asset.Recipient.Address, tx.Asset.Data)
+				txArr = append(txArr, &ctypes.Tx{Hash: tx.Id, Serialized: []byte(tx.Signatures[0]), From: tx.Sender.Address, To: tx.Asset.Recipient.Address, Success: tx.IsPending == false})
 			}
-
-			// Save all txs into database for later references.
-			w.db.SaveTxs(w.cfg.Chain, 0, txs)
 		}
+		txs := ctypes.Txs{
+			Chain:     w.cfg.Chain,
+			Block:     int64(block.Height),
+			BlockHash: block.Id,
+			Arr:       txArr,
+		}
+		w.txsCh <- &txs
 	}
 }
 
-// extractTxs takes response from the receipt socket and converts them into deyes transactions.
-func (w *Watcher) extractTxs(response string) *types.Txs {
-	data, _ := hex.DecodeString(response)
-	transaction := &lisk.TransactionMessage{}
-	if err := proto.Unmarshal(data, transaction); err != nil {
-		log.Errorf("Failed to parse  transaction:", err)
+func (w *Watcher) processBlock(block *types.Block) []types.Transaction {
+	ret := make([]types.Transaction, 0)
+	for _, tx := range block.Transactions {
+		if _, ok := w.txTrackCache.Get(tx.Id); ok {
+			ret = append(ret, tx)
+			continue
+		}
+
+		if w.acceptTx(tx) {
+			ret = append(ret, tx)
+		}
 	}
 
-	asset := &lisk.AssetMessage{}
-	if err := proto.Unmarshal(transaction.Asset, asset); err != nil {
-		log.Errorf("Failed to parse  asset:", err)
+	return ret
+}
+func (w *Watcher) acceptTx(tx types.Transaction) bool {
+	if tx.Asset.Recipient.Address != "" {
+		if strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
+			return true
+		}
 	}
-	fmt.Println(asset)
-	arr := make([]*types.Tx, 0)
 
-	tx := &types.Tx{
-		Serialized: transaction.Signatures[0],
-		Success:    true,
-		From:       hex.EncodeToString(transaction.SenderPublicKey),
-		To:         hex.EncodeToString(asset.RecipientAddress),
-	}
-	arr = append(arr, tx)
-	return &types.Txs{
-		Chain: w.cfg.Chain,
-		Block: int64(uintptr(unsafe.Pointer(&transaction.Nonce))),
-		//BlockHash: response.blockHash,
-		Arr: arr,
-	}
+	return false
+}
+func (w *Watcher) TrackTx(txHash string) {
+	log.Verbose("Tracking tx: ", txHash)
+	w.txTrackCache.Add(txHash, true)
 }
