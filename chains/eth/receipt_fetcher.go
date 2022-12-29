@@ -2,6 +2,7 @@ package eth
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -17,6 +18,8 @@ type txReceiptRequest struct {
 	blockNumber int64
 	blockHash   string
 	txs         []*etypes.Transaction
+	baseFee     *big.Int
+	priorityFee *big.Int
 }
 
 // txReceiptResponse is a data structure for the receipt fetcher to return its result
@@ -25,11 +28,13 @@ type txReceiptResponse struct {
 	blockHash   string
 	txs         []*etypes.Transaction
 	receipts    []*etypes.Receipt
+	baseFee     *big.Int
+	priorityFee *big.Int
 }
 
 type receiptFetcher interface {
 	start()
-	fetchReceipts(block int64, txs []*etypes.Transaction)
+	fetchReceipts(block int64, txs []*etypes.Transaction, baseFee *big.Int, priorityFe *big.Int)
 }
 
 type defaultReceiptFetcher struct {
@@ -68,6 +73,8 @@ func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txRecei
 		blockHash:   request.blockHash,
 		txs:         make([]*etypes.Transaction, 0),
 		receipts:    make([]*etypes.Receipt, 0),
+		baseFee:     request.baseFee,
+		priorityFee: request.priorityFee,
 	}
 
 	txQueue := request.txs
@@ -108,6 +115,12 @@ func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txRecei
 	return response
 }
 
-func (rf *defaultReceiptFetcher) fetchReceipts(block int64, txs []*etypes.Transaction) {
-	rf.requestCh <- &txReceiptRequest{blockNumber: block, txs: txs}
+func (rf *defaultReceiptFetcher) fetchReceipts(block int64, txs []*etypes.Transaction,
+	baseFee *big.Int, priorityFee *big.Int) {
+	rf.requestCh <- &txReceiptRequest{
+		blockNumber: block,
+		txs:         txs,
+		baseFee:     baseFee,
+		priorityFee: priorityFee,
+	}
 }

@@ -53,7 +53,7 @@ func TestWatcher_TestProcessBlock(t *testing.T) {
 	}
 
 	block := etypes.NewBlock(&hdr, trans, nil, nil, &mockTrieHasher{})
-	txs := watcher.processBlock(block)
+	txs, _ := watcher.processBlock(block)
 	require.Equal(t, txs, trans)
 }
 

@@ -7,8 +7,9 @@ import (
 	"strings"
 	"sync"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/ethereum/go-ethereum/common"
-	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/config"
@@ -57,8 +58,13 @@ type Watcher struct {
 	lock            *sync.RWMutex
 	txTrackCache    *lru.Cache
 
+	// For base & priority fee
+	baseFee    *big.Int
+	averageTip *big.Int
+	feeLock    *sync.RWMutex
+
 	// Block fetcher
-	blockCh      chan *etypes.Block
+	blockCh      chan *ethtypes.Block
 	blockFetcher *defaultBlockFetcher
 
 	// Receipt fetcher
@@ -68,7 +74,7 @@ type Watcher struct {
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 	txTrackCh chan *chainstypes.TrackUpdate, client EthClient) chains.Watcher {
-	blockCh := make(chan *etypes.Block)
+	blockCh := make(chan *ethtypes.Block)
 	receiptResponseCh := make(chan *txReceiptResponse)
 
 	w := &Watcher{
@@ -85,6 +91,9 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 		client:            client,
 		lock:              &sync.RWMutex{},
 		txTrackCache:      lru.New(TxTrackCacheSize),
+		feeLock:           &sync.RWMutex{},
+		baseFee:           big.NewInt(0),
+		averageTip:        big.NewInt(0),
 	}
 
 	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
@@ -154,13 +163,23 @@ func (w *Watcher) waitForBlock() {
 
 		// Pass this block to the receipt fetcher
 		log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
-		txs := w.processBlock(block)
+		txs, averageTip := w.processBlock(block)
 		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
+		w.updateBaseAndTipFee(block.BaseFee(), averageTip)
+
 		if len(txs) > 0 {
-			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs)
+			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs, block.BaseFee(), averageTip)
 		}
 	}
+}
+
+func (w *Watcher) updateBaseAndTipFee(baseFee, averageTip *big.Int) {
+	w.feeLock.Lock()
+	defer w.feeLock.Unlock()
+
+	w.baseFee = baseFee
+	w.averageTip = averageTip
 }
 
 // waitForReceipt waits for receipts returned by the fetcher.
@@ -234,10 +253,12 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	}
 
 	return &types.Txs{
-		Chain:     w.cfg.Chain,
-		Block:     response.blockNumber,
-		BlockHash: response.blockHash,
-		Arr:       arr,
+		Chain:       w.cfg.Chain,
+		Block:       response.blockNumber,
+		BlockHash:   response.blockHash,
+		Arr:         arr,
+		BaseFee:     response.baseFee,
+		PriorityFee: response.priorityFee,
 	}
 }
 
@@ -248,10 +269,21 @@ func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
 	return w.client.SuggestGasPrice(ctx)
 }
 
-func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
-	ret := make([]*etypes.Transaction, 0)
+func (w *Watcher) processBlock(block *ethtypes.Block) ([]*ethtypes.Transaction, *big.Int) {
+	ret := make([]*ethtypes.Transaction, 0)
+
+	totalTip := big.NewInt(0)
+	count := 0
 
 	for _, tx := range block.Transactions() {
+		// Check tx gas base fee
+		switch tx.Type() {
+		case ethtypes.DynamicFeeTxType:
+			tipFee := tx.GasTipCap()
+			totalTip = totalTip.Add(totalTip, tipFee)
+			count++
+		}
+
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
 			ret = append(ret, tx)
 			continue
@@ -262,10 +294,15 @@ func (w *Watcher) processBlock(block *etypes.Block) []*etypes.Transaction {
 		}
 	}
 
-	return ret
+	averageTip := big.NewInt(0)
+	if count > 0 {
+		averageTip = new(big.Int).Div(totalTip, big.NewInt(int64(count)))
+	}
+
+	return ret, averageTip
 }
 
-func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
+func (w *Watcher) acceptTx(tx *ethtypes.Transaction) bool {
 	if tx.To() != nil {
 		if strings.EqualFold(tx.To().String(), w.vault) {
 			return true
@@ -275,13 +312,13 @@ func (w *Watcher) acceptTx(tx *etypes.Transaction) bool {
 	return false
 }
 
-func (w *Watcher) getFromAddress(chain string, tx *etypes.Transaction) (common.Address, error) {
+func (w *Watcher) getFromAddress(chain string, tx *ethtypes.Transaction) (common.Address, error) {
 	signer := libchain.GetEthChainSigner(chain)
 	if signer == nil {
 		return common.Address{}, fmt.Errorf("cannot find signer for chain %s", chain)
 	}
 
-	msg, err := tx.AsMessage(etypes.NewLondonSigner(tx.ChainId()), nil)
+	msg, err := tx.AsMessage(ethtypes.NewLondonSigner(tx.ChainId()), nil)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -337,7 +374,7 @@ func (w *Watcher) TrackTx(txHash string) {
 	w.txTrackCache.Add(txHash, true)
 }
 
-func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*etypes.Receipt, error) {
+func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*ethtypes.Receipt, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), RpcTimeOut)
 	defer cancel()
 	receipt, err := w.client.TransactionReceipt(ctx, txHash)
