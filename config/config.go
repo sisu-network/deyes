@@ -46,6 +46,9 @@ type Chain struct {
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
 	Wss        []string `toml:"wss" json:"wss"`
 
+	// ETH
+	UseGasEip1559 bool `toml:"use_gas_eip_1559" json:"use_gas_eip_1559"`
+
 	// Cardano
 	ClientType ClientType `toml:"client_type" json:"client_type"`
 	RpcSecret  string     `toml:"rpc_secret" json:"rpc_secret"`

@@ -149,24 +149,27 @@ func (w *Watcher) waitForBlock() {
 	for {
 		block := <-w.blockCh
 
-		// Only update gas price at deterministic block height
-		// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
-		chainParams := config.ChainParamsMap[w.cfg.Chain]
-		if (block.Number().Int64()-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
-			go func() {
-				gasPrice := w.GetGasPrice()
-				if gasPrice == 0 {
-					w.updateGasPrice(context.Background())
-				}
-			}()
-		}
-
 		// Pass this block to the receipt fetcher
 		log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
 		txs, averageTip := w.processBlock(block)
 		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
-		w.updateBaseAndTipFee(block.BaseFee(), averageTip)
+		if !w.cfg.UseGasEip1559 {
+			// Only update gas price at deterministic block height
+			// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
+			chainParams := config.ChainParamsMap[w.cfg.Chain]
+			if (block.Number().Int64()-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
+				go func() {
+					gasPrice := w.GetGasPrice()
+					if gasPrice == 0 {
+						w.updateGasPrice(context.Background())
+					}
+				}()
+			}
+		} else {
+			w.updateBaseAndTipFee(block.BaseFee(), averageTip)
+			log.Verbosef("Base fee & tip for chain %s: %s %s", w.cfg.Chain, block.BaseFee(), averageTip)
+		}
 
 		if len(txs) > 0 {
 			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs, block.BaseFee(), averageTip)
