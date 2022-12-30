@@ -12,13 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/chains"
+	deyesethtypes "github.com/sisu-network/deyes/chains/eth/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 	libchain "github.com/sisu-network/lib/chain"
 	"github.com/sisu-network/lib/log"
-	"go.uber.org/atomic"
 
 	chainstypes "github.com/sisu-network/deyes/chains/types"
 )
@@ -46,22 +45,16 @@ func (e *BlockHeightExceededError) Error() string {
 
 // TODO: Move this to the chains package.
 type Watcher struct {
-	cfg             config.Chain
-	client          EthClient
-	blockTime       int
-	db              database.Database
-	txsCh           chan *types.Txs
-	txTrackCh       chan *chainstypes.TrackUpdate
-	vault           string
-	gasPrice        *atomic.Int64
-	gasPriceGetters []GasPriceGetter
-	lock            *sync.RWMutex
-	txTrackCache    *lru.Cache
-
-	// For base & priority fee
-	baseFee    *big.Int
-	averageTip *big.Int
-	feeLock    *sync.RWMutex
+	cfg          config.Chain
+	client       EthClient
+	blockTime    int
+	db           database.Database
+	txsCh        chan *types.Txs
+	txTrackCh    chan *chainstypes.TrackUpdate
+	vault        string
+	lock         *sync.RWMutex
+	txTrackCache *lru.Cache
+	gasCal       *gasCalculator
 
 	// Block fetcher
 	blockCh      chan *ethtypes.Block
@@ -87,17 +80,12 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
 		txsCh:             txsCh,
 		txTrackCh:         txTrackCh,
 		blockTime:         cfg.BlockTime,
-		gasPrice:          atomic.NewInt64(0),
 		client:            client,
 		lock:              &sync.RWMutex{},
 		txTrackCache:      lru.New(TxTrackCacheSize),
-		feeLock:           &sync.RWMutex{},
-		baseFee:           big.NewInt(0),
-		averageTip:        big.NewInt(0),
+		gasCal:            newGasCalculator(cfg, client, GasPriceUpdateInterval),
 	}
 
-	gasPriceGetters := []GasPriceGetter{w.getGasPriceFromNode}
-	w.gasPriceGetters = gasPriceGetters
 	return w
 }
 
@@ -154,35 +142,14 @@ func (w *Watcher) waitForBlock() {
 		txs, averageTip := w.processBlock(block)
 		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
-		if !w.cfg.UseGasEip1559 {
-			// Only update gas price at deterministic block height
-			// Ex: updateBlockHeight = startBlockHeight + (n * interval) (n is an integer from 0 ... )
-			chainParams := config.ChainParamsMap[w.cfg.Chain]
-			if (block.Number().Int64()-chainParams.GasPriceStartBlockHeight)%chainParams.Interval == 0 {
-				go func() {
-					gasPrice := w.GetGasPrice()
-					if gasPrice == 0 {
-						w.updateGasPrice(context.Background())
-					}
-				}()
-			}
-		} else {
-			w.updateBaseAndTipFee(block.BaseFee(), averageTip)
-			log.Verbosef("Base fee & tip for chain %s: %s %s", w.cfg.Chain, block.BaseFee(), averageTip)
+		if w.cfg.UseGasEip1559 {
+			w.gasCal.AddNewBlock(block)
 		}
 
 		if len(txs) > 0 {
 			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs, block.BaseFee(), averageTip)
 		}
 	}
-}
-
-func (w *Watcher) updateBaseAndTipFee(baseFee, averageTip *big.Int) {
-	w.feeLock.Lock()
-	defer w.feeLock.Unlock()
-
-	w.baseFee = baseFee
-	w.averageTip = averageTip
 }
 
 // waitForReceipt waits for receipts returned by the fetcher.
@@ -285,6 +252,8 @@ func (w *Watcher) processBlock(block *ethtypes.Block) ([]*ethtypes.Transaction, 
 			tipFee := tx.GasTipCap()
 			totalTip = totalTip.Add(totalTip, tipFee)
 			count++
+		default:
+
 		}
 
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
@@ -341,27 +310,6 @@ func (w *Watcher) GetNonce(address string) int64 {
 	return 0
 }
 
-func (w *Watcher) GetGasPrice() int64 {
-	return w.gasPrice.Load()
-}
-
-func (w *Watcher) updateGasPrice(ctx context.Context) error {
-	potentialGasPriceList := make([]*big.Int, 0)
-	for _, getter := range w.gasPriceGetters {
-		gasPrice, err := getter(ctx)
-		if err != nil {
-			return err
-		}
-
-		potentialGasPriceList = append(potentialGasPriceList, gasPrice)
-	}
-
-	medianGasPrice := utils.GetMedianBigInt(potentialGasPriceList)
-	w.gasPrice.Store(medianGasPrice.Int64())
-
-	return nil
-}
-
 func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {
 	gasPrice, err := w.getSuggestedGasPrice()
 	if err != nil {
@@ -387,4 +335,17 @@ func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*ethtypes.Receipt, 
 	}
 
 	return nil, fmt.Errorf("Cannot find receipt for tx hash: %s", txHash.String())
+}
+
+func (w *Watcher) GetGasInfo() deyesethtypes.GasInfo {
+	if w.cfg.UseGasEip1559 {
+		return deyesethtypes.GasInfo{
+			GasPrice: w.gasCal.GetGasPrice().Int64(),
+		}
+	} else {
+		return deyesethtypes.GasInfo{
+			BaseFee: w.gasCal.GetBaseFee().Int64(),
+			Tip:     w.gasCal.GetTip().Int64(),
+		}
+	}
 }

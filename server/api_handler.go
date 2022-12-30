@@ -56,7 +56,7 @@ func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
 	for i, chain := range chains {
 		if libchain.IsETHBasedChain(chain) {
 			watcher := api.processor.GetWatcher(chain).(*chainseth.Watcher)
-			prices[i] = watcher.GetGasPrice()
+			prices[i] = watcher.GetGasInfo().GasPrice
 		} else {
 			prices[i] = 0
 		}
