@@ -138,7 +138,7 @@ func (w *Watcher) waitForBlock() {
 
 		// Pass this block to the receipt fetcher
 		log.Info(w.cfg.Chain, " Block length = ", len(block.Transactions()))
-		txs, averageTip := w.processBlock(block)
+		txs := w.processBlock(block)
 		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
 		if w.cfg.UseGasEip1559 {
@@ -146,7 +146,7 @@ func (w *Watcher) waitForBlock() {
 		}
 
 		if len(txs) > 0 {
-			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs, block.BaseFee(), averageTip)
+			w.receiptFetcher.fetchReceipts(block.Number().Int64(), txs)
 		}
 	}
 }
@@ -222,12 +222,10 @@ func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	}
 
 	return &types.Txs{
-		Chain:       w.cfg.Chain,
-		Block:       response.blockNumber,
-		BlockHash:   response.blockHash,
-		Arr:         arr,
-		BaseFee:     response.baseFee,
-		PriorityFee: response.priorityFee,
+		Chain:     w.cfg.Chain,
+		Block:     response.blockNumber,
+		BlockHash: response.blockHash,
+		Arr:       arr,
 	}
 }
 
@@ -238,23 +236,10 @@ func (w *Watcher) getSuggestedGasPrice() (*big.Int, error) {
 	return w.client.SuggestGasPrice(ctx)
 }
 
-func (w *Watcher) processBlock(block *ethtypes.Block) ([]*ethtypes.Transaction, *big.Int) {
+func (w *Watcher) processBlock(block *ethtypes.Block) []*ethtypes.Transaction {
 	ret := make([]*ethtypes.Transaction, 0)
 
-	totalTip := big.NewInt(0)
-	count := 0
-
 	for _, tx := range block.Transactions() {
-		// Check tx gas base fee
-		switch tx.Type() {
-		case ethtypes.DynamicFeeTxType:
-			tipFee := tx.GasTipCap()
-			totalTip = totalTip.Add(totalTip, tipFee)
-			count++
-		default:
-
-		}
-
 		if _, ok := w.txTrackCache.Get(tx.Hash().String()); ok {
 			ret = append(ret, tx)
 			continue
@@ -265,12 +250,7 @@ func (w *Watcher) processBlock(block *ethtypes.Block) ([]*ethtypes.Transaction, 
 		}
 	}
 
-	averageTip := big.NewInt(0)
-	if count > 0 {
-		averageTip = new(big.Int).Div(totalTip, big.NewInt(int64(count)))
-	}
-
-	return ret, averageTip
+	return ret
 }
 
 func (w *Watcher) acceptTx(tx *ethtypes.Transaction) bool {
