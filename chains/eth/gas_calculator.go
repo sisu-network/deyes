@@ -3,6 +3,7 @@ package eth
 import (
 	"context"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	GasQueueSize    = 40
+	GasQueueSize    = 120
 	DefaultBaseFee  = int64(15_000_000_000) // 15 gwei
 	DefaultGasPrice = int64(20_000_000_000) // 20 gwei
 	DefaultTip      = int64(1_000_000_000)
@@ -109,13 +110,25 @@ func (g *gasCalculator) GetTip() *big.Int {
 		return big.NewInt(DefaultTip)
 	}
 
-	// Get the sum and then the average
-	total := int64(0)
-	for _, tip := range g.tipQueue {
-		total += tip
+	copy := g.tipQueue
+	sort.SliceStable(copy, func(i, j int) bool {
+		return copy[i] < copy[j]
+	})
+
+	// Find the first element that is different than min tip
+	var index int
+	for i := 1; i < len(copy)-1; i++ {
+		if copy[i] != copy[i-1] {
+			break
+		}
+
+		index = i
 	}
 
-	return big.NewInt(total / int64(len(g.tipQueue)))
+	// Choose the element at 20% interval between min and max.
+	selectedIndex := index + (len(copy)-index)/5
+
+	return big.NewInt(copy[selectedIndex])
 }
 
 // GetGasPrice returns estimated gas price.

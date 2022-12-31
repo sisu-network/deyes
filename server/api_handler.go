@@ -6,6 +6,7 @@ import (
 	"github.com/echovl/cardano-go"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
 	chainseth "github.com/sisu-network/deyes/chains/eth"
+	deyesethtypes "github.com/sisu-network/deyes/chains/eth/types"
 	chainssolana "github.com/sisu-network/deyes/chains/solana"
 	"github.com/sisu-network/deyes/core"
 	"github.com/sisu-network/deyes/types"
@@ -51,14 +52,14 @@ func (api *ApiHandler) GetNonce(chain string, address string) (int64, error) {
 }
 
 // This API only applies for ETH chains.
-func (api *ApiHandler) GetGasPrices(chains []string) []int64 {
-	prices := make([]int64, len(chains))
+func (api *ApiHandler) GetGasPrices(chains []string) []deyesethtypes.GasInfo {
+	prices := make([]deyesethtypes.GasInfo, len(chains))
 	for i, chain := range chains {
 		if libchain.IsETHBasedChain(chain) {
 			watcher := api.processor.GetWatcher(chain).(*chainseth.Watcher)
-			prices[i] = watcher.GetGasInfo().GasPrice
+			prices[i] = watcher.GetGasInfo()
 		} else {
-			prices[i] = 0
+			prices[i] = deyesethtypes.GasInfo{}
 		}
 	}
 

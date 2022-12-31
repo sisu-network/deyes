@@ -43,7 +43,6 @@ func (e *BlockHeightExceededError) Error() string {
 	return fmt.Sprintf("Our block height is higher than chain's height. Chain height = %d", e.ChainHeight)
 }
 
-// TODO: Move this to the chains package.
 type Watcher struct {
 	cfg          config.Chain
 	client       EthClient
@@ -340,12 +339,12 @@ func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*ethtypes.Receipt, 
 func (w *Watcher) GetGasInfo() deyesethtypes.GasInfo {
 	if w.cfg.UseGasEip1559 {
 		return deyesethtypes.GasInfo{
-			GasPrice: w.gasCal.GetGasPrice().Int64(),
+			BaseFee: w.gasCal.GetBaseFee().Int64(),
+			Tip:     w.gasCal.GetTip().Int64(),
 		}
 	} else {
 		return deyesethtypes.GasInfo{
-			BaseFee: w.gasCal.GetBaseFee().Int64(),
-			Tip:     w.gasCal.GetTip().Int64(),
+			GasPrice: w.gasCal.GetGasPrice().Int64(),
 		}
 	}
 }

@@ -72,7 +72,7 @@ func (p *Processor) Start() {
 		var dispatcher chains.Dispatcher
 		if libchain.IsETHBasedChain(chain) {
 			// ETH chain
-			client := chainseth.NewEthClients(cfg.Rpcs, cfg, p.cfg.UseExternalRpcsInfo)
+			client := chainseth.NewEthClients(cfg, p.cfg.UseExternalRpcsInfo)
 			client.Start()
 
 			watcher = chainseth.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, client)

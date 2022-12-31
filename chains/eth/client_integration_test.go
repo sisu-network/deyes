@@ -11,7 +11,14 @@ import (
 func TestIntegration_GetExtraRpcs(t *testing.T) {
 	t.Skip()
 
-	c := NewEthClients([]string{}, config.Chain{Chain: "goerli-testnet"}, true).(*defaultEthClient)
+	c := NewEthClients(
+		config.Chain{
+			Chain:         "goerli-testnet",
+			UseGasEip1559: true,
+			Rpcs:          make([]string, 0),
+		},
+		true,
+	).(*defaultEthClient)
 	rpcs, err := c.GetExtraRpcs()
 	require.Nil(t, err)
 
