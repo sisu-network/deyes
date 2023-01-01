@@ -41,11 +41,12 @@ type gasCalculator struct {
 func newGasCalculator(cfg config.Chain, client EthClient,
 	gasPriceUpdateInterval time.Duration) *gasCalculator {
 	return &gasCalculator{
-		cfg:          cfg,
-		client:       client,
-		baseFeeQueue: make([]int64, 0, GasQueueSize),
-		tipQueue:     make([]int64, 0, GasQueueSize),
-		lock:         &sync.RWMutex{},
+		cfg:                    cfg,
+		client:                 client,
+		gasPriceUpdateInterval: gasPriceUpdateInterval,
+		baseFeeQueue:           make([]int64, 0, GasQueueSize),
+		tipQueue:               make([]int64, 0, GasQueueSize),
+		lock:                   &sync.RWMutex{},
 	}
 }
 
