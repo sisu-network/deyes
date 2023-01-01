@@ -55,7 +55,7 @@ func (g *gasCalculator) Start() {
 
 // AddNewBlock takes as new ETH block and update base fee & tip (for EIP 1559).
 func (g *gasCalculator) AddNewBlock(block *ethtypes.Block) {
-	if g.cfg.UseGasEip1559 {
+	if g.cfg.UseEip1559 {
 		// Update base tip
 		for _, tx := range block.Transactions() {
 			// Check tx gas base fee
@@ -115,20 +115,7 @@ func (g *gasCalculator) GetTip() *big.Int {
 		return copy[i] < copy[j]
 	})
 
-	// Find the first element that is different than min tip
-	var index int
-	for i := 1; i < len(copy)-1; i++ {
-		if copy[i] != copy[i-1] {
-			break
-		}
-
-		index = i
-	}
-
-	// Choose the element at 20% interval between min and max.
-	selectedIndex := index + (len(copy)-index)/5
-
-	return big.NewInt(copy[selectedIndex])
+	return big.NewInt(copy[len(copy)/2])
 }
 
 // GetGasPrice returns estimated gas price.

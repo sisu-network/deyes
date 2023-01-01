@@ -52,18 +52,14 @@ func (api *ApiHandler) GetNonce(chain string, address string) (int64, error) {
 }
 
 // This API only applies for ETH chains.
-func (api *ApiHandler) GetGasPrices(chains []string) []deyesethtypes.GasInfo {
-	prices := make([]deyesethtypes.GasInfo, len(chains))
-	for i, chain := range chains {
-		if libchain.IsETHBasedChain(chain) {
-			watcher := api.processor.GetWatcher(chain).(*chainseth.Watcher)
-			prices[i] = watcher.GetGasInfo()
-		} else {
-			prices[i] = deyesethtypes.GasInfo{}
-		}
+func (api *ApiHandler) GetGasInfo(chain string) *deyesethtypes.GasInfo {
+	if libchain.IsETHBasedChain(chain) {
+		watcher := api.processor.GetWatcher(chain).(*chainseth.Watcher)
+		gasInfo := watcher.GetGasInfo()
+		return &gasInfo
+	} else {
+		return nil
 	}
-
-	return prices
 }
 
 ///// Carnado

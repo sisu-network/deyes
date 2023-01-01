@@ -24,7 +24,7 @@ func getTestTxForDynamicGas(baseFee, tip int64) *ethtypes.Transaction {
 
 func TestDynamicGasFee(t *testing.T) {
 	cfg := config.Chain{
-		UseGasEip1559: true,
+		UseEip1559: true,
 	}
 
 	header := &ethtypes.Header{

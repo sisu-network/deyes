@@ -28,7 +28,7 @@ type Chain struct {
 	Wss        []string `toml:"wss" json:"wss"`
 
 	// ETH
-	UseGasEip1559 bool `toml:"use_gas_eip_1559" json:"use_gas_eip_1559"`
+	UseEip1559 bool `toml:"use_eip_1559" json:"use_eip_1559"` // For gas calculation
 
 	// Cardano
 	ClientType ClientType `toml:"client_type" json:"client_type"`

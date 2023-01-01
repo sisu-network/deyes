@@ -22,11 +22,11 @@ func TestIntegration_GetGasPrice(t *testing.T) {
 	cfg := config.Deyes{
 		Chains: map[string]config.Chain{
 			"goerli-testnet": {
-				Chain:         "goerli-testnet",
-				UseGasEip1559: true,
-				Rpcs:          []string{"https://polygon.llamarpc.com"},
-				BlockTime:     5000,
-				AdjustTime:    500,
+				Chain:      "goerli-testnet",
+				UseEip1559: true,
+				Rpcs:       []string{"https://polygon.llamarpc.com"},
+				BlockTime:  5000,
+				AdjustTime: 500,
 			},
 		},
 

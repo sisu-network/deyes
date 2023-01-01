@@ -141,7 +141,7 @@ func (w *Watcher) waitForBlock() {
 		txs := w.processBlock(block)
 		log.Info(w.cfg.Chain, " Filtered txs = ", len(txs))
 
-		if w.cfg.UseGasEip1559 {
+		if w.cfg.UseEip1559 {
 			w.gasCal.AddNewBlock(block)
 		}
 
@@ -317,7 +317,7 @@ func (w *Watcher) getTransactionReceipt(txHash common.Hash) (*ethtypes.Receipt, 
 }
 
 func (w *Watcher) GetGasInfo() deyesethtypes.GasInfo {
-	if w.cfg.UseGasEip1559 {
+	if w.cfg.UseEip1559 {
 		return deyesethtypes.GasInfo{
 			BaseFee: w.gasCal.GetBaseFee().Int64(),
 			Tip:     w.gasCal.GetTip().Int64(),

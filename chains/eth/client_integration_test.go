@@ -13,9 +13,9 @@ func TestIntegration_GetExtraRpcs(t *testing.T) {
 
 	c := NewEthClients(
 		config.Chain{
-			Chain:         "goerli-testnet",
-			UseGasEip1559: true,
-			Rpcs:          make([]string, 0),
+			Chain:      "goerli-testnet",
+			UseEip1559: true,
+			Rpcs:       make([]string, 0),
 		},
 		true,
 	).(*defaultEthClient)
