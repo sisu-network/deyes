@@ -47,7 +47,7 @@ func TestDynamicGasFee(t *testing.T) {
 	baseFee := gasCal.GetBaseFee()
 	require.Equal(t, big.NewInt(10000000000), baseFee)
 	tip := gasCal.GetTip()
-	require.Equal(t, big.NewInt(19500000000), tip)
+	require.Equal(t, big.NewInt(60000000000), tip)
 }
 
 func TestLegacyGasPrice(t *testing.T) {
