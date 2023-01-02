@@ -108,8 +108,14 @@ func (w *Watcher) waitForBlock() {
 			// Pass this block to the receipt fetcher
 			log.Info(w.cfg.Chain, " Block length = ", block.NumberOfTransactions)
 			txArr := make([]*ctypes.Tx, 0)
+
 			for _, tx := range block.Transactions {
-				if strings.EqualFold(tx.Sender.Address, w.vault) {
+				if tx.Sender != nil && strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
+					if err := tx.Validate(); err != nil {
+						log.Errorf("Failed to validate transaction, err = %v", err)
+						continue
+					}
+
 					log.Infof("Transfer %s from address %s to %s with message %s",
 						tx.Asset.Amount,
 						tx.Sender.Address,

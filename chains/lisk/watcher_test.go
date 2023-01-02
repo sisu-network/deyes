@@ -37,14 +37,14 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 			return &block, nil
 		},
 		TransactionByBlockFunc: func(block string) ([]*ltypes.Transaction, error) {
-			sender := ltypes.Sender{
-				Address: vaultAddress,
+			sender := &ltypes.Sender{
+				Address: "sender",
 			}
-			asset := ltypes.Asset{
+			asset := &ltypes.Asset{
 				Amount: "1000",
 				Data:   "mock_transaction_message",
-				Recipient: ltypes.AssetRecipient{
-					Address: "mock_recipient_address",
+				Recipient: &ltypes.AssetRecipient{
+					Address: vaultAddress,
 				},
 			}
 			transaction := &ltypes.Transaction{

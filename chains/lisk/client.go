@@ -107,7 +107,7 @@ func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	}
 	latestBlock := blocks[0]
 
-	return &latestBlock, err
+	return latestBlock, err
 }
 
 func (c *defaultLiskClient) TransactionByBlock(block string) ([]*types.Transaction, error) {

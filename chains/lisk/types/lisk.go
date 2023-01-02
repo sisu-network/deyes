@@ -1,26 +1,13 @@
 package types
 
 type ResponseBlock struct {
-	Data []Block `json:"data"`
-	Meta Meta
+	Data []*Block `json:"data"`
+	Meta *Meta
 }
 
 type ResponseTransaction struct {
 	Data []*Transaction `json:"data"`
-	Meta Meta
-}
-
-type Transaction struct {
-	Id              string           `json:"id"`
-	ModuleAssetId   string           `json:"moduleAssetId"`
-	ModuleAssetName string           `json:"moduleAssetName"`
-	Height          int64            `json:"height"`
-	Nonce           string           `json:"nonce"`
-	Block           TransactionBlock `json:"block"`
-	Sender          Sender           `json:"sender"`
-	Signatures      []string         `json:"signatures"`
-	Asset           Asset            `json:"asset"`
-	IsPending       bool             `json:"isPending"`
+	Meta *Meta
 }
 
 type TransactionBlock struct {
@@ -36,9 +23,9 @@ type Sender struct {
 }
 
 type Asset struct {
-	Amount    string         `json:"amount"`
-	Data      string         `json:"data"`
-	Recipient AssetRecipient `json:"recipient"`
+	Amount    string          `json:"amount"`
+	Data      string          `json:"data"`
+	Recipient *AssetRecipient `json:"recipient"`
 }
 
 type AssetRecipient struct {
