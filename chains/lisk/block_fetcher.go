@@ -2,8 +2,10 @@ package lisk
 
 import (
 	"fmt"
-	"github.com/sisu-network/deyes/utils"
 	"time"
+
+	"github.com/sisu-network/deyes/utils"
+	"go.uber.org/atomic"
 
 	"github.com/sisu-network/deyes/chains/lisk/types"
 
@@ -13,29 +15,14 @@ import (
 
 type BlockFetcher interface {
 	start()
+	stop()
+
 	setBlockHeight()
 	scanBlocks()
 	getLatestBlock() (*types.Block, error)
 	getBlock(height uint64) (*types.Block, error)
 	tryGetBlock() (*types.Block, error)
 	getBlockNumber() (uint64, error)
-}
-
-func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) BlockFetcher {
-	return &defaultBlockFetcher{
-		blockCh:   blockCh,
-		cfg:       cfg,
-		client:    client,
-		blockTime: cfg.BlockTime,
-	}
-}
-
-type defaultBlockFetcher struct {
-	blockHeight uint64
-	blockTime   int
-	cfg         config.Chain
-	client      LiskClient
-	blockCh     chan *types.Block
 }
 
 type BlockHeightExceededError struct {
@@ -52,9 +39,32 @@ func (e *BlockHeightExceededError) Error() string {
 	return fmt.Sprintf("Our block height is higher than chain's height. Chain height = %d", e.ChainHeight)
 }
 
+type defaultBlockFetcher struct {
+	blockHeight uint64
+	blockTime   int
+	cfg         config.Chain
+	client      LiskClient
+	blockCh     chan *types.Block
+	done        atomic.Bool
+}
+
+func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) BlockFetcher {
+	return &defaultBlockFetcher{
+		blockCh:   blockCh,
+		cfg:       cfg,
+		client:    client,
+		blockTime: cfg.BlockTime,
+		done:      *atomic.NewBool(false),
+	}
+}
+
 func (bf *defaultBlockFetcher) start() {
 	bf.setBlockHeight()
 	bf.scanBlocks()
+}
+
+func (bf *defaultBlockFetcher) stop() {
+	bf.done.Store(true)
 }
 
 func (bf *defaultBlockFetcher) setBlockHeight() {
@@ -93,9 +103,14 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 			time.Sleep(time.Duration(bf.blockTime) * time.Millisecond)
 			continue
 		}
+
 		bf.blockTime = bf.blockTime - bf.cfg.AdjustTime/4
 		bf.blockCh <- block
 		bf.blockHeight++
+
+		if bf.done.Load() {
+			return
+		}
 
 		time.Sleep(time.Duration(bf.blockTime) * time.Millisecond)
 	}
@@ -126,7 +141,7 @@ func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 		}
 		block.Transactions = transactions
 	}
-	
+
 	return block, err
 }
 

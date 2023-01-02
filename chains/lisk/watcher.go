@@ -1,6 +1,7 @@
 package lisk
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 
@@ -17,6 +18,22 @@ const (
 	TxTrackCacheSize = 1_000
 )
 
+type Watcher struct {
+	cfg          config.Chain
+	client       LiskClient
+	blockTime    int
+	db           database.Database
+	vault        string
+	txTrackCache *lru.Cache
+	lock         *sync.RWMutex
+	txsCh        chan *ctypes.Txs
+	doneCh       chan bool
+
+	// Block fetcher
+	blockCh      chan *types.Block
+	blockFetcher BlockFetcher
+}
+
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
 	client LiskClient) chains.Watcher {
 	blockCh := make(chan *types.Block)
@@ -31,24 +48,10 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
 		client:       client,
 		lock:         &sync.RWMutex{},
 		txTrackCache: lru.New(TxTrackCacheSize),
+		doneCh:       make(chan bool),
 	}
 
 	return w
-}
-
-type Watcher struct {
-	cfg          config.Chain
-	client       LiskClient
-	blockTime    int
-	db           database.Database
-	vault        string
-	txTrackCache *lru.Cache
-	lock         *sync.RWMutex
-	txsCh        chan *ctypes.Txs
-
-	// Block fetcher
-	blockCh      chan *types.Block
-	blockFetcher BlockFetcher
 }
 
 func (w *Watcher) init() {
@@ -84,6 +87,11 @@ func (w *Watcher) Start() {
 	go w.scanBlocks()
 }
 
+func (w *Watcher) Stop() {
+	w.blockFetcher.stop()
+	w.doneCh <- true
+}
+
 func (w *Watcher) scanBlocks() {
 	go w.blockFetcher.start()
 	go w.waitForBlock()
@@ -92,35 +100,47 @@ func (w *Watcher) scanBlocks() {
 // waitForBlock waits for new blocks from the block fetcher. It then filters interested txs and
 func (w *Watcher) waitForBlock() {
 	for {
-		block := <-w.blockCh
-		// Pass this block to the receipt fetcher
-		log.Info(w.cfg.Chain, " Block length = ", block.NumberOfTransactions)
-		txArr := make([]*ctypes.Tx, 0)
-		for _, tx := range block.Transactions {
-			if strings.EqualFold(tx.Sender.Address, w.vault) {
-				log.Infof("Transfer %s from address %s to %s with message %s",
-					tx.Asset.Amount,
-					tx.Sender.Address,
-					tx.Asset.Recipient.Address,
-					tx.Asset.Data,
-				)
-				txFormatted := ctypes.Tx{
-					Hash:       tx.Id,
-					Serialized: []byte(tx.Signatures[0]),
-					From:       tx.Sender.Address,
-					To:         tx.Asset.Recipient.Address,
-					Success:    tx.IsPending == false,
+		select {
+		case <-w.doneCh:
+			return
+
+		case block := <-w.blockCh:
+			// Pass this block to the receipt fetcher
+			log.Info(w.cfg.Chain, " Block length = ", block.NumberOfTransactions)
+			txArr := make([]*ctypes.Tx, 0)
+			for _, tx := range block.Transactions {
+				if strings.EqualFold(tx.Sender.Address, w.vault) {
+					log.Infof("Transfer %s from address %s to %s with message %s",
+						tx.Asset.Amount,
+						tx.Sender.Address,
+						tx.Asset.Recipient.Address,
+						tx.Asset.Data,
+					)
+					bz, err := json.Marshal(tx)
+					if err != nil {
+						log.Errorf("Failed to marshal transaction, err = %v", err)
+						continue
+					}
+
+					txFormatted := ctypes.Tx{
+						Hash:       tx.Id,
+						Serialized: bz,
+						From:       tx.Sender.Address,
+						To:         tx.Asset.Recipient.Address,
+						Success:    tx.IsPending == false,
+					}
+					txArr = append(txArr, &txFormatted)
 				}
-				txArr = append(txArr, &txFormatted)
 			}
+
+			txs := ctypes.Txs{
+				Chain:     w.cfg.Chain,
+				Block:     int64(block.Height),
+				BlockHash: block.Id,
+				Arr:       txArr,
+			}
+			w.txsCh <- &txs
 		}
-		txs := ctypes.Txs{
-			Chain:     w.cfg.Chain,
-			Block:     int64(block.Height),
-			BlockHash: block.Id,
-			Arr:       txArr,
-		}
-		w.txsCh <- &txs
 	}
 }
 

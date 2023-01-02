@@ -1,9 +1,10 @@
 package lisk
 
 import (
+	"encoding/json"
 	"testing"
 
-	ltype "github.com/sisu-network/deyes/chains/lisk/types"
+	ltypes "github.com/sisu-network/deyes/chains/lisk/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/types"
@@ -26,8 +27,8 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 		BlockNumberFunc: func() (uint64, error) {
 			return 1, nil
 		},
-		BlockByHeightFunc: func(height uint64) (*ltype.Block, error) {
-			block := ltype.Block{
+		BlockByHeightFunc: func(height uint64) (*ltypes.Block, error) {
+			block := ltypes.Block{
 				Id:                   "mock_block_id",
 				Height:               1,
 				NumberOfTransactions: 1,
@@ -35,41 +36,50 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 
 			return &block, nil
 		},
-		TransactionByBlockFunc: func(block string) ([]ltype.Transaction, error) {
-			sender := ltype.Sender{
-				Address: "mock_sender_address",
+		TransactionByBlockFunc: func(block string) ([]ltypes.Transaction, error) {
+			sender := ltypes.Sender{
+				Address: vaultAddress,
 			}
-			asset := ltype.Asset{
+			asset := ltypes.Asset{
 				Amount: "1000",
 				Data:   "mock_transaction_message",
-				Recipient: ltype.AssetRecipient{
+				Recipient: ltypes.AssetRecipient{
 					Address: "mock_recipient_address",
 				},
 			}
-			transaction := ltype.Transaction{
-				Id:     "mock_transaction_id",
-				Height: 1,
-				Sender: sender,
-				Asset:  asset,
+			transaction := ltypes.Transaction{
+				Id:         "mock_transaction_id",
+				Height:     1,
+				Sender:     sender,
+				Asset:      asset,
+				Signatures: []string{"signature"},
 			}
 
-			return []ltype.Transaction{transaction}, nil
+			return []ltypes.Transaction{transaction}, nil
 		},
 	}
 
 	db := getTestDb()
 	cfg := config.Chain{
 		Chain:      "lisk-testnet",
-		BlockTime:  5000,
-		AdjustTime: 1000,
+		BlockTime:  1000,
+		AdjustTime: 100,
 		Rpcs:       []string{"https://example.com"},
 	}
 	txsCh := make(chan *types.Txs)
+
 	watcher := NewWatcher(db, cfg, txsCh, client).(*Watcher)
 	watcher.SetVault(vaultAddress, "")
-	block, _ := watcher.blockFetcher.tryGetBlock()
-	require.Equal(t, block.Height, uint64(1))
-	require.Equal(t, block.NumberOfTransactions, int64(1))
-	require.Equal(t, len(block.Transactions), 1)
-	require.Equal(t, watcher.vault, vaultAddress)
+	watcher.Start()
+
+	txs := <-txsCh
+
+	require.Equal(t, 1, len(txs.Arr))
+	tx := ltypes.Transaction{}
+	err := json.Unmarshal(txs.Arr[0].Serialized, &tx)
+	require.Nil(t, err)
+	// TODO: Reconstruct the transaction and do verification for all fields.
+
+	// Stop the watcher to clean up all running go routine.
+	watcher.Stop()
 }
