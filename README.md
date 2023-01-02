@@ -22,5 +22,5 @@ go build && ./deyes
 Testing
 
 ```
- go test -v .
+make test
 ```
