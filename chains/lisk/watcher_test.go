@@ -32,6 +32,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 				Height:               1,
 				NumberOfTransactions: 1,
 			}
+
 			return &block, nil
 		},
 		TransactionByBlockFunc: func(block string) ([]ltype.Transaction, error) {
@@ -51,6 +52,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 				Sender: sender,
 				Asset:  asset,
 			}
+
 			return []ltype.Transaction{transaction}, nil
 		},
 	}
@@ -60,7 +62,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 		Chain:      "lisk-testnet",
 		BlockTime:  5000,
 		AdjustTime: 1000,
-		Rpcs:       []string{"https://testnet-service.lisk.com/api/v2"},
+		Rpcs:       []string{"https://example.com"},
 	}
 	txsCh := make(chan *types.Txs)
 	watcher := NewWatcher(db, cfg, txsCh, client).(*Watcher)
@@ -70,5 +72,4 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 	require.Equal(t, block.NumberOfTransactions, int64(1))
 	require.Equal(t, len(block.Transactions), 1)
 	require.Equal(t, watcher.vault, vaultAddress)
-
 }

@@ -64,11 +64,11 @@ type defaultEthClient struct {
 	lock *sync.RWMutex
 }
 
-func NewEthClients(initialRpcs []string, cfg config.Chain, useExternalRpcs bool) EthClient {
+func NewEthClients(cfg config.Chain, useExternalRpcs bool) EthClient {
 	c := &defaultEthClient{
 		chain:           cfg.Chain,
 		useExternalRpcs: useExternalRpcs,
-		initialRpcs:     initialRpcs,
+		initialRpcs:     cfg.Rpcs,
 		lock:            &sync.RWMutex{},
 	}
 

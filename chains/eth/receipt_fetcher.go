@@ -109,5 +109,8 @@ func (rf *defaultReceiptFetcher) getResponse(request *txReceiptRequest) *txRecei
 }
 
 func (rf *defaultReceiptFetcher) fetchReceipts(block int64, txs []*etypes.Transaction) {
-	rf.requestCh <- &txReceiptRequest{blockNumber: block, txs: txs}
+	rf.requestCh <- &txReceiptRequest{
+		blockNumber: block,
+		txs:         txs,
+	}
 }

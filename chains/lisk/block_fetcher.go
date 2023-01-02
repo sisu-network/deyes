@@ -107,6 +107,7 @@ func (bf *defaultBlockFetcher) getLatestBlock() (*types.Block, error) {
 		log.Errorf("Failed to get number by block, err = %v", err)
 		return nil, err
 	}
+
 	return bf.getBlock(latestHeight)
 }
 
@@ -125,6 +126,7 @@ func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 		}
 		block.Transactions = transactions
 	}
+	
 	return block, err
 }
 
