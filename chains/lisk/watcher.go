@@ -32,6 +32,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
 		lock:         &sync.RWMutex{},
 		txTrackCache: lru.New(TxTrackCacheSize),
 	}
+
 	return w
 }
 
@@ -47,7 +48,7 @@ type Watcher struct {
 
 	// Block fetcher
 	blockCh      chan *types.Block
-	blockFetcher *defaultBlockFetcher
+	blockFetcher BlockFetcher
 }
 
 func (w *Watcher) init() {
@@ -97,8 +98,20 @@ func (w *Watcher) waitForBlock() {
 		txArr := make([]*ctypes.Tx, 0)
 		for _, tx := range block.Transactions {
 			if strings.EqualFold(tx.Sender.Address, w.vault) {
-				log.Infof("Transfer %s from address %s to %s with message %s", tx.Asset.Amount, tx.Sender.Address, tx.Asset.Recipient.Address, tx.Asset.Data)
-				txArr = append(txArr, &ctypes.Tx{Hash: tx.Id, Serialized: []byte(tx.Signatures[0]), From: tx.Sender.Address, To: tx.Asset.Recipient.Address, Success: tx.IsPending == false})
+				log.Infof("Transfer %s from address %s to %s with message %s",
+					tx.Asset.Amount,
+					tx.Sender.Address,
+					tx.Asset.Recipient.Address,
+					tx.Asset.Data,
+				)
+				txFormatted := ctypes.Tx{
+					Hash:       tx.Id,
+					Serialized: []byte(tx.Signatures[0]),
+					From:       tx.Sender.Address,
+					To:         tx.Asset.Recipient.Address,
+					Success:    tx.IsPending == false,
+				}
+				txArr = append(txArr, &txFormatted)
 			}
 		}
 		txs := ctypes.Txs{

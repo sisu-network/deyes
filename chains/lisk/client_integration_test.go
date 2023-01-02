@@ -1,20 +1,20 @@
-package eth
+package lisk
 
 import (
+	"github.com/sisu-network/lib/log"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/lib/log"
 	"github.com/stretchr/testify/require"
 )
 
-func TestIntegration_GetExtraRpcs(t *testing.T) {
+func TestIntegration_CreateNewClient(t *testing.T) {
 	t.Skip()
+	config := config.Chain{Chain: "lisk-testnet", Rpcs: []string{"https://testnet-service.lisk.com/api/v2"}}
+	client := NewLiskClient(config).(*defaultLiskClient)
 
-	c := NewEthClients([]string{}, config.Chain{Chain: "goerli-testnet"}, true).(*defaultEthClient)
-	rpcs, err := c.GetExtraRpcs()
-	require.Nil(t, err)
+	require.Equal(t, client.rpc, config.Rpcs[0])
+	require.Equal(t, client.chain, config.Chain)
 
-	fileterRpcs, _, _ := c.getRpcsHealthiness(rpcs)
-	log.Verbose("fileterRpcs = ", fileterRpcs)
+	log.Verbose("filter Rpcs = ", config.Rpcs[0])
 }

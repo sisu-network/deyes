@@ -103,7 +103,6 @@ func (w *Watcher) scanBlocks() {
 				// This error is not a Block not found error. Print the error here.
 				log.Errorf("Error when getting block for height/hash = %d, error = %v\n", latestBlock.Height, err)
 			} else {
-
 				log.Verbosef("%s: Block %d not found. We need to wait more. w.blockTime = %d\n",
 					w.cfg.Chain, latestBlock.Height, w.blockTime)
 			}

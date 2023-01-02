@@ -11,6 +11,25 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
+type BlockFetcher interface {
+	start()
+	setBlockHeight()
+	scanBlocks()
+	getLatestBlock() (*types.Block, error)
+	getBlock(height uint64) (*types.Block, error)
+	tryGetBlock() (*types.Block, error)
+	getBlockNumber() (uint64, error)
+}
+
+func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) BlockFetcher {
+	return &defaultBlockFetcher{
+		blockCh:   blockCh,
+		cfg:       cfg,
+		client:    client,
+		blockTime: cfg.BlockTime,
+	}
+}
+
 type defaultBlockFetcher struct {
 	blockHeight uint64
 	blockTime   int
@@ -33,18 +52,8 @@ func (e *BlockHeightExceededError) Error() string {
 	return fmt.Sprintf("Our block height is higher than chain's height. Chain height = %d", e.ChainHeight)
 }
 
-func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) *defaultBlockFetcher {
-	return &defaultBlockFetcher{
-		blockCh:   blockCh,
-		cfg:       cfg,
-		client:    client,
-		blockTime: cfg.BlockTime,
-	}
-}
-
 func (bf *defaultBlockFetcher) start() {
 	bf.setBlockHeight()
-
 	bf.scanBlocks()
 }
 
@@ -103,6 +112,7 @@ func (bf *defaultBlockFetcher) getLatestBlock() (*types.Block, error) {
 
 func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 	block, err := bf.client.BlockByHeight(height)
+
 	if err != nil {
 		return nil, err
 	}

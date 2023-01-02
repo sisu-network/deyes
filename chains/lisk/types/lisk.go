@@ -1,5 +1,15 @@
 package types
 
+type ResponseBlock struct {
+	Data []Block `json:"data"`
+	Meta Meta
+}
+
+type ResponseTransaction struct {
+	Data []Transaction `json:"data"`
+	Meta Meta
+}
+
 type Transaction struct {
 	Id              string           `json:"id"`
 	ModuleAssetId   string           `json:"moduleAssetId"`
@@ -33,11 +43,6 @@ type Asset struct {
 
 type AssetRecipient struct {
 	Address string `json:"address"`
-}
-
-type ResponseWrapper struct {
-	Data []map[string]interface{} `json:"data"`
-	Meta Meta
 }
 
 type Meta struct {

@@ -44,7 +44,7 @@ func NewLiskClient(cfg config.Chain) LiskClient {
 	return c
 }
 
-func (c *defaultLiskClient) execute(endpoint string, params map[string]string) ([]map[string]interface{}, error) {
+func (c *defaultLiskClient) execute(endpoint string, params map[string]string) ([]byte, error) {
 	keys := reflect.ValueOf(params).MapKeys()
 	req, err := http.NewRequest("GET", c.rpc+endpoint, nil)
 	if err != nil {
@@ -66,10 +66,7 @@ func (c *defaultLiskClient) execute(endpoint string, params map[string]string) (
 		return nil, err
 	}
 
-	var responseObject types.ResponseWrapper
-	json.Unmarshal(responseData, &responseObject)
-
-	return responseObject.Data, err
+	return responseData, err
 }
 
 func (c *defaultLiskClient) BlockNumber() (uint64, error) {
@@ -77,17 +74,19 @@ func (c *defaultLiskClient) BlockNumber() (uint64, error) {
 		"limit": "1",
 		"sort":  "height:desc",
 	}
-	blocks, err := c.execute("/blocks", params)
+	response, err := c.execute("/blocks", params)
 	if err != nil {
 		return 0, err
 	}
-	latestBlock := blocks[0]
-	latestBlockJson, _ := json.Marshal(latestBlock)
-	var block types.Block
-	if err := json.Unmarshal(latestBlockJson, &block); err != nil {
+
+	var responseObject types.ResponseBlock
+	err = json.Unmarshal(response, &responseObject)
+	if err != nil {
 		return 0, err
 	}
-	return block.Height, nil
+	blocks := responseObject.Data
+	latestBlock := blocks[0]
+	return latestBlock.Height, nil
 }
 
 func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
@@ -95,26 +94,20 @@ func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 		"limit":  "1",
 		"height": strconv.FormatUint(uint64(height), 10),
 	}
-	blocks, err := c.execute("/blocks", params)
+	response, err := c.execute("/blocks", params)
+	var responseObject types.ResponseBlock
+	err = json.Unmarshal(response, &responseObject)
 	if err != nil {
 		return nil, err
 	}
 
+	blocks := responseObject.Data
 	if len(blocks) == 0 {
 		return nil, NewApiErr("lisk block is not found")
 	}
 	latestBlock := blocks[0]
-	latestBlockJson, err := json.Marshal(latestBlock)
-	if err != nil {
-		return nil, err
-	}
-	var block types.Block
-	if err := json.Unmarshal(latestBlockJson, &block); err != nil {
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &block, err
+
+	return &latestBlock, err
 }
 
 func (c *defaultLiskClient) TransactionByBlock(block string) ([]types.Transaction, error) {
@@ -125,15 +118,12 @@ func (c *defaultLiskClient) TransactionByBlock(block string) ([]types.Transactio
 	if err != nil {
 		return nil, err
 	}
-	transactionsJson, err := json.Marshal(response)
+
+	var responseObject types.ResponseTransaction
+	err = json.Unmarshal(response, &responseObject)
 	if err != nil {
 		return nil, err
 	}
-	var transactions []types.Transaction
-	if err := json.Unmarshal(transactionsJson, &transactions); err != nil {
-		if err != nil {
-			return nil, err
-		}
-	}
-	return transactions, nil
+
+	return responseObject.Data, nil
 }
