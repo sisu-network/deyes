@@ -1,16 +1,16 @@
 package types
 
 type Transaction struct {
-	Id              string   `json:"id"`
-	ModuleAssetId   string   `json:"moduleAssetId"`
-	ModuleAssetName string   `json:"moduleAssetName"`
-	Height          int64    `json:"height"`
-	Nonce           string   `json:"nonce"`
-	Block           string   `json:"block"`
-	Sender          Sender   `json:"sender"`
-	Signatures      []string `json:"signatures"`
-	Asset           Asset    `json:"asset"`
-	IsPending       bool     `json:"isPending"`
+	Id              string           `json:"id"`
+	ModuleAssetId   string           `json:"moduleAssetId"`
+	ModuleAssetName string           `json:"moduleAssetName"`
+	Height          int64            `json:"height"`
+	Nonce           string           `json:"nonce"`
+	Block           TransactionBlock `json:"block"`
+	Sender          Sender           `json:"sender"`
+	Signatures      []string         `json:"signatures"`
+	Asset           Asset            `json:"asset"`
+	IsPending       bool             `json:"isPending"`
 }
 
 type TransactionBlock struct {

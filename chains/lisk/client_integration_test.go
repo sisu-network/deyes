@@ -16,5 +16,5 @@ func TestIntegration_GetExtraRpcs(t *testing.T) {
 	require.Nil(t, err)
 
 	fileterRpcs, _, _ := c.getRpcsHealthiness(rpcs)
-	log.Verbose("filterRpcs = ", fileterRpcs)
+	log.Verbose("fileterRpcs = ", fileterRpcs)
 }
