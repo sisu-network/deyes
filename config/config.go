@@ -4,25 +4,6 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
-var ChainParamsMap = map[string]ChainParams{
-	"ganache1":         {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"ganache2":         {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"eth":              {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"ropsten-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"goerli-testnet":   {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"binance-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"fantom-testnet":   {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"polygon-testnet":  {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"xdai":             {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"arbitrum-testnet": {GasPriceStartBlockHeight: 1000, Interval: 50},
-	"avaxc-testnet":    {GasPriceStartBlockHeight: 1000, Interval: 50},
-}
-
-type ChainParams struct {
-	GasPriceStartBlockHeight int64
-	Interval                 int64
-}
-
 type SyncDbConfig struct {
 	Host      string `toml:"host" json:"host,omitempty"`
 	Port      int    `toml:"port" json:"port,omitempty"`
@@ -45,6 +26,9 @@ type Chain struct {
 	AdjustTime int      `toml:"adjust_time" json:"adjust_time"`
 	Rpcs       []string `toml:"rpcs" json:"rpcs"`
 	Wss        []string `toml:"wss" json:"wss"`
+
+	// ETH
+	UseEip1559 bool `toml:"use_eip_1559" json:"use_eip_1559"` // For gas calculation
 
 	// Cardano
 	ClientType ClientType `toml:"client_type" json:"client_type"`
