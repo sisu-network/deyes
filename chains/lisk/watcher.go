@@ -144,8 +144,8 @@ func (w *Watcher) waitForBlock() {
 	}
 }
 
-func (w *Watcher) processBlock(block *types.Block) []types.Transaction {
-	ret := make([]types.Transaction, 0)
+func (w *Watcher) processBlock(block *types.Block) []*types.Transaction {
+	ret := make([]*types.Transaction, 0)
 	for _, tx := range block.Transactions {
 		if _, ok := w.txTrackCache.Get(tx.Id); ok {
 			ret = append(ret, tx)
@@ -159,7 +159,7 @@ func (w *Watcher) processBlock(block *types.Block) []types.Transaction {
 
 	return ret
 }
-func (w *Watcher) acceptTx(tx types.Transaction) bool {
+func (w *Watcher) acceptTx(tx *types.Transaction) bool {
 	if tx.Asset.Recipient.Address != "" {
 		if strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
 			return true

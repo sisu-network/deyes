@@ -36,7 +36,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 
 			return &block, nil
 		},
-		TransactionByBlockFunc: func(block string) ([]ltypes.Transaction, error) {
+		TransactionByBlockFunc: func(block string) ([]*ltypes.Transaction, error) {
 			sender := ltypes.Sender{
 				Address: vaultAddress,
 			}
@@ -47,7 +47,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 					Address: "mock_recipient_address",
 				},
 			}
-			transaction := ltypes.Transaction{
+			transaction := &ltypes.Transaction{
 				Id:         "mock_transaction_id",
 				Height:     1,
 				Sender:     sender,
@@ -55,7 +55,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 				Signatures: []string{"signature"},
 			}
 
-			return []ltypes.Transaction{transaction}, nil
+			return []*ltypes.Transaction{transaction}, nil
 		},
 	}
 
@@ -73,8 +73,8 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 	watcher.Start()
 
 	txs := <-txsCh
-
 	require.Equal(t, 1, len(txs.Arr))
+
 	tx := ltypes.Transaction{}
 	err := json.Unmarshal(txs.Arr[0].Serialized, &tx)
 	require.Nil(t, err)

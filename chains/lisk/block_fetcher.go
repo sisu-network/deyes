@@ -132,7 +132,7 @@ func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	block.Transactions = []types.Transaction{}
+	block.Transactions = []*types.Transaction{}
 	if block.NumberOfTransactions > 0 {
 		transactions, err := bf.client.TransactionByBlock(block.Id)
 		if err != nil {

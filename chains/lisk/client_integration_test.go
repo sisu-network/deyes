@@ -1,7 +1,7 @@
 package lisk
 
 import (
-	"github.com/sisu-network/lib/log"
+	"fmt"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
@@ -9,12 +9,19 @@ import (
 )
 
 func TestIntegration_CreateNewClient(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	config := config.Chain{Chain: "lisk-testnet", Rpcs: []string{"https://testnet-service.lisk.com/api/v2"}}
 	client := NewLiskClient(config).(*defaultLiskClient)
 
 	require.Equal(t, client.rpc, config.Rpcs[0])
 	require.Equal(t, client.chain, config.Chain)
 
-	log.Verbose("filter Rpcs = ", config.Rpcs[0])
+	blockNumber, err := client.BlockNumber()
+	require.Nil(t, err)
+
+	block, err := client.BlockByHeight(blockNumber)
+	require.Nil(t, err)
+	require.NotNil(t, block)
+
+	fmt.Println("block = ", block)
 }

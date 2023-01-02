@@ -28,7 +28,7 @@ func (e *APIErr) Error() string {
 type LiskClient interface {
 	BlockNumber() (uint64, error)
 	BlockByHeight(height uint64) (*types.Block, error)
-	TransactionByBlock(block string) ([]types.Transaction, error)
+	TransactionByBlock(block string) ([]*types.Transaction, error)
 }
 
 type defaultLiskClient struct {
@@ -110,7 +110,7 @@ func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	return &latestBlock, err
 }
 
-func (c *defaultLiskClient) TransactionByBlock(block string) ([]types.Transaction, error) {
+func (c *defaultLiskClient) TransactionByBlock(block string) ([]*types.Transaction, error) {
 	params := map[string]string{
 		"blockId": block,
 	}

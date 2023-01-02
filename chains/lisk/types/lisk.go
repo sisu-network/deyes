@@ -6,7 +6,7 @@ type ResponseBlock struct {
 }
 
 type ResponseTransaction struct {
-	Data []Transaction `json:"data"`
+	Data []*Transaction `json:"data"`
 	Meta Meta
 }
 
@@ -52,26 +52,26 @@ type Meta struct {
 }
 
 type Block struct {
-	Id                        string        `json:"id"`
-	Height                    uint64        `json:"height"`
-	Version                   int           `json:"version"`
-	Timestamp                 int64         `json:"timestamp"`
-	GeneratorAddress          string        `json:"generatorAddress"`
-	GeneratorPublicKey        string        `json:"generatorPublicKey"`
-	GeneratorUsername         string        `json:"generatorUsername"`
-	TransactionRoot           string        `json:"transactionRoot"`
-	Signature                 string        `json:"signature"`
-	PreviousBlockId           string        `json:"previousBlockId"`
-	NumberOfTransactions      int64         `json:"numberOfTransactions"`
-	TotalForged               string        `json:"totalForged"`
-	TotalBurnt                string        `json:"totalBurnt"`
-	TotalFee                  string        `json:"totalFee"`
-	Reward                    string        `json:"reward"`
-	IsFinal                   bool          `json:"isFinal"`
-	MaxHeightPreviouslyForged int64         `json:"maxHeightPreviouslyForged"`
-	MaxHeightPrevoted         int64         `json:"maxHeightPrevoted"`
-	SeedReveal                string        `json:"seedReveal"`
-	Transactions              []Transaction `json:"transactions"`
+	Id                        string         `json:"id"`
+	Height                    uint64         `json:"height"`
+	Version                   int            `json:"version"`
+	Timestamp                 int64          `json:"timestamp"`
+	GeneratorAddress          string         `json:"generatorAddress"`
+	GeneratorPublicKey        string         `json:"generatorPublicKey"`
+	GeneratorUsername         string         `json:"generatorUsername"`
+	TransactionRoot           string         `json:"transactionRoot"`
+	Signature                 string         `json:"signature"`
+	PreviousBlockId           string         `json:"previousBlockId"`
+	NumberOfTransactions      int64          `json:"numberOfTransactions"`
+	TotalForged               string         `json:"totalForged"`
+	TotalBurnt                string         `json:"totalBurnt"`
+	TotalFee                  string         `json:"totalFee"`
+	Reward                    string         `json:"reward"`
+	IsFinal                   bool           `json:"isFinal"`
+	MaxHeightPreviouslyForged int64          `json:"maxHeightPreviouslyForged"`
+	MaxHeightPrevoted         int64          `json:"maxHeightPrevoted"`
+	SeedReveal                string         `json:"seedReveal"`
+	Transactions              []*Transaction `json:"transactions"`
 }
 
 type Params struct {
