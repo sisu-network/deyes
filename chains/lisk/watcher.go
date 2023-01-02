@@ -165,6 +165,7 @@ func (w *Watcher) processBlock(block *types.Block) []*types.Transaction {
 
 	return ret
 }
+
 func (w *Watcher) acceptTx(tx *types.Transaction) bool {
 	if tx.Asset.Recipient.Address != "" {
 		if strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
@@ -174,6 +175,7 @@ func (w *Watcher) acceptTx(tx *types.Transaction) bool {
 
 	return false
 }
+
 func (w *Watcher) TrackTx(txHash string) {
 	log.Verbose("Tracking tx: ", txHash)
 	w.txTrackCache.Add(txHash, true)

@@ -20,12 +20,12 @@ func (tx *Transaction) Validate() error {
 		return fmt.Errorf("Tx asset is nil")
 	}
 
-	if tx.Sender == nil {
-		return fmt.Errorf("Tx sender is nil")
-	}
-
 	if tx.Asset.Recipient == nil {
 		return fmt.Errorf("Asset recipient is nil")
+	}
+
+	if tx.Sender == nil {
+		return fmt.Errorf("Tx sender is nil")
 	}
 
 	return nil
