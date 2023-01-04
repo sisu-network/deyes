@@ -22,7 +22,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/mr-tron/base58 v1.2.0
 	github.com/near/borsh-go v0.3.1
-	github.com/sisu-network/lib v0.0.1-alpha9.0.20221024224307-a0cdb072a1bd
+	github.com/sisu-network/lib v0.0.1-alpha9.0.20221225112039-4a88e8842833
 	github.com/stretchr/testify v1.7.2
 	github.com/tyler-smith/go-bip39 v1.1.0
 	github.com/ybbus/jsonrpc/v3 v3.1.1
@@ -71,9 +71,6 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
-	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
-	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
-	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect

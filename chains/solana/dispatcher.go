@@ -31,7 +31,7 @@ func NewDispatcher(clientUrls, wsUrls []string) *Dispatcher {
 		client := rpc.New(clientUrls[i])
 		wsClient, err := ws.Connect(context.Background(), wsUrls[i])
 		if err != nil {
-			log.Errorf("Failed to connecto ws client", wsUrls[i])
+			log.Errorf("Failed to connect ws client", wsUrls[i])
 			continue
 		}
 

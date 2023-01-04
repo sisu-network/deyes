@@ -18,3 +18,9 @@ Build and run deyes
 ```
 go build && ./deyes
 ```
+
+Testing
+
+```
+make test
+```

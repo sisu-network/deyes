@@ -49,7 +49,7 @@ func (bf *defaultBlockFetcher) setBlockHeight() {
 		break
 	}
 
-	log.Info("Watching from block", bf.blockHeight, " for chain ", bf.cfg.Chain)
+	log.Info("Watching from block ", bf.blockHeight, " for chain ", bf.cfg.Chain)
 }
 
 func (bf *defaultBlockFetcher) scanBlocks() {

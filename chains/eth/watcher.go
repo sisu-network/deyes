@@ -111,7 +111,7 @@ func (w *Watcher) SetVault(addr string, token string) {
 	if err == nil {
 		w.vault = strings.ToLower(addr)
 	} else {
-		log.Error("Failed to save gateway")
+		log.Error("Failed to save vault")
 	}
 }
 
@@ -169,7 +169,7 @@ func (w *Watcher) waitForReceipt() {
 	}
 }
 
-// extractTxs takes resposne from the receipt fetcher and converts them into deyes transactions.
+// extractTxs takes response from the receipt fetcher and converts them into deyes transactions.
 func (w *Watcher) extractTxs(response *txReceiptResponse) *types.Txs {
 	arr := make([]*types.Tx, 0)
 	for i, tx := range response.txs {

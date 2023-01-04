@@ -115,7 +115,7 @@ func (w *Watcher) processBlock(block *solanatypes.Block) {
 				result = chainstypes.TrackResultFailure
 			}
 
-			// This is a transction that we are tracking. Inform Sisu about this.
+			// This is a transaction that we are tracking. Inform Sisu about this.
 			w.txTrackCh <- &chainstypes.TrackUpdate{
 				Chain:       w.cfg.Chain,
 				Bytes:       bz,
