@@ -90,15 +90,15 @@ func (p *Processor) Start() {
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
 		} else if libchain.IsLiskChain(chain) {
 			client := chainlisk.NewLiskClient(cfg)
-			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
-			dispatcher = chainlisk.NewDispatcher(client)
+			//watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
+			dispatcher = chainlisk.NewDispatcher(chain, client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
-
-		p.watchers[chain] = watcher
-		go watcher.Start()
-
+		if watcher != nil {
+			p.watchers[chain] = watcher
+			go watcher.Start()
+		}
 		p.dispatchers[chain] = dispatcher
 		dispatcher.Start()
 	}
