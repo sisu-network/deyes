@@ -13,5 +13,3 @@ message TransactionMessage {
   required bytes asset = 6;
   repeated bytes signatures = 7;
 }
-
-

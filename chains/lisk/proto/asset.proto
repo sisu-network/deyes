@@ -9,5 +9,3 @@ message AssetMessage {
   required bytes recipientAddress = 2;
   required string data = 3;
 }
-
-

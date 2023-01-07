@@ -3,11 +3,12 @@ package lisk
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/sisu-network/lib/log"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
+
+	"github.com/sisu-network/lib/log"
 
 	"github.com/sisu-network/deyes/chains/lisk/types"
 	"github.com/sisu-network/deyes/config"
