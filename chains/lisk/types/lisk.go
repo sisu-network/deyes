@@ -9,10 +9,7 @@ type ResponseTransaction struct {
 	Data []*Transaction `json:"data"`
 	Meta *Meta
 }
-type ResponseAccount struct {
-	Data []*Account `json:"data"`
-	Meta *Meta
-}
+
 type ResponseCreateTransaction struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message"`

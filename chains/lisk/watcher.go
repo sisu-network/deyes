@@ -127,21 +127,7 @@ func (w *Watcher) waitForBlock() {
 						log.Errorf("Failed to marshal transaction, err = %v", err)
 						continue
 					}
-					//moduleAssetId := strings.Split(tx.ModuleAssetId, ":")
-					//if len(moduleAssetId) == 2 {
-					//	txPb := &types.TransactionMessage{
-					//		ModuleID:        strconv.ParseUint(moduleAssetId[0], 10, 32),
-					//		AssetID:         &assetId,
-					//		Nonce:           &nonce,
-					//		Fee:             &nonce,
-					//		SenderPublicKey: []byte("8f057d088a585d938c20d63e430a068d4cea384e588aa0b758c68fca21644dbc"),
-					//		Asset:           []byte("f214d75bbc4b2ea89e433f3a45af803725416ec3"),
-					//		Signatures:      [][]byte{[]byte("204514eb1152355799ece36d17037e5feb4871472c60763bdafe67eb6a38bec632a8e2e62f84a32cf764342a4708a65fbad194e37feec03940f0ff84d3df2a05")},
-					//	}
-					//
-					//	_tx, err := proto.Marshal(txPb)
-					//	log.Info(hex.EncodeToString(_tx), err)
-					//}
+
 					txFormatted := ctypes.Tx{
 						Hash:       tx.Id,
 						Serialized: bz,

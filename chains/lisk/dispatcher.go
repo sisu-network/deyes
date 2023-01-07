@@ -2,6 +2,7 @@ package lisk
 
 import (
 	"encoding/hex"
+
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
@@ -20,14 +21,14 @@ func NewDispatcher(chain string, client LiskClient) chains.Dispatcher {
 }
 
 func (d *LiskDispatcher) Start() {
-	
+
 }
 
 func (d *LiskDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
 	trans, err := d.client.CreateTransaction(hex.EncodeToString(request.Tx))
 	if err != nil {
 		log.Errorf("Failed to create transaction, err = %v", err)
-		return nil
+		return &types.DispatchedTxResult{Success: false}
 	}
 	return &types.DispatchedTxResult{
 		Success: true,

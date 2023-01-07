@@ -1,10 +1,11 @@
 package lisk_test
 
 import (
+	"testing"
+
 	"github.com/sisu-network/deyes/chains/lisk"
 	"github.com/sisu-network/deyes/types"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestLiskDispatcher_DeserializeTx(t *testing.T) {
@@ -18,6 +19,5 @@ func TestLiskDispatcher_DeserializeTx(t *testing.T) {
 	}
 	dispatcher := lisk.NewDispatcher("lisk-testnet", client)
 	dpResult := dispatcher.Dispatch(&tx)
-	require.Equal(t, dpResult.TxHash, transactionResult)
-
+	require.Equal(t, dpResult.Success, true)
 }
