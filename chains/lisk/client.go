@@ -100,7 +100,7 @@ func (c *defaultLiskClient) CreateTransaction(txHash string) (string, error) {
 		return "", err
 	}
 
-	var responseObject types.ResponseCreateTransaction
+	var responseObject types.TransactionResponse
 	err = json.Unmarshal(response, &responseObject)
 	if err != nil {
 		return "", err
