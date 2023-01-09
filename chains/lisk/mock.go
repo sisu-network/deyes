@@ -35,8 +35,6 @@ func (c *MockLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	return nil, nil
 }
 
-<<<<<<< HEAD
-=======
 func (c *MockLiskClient) GetAccount(address string) (*types.Account, error) {
 	if c.GetAccountFunc != nil {
 		return c.GetAccountFunc(address)
@@ -45,7 +43,6 @@ func (c *MockLiskClient) GetAccount(address string) (*types.Account, error) {
 	return nil, nil
 }
 
->>>>>>> feature/get-account
 func (c *MockLiskClient) CreateTransaction(txHash string) (string, error) {
 	if c.CreateTransactionFunc != nil {
 		return c.CreateTransactionFunc(txHash)
