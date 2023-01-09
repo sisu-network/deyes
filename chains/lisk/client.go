@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/sisu-network/lib/log"
+
 	"github.com/sisu-network/deyes/chains/lisk/types"
 	"github.com/sisu-network/deyes/config"
 )
@@ -29,6 +31,7 @@ type LiskClient interface {
 	BlockNumber() (uint64, error)
 	BlockByHeight(height uint64) (*types.Block, error)
 	TransactionByBlock(block string) ([]*types.Transaction, error)
+	GetAccount(address string) (*types.Account, error)
 	CreateTransaction(txHash string) (string, error)
 }
 
@@ -145,4 +148,28 @@ func (c *defaultLiskClient) TransactionByBlock(block string) ([]*types.Transacti
 	}
 
 	return responseObject.Data, nil
+}
+
+func (c *defaultLiskClient) GetAccount(address string) (*types.Account, error) {
+	params := map[string]string{
+		"address": address,
+	}
+	response, err := c.execute("/accounts", "GET", params)
+	if err != nil {
+		return nil, err
+	}
+	var responseObject types.ResponseAccount
+	err = json.Unmarshal(response, &responseObject)
+	if err != nil {
+		log.Info(err)
+		return nil, err
+	}
+
+	accounts := responseObject.Data
+	if len(accounts) == 0 {
+		return nil, NewApiErr("lisk account block is not found")
+	}
+	validAccount := accounts[0]
+
+	return validAccount, nil
 }

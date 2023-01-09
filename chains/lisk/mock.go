@@ -9,6 +9,7 @@ type MockLiskClient struct {
 	BlockNumberFunc        func() (uint64, error)
 	BlockByHeightFunc      func(height uint64) (*types.Block, error)
 	TransactionByBlockFunc func(block string) ([]*types.Transaction, error)
+	GetAccountFunc         func(address string) (*types.Account, error)
 	CreateTransactionFunc  func(txHash string) (string, error)
 }
 
@@ -34,6 +35,17 @@ func (c *MockLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	return nil, nil
 }
 
+<<<<<<< HEAD
+=======
+func (c *MockLiskClient) GetAccount(address string) (*types.Account, error) {
+	if c.GetAccountFunc != nil {
+		return c.GetAccountFunc(address)
+	}
+
+	return nil, nil
+}
+
+>>>>>>> feature/get-account
 func (c *MockLiskClient) CreateTransaction(txHash string) (string, error) {
 	if c.CreateTransactionFunc != nil {
 		return c.CreateTransactionFunc(txHash)
