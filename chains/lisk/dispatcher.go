@@ -25,7 +25,7 @@ func (d *LiskDispatcher) Start() {
 }
 
 func (d *LiskDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
-	trans, err := d.client.CreateTransaction(hex.EncodeToString(request.Tx))
+	tx, err := d.client.CreateTransaction(hex.EncodeToString(request.Tx))
 	if err != nil {
 		log.Errorf("Failed to create transaction, err = %v", err)
 		return &types.DispatchedTxResult{Success: false}
@@ -33,6 +33,6 @@ func (d *LiskDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dis
 	return &types.DispatchedTxResult{
 		Success: true,
 		Chain:   request.Chain,
-		TxHash:  trans,
+		TxHash:  tx,
 	}
 }

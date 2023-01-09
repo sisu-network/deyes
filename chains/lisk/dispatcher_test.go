@@ -5,15 +5,17 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/sisu-network/deyes/chains/lisk/crypto"
-	ltypes "github.com/sisu-network/deyes/chains/lisk/types"
-	"golang.org/x/crypto/ed25519"
 	"strconv"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/sisu-network/deyes/chains/lisk"
+	"github.com/sisu-network/deyes/chains/lisk/crypto"
+	ltypes "github.com/sisu-network/deyes/chains/lisk/types"
 	"github.com/sisu-network/deyes/types"
+	"golang.org/x/crypto/ed25519"
+
+	"github.com/golang/protobuf/proto"
+
+	"github.com/sisu-network/deyes/chains/lisk"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +68,6 @@ func TestLiskDispatcher_DeserializeTx(t *testing.T) {
 	require.Nil(t, err)
 	txHash, err := proto.Marshal(txPb)
 	tx := types.DispatchedTxRequest{Chain: "lisk-testnet", TxHash: hex.EncodeToString(txHash)}
-
 	dispatcher := lisk.NewDispatcher("lisk-testnet", client)
 	dpResult := dispatcher.Dispatch(&tx)
 	require.Equal(t, dpResult.Success, true)
