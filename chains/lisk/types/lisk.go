@@ -10,6 +10,11 @@ type ResponseTransaction struct {
 	Meta *Meta
 }
 
+type ResponseCreateTransaction struct {
+	Error   bool   `json:"error"`
+	Message string `json:"message"`
+}
+
 type TransactionBlock struct {
 	Id        string `json:"id"`
 	Height    int64  `json:"height"`

@@ -58,7 +58,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	minimum := new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas())))
 	minimum = minimum.Add(minimum, tx.Value())
 	if minimum.Cmp(balance) > 0 {
-		err = fmt.Errorf("Balance smaller than minimum required for this transaction, from = %s, balance = %s, minimum = %s, chain = %s",
+		err = fmt.Errorf("balance smaller than minimum required for this transaction, from = %s, balance = %s, minimum = %s, chain = %s",
 			from.String(), balance.String(), minimum.String(), request.Chain)
 	}
 
