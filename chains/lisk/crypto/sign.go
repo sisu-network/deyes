@@ -5,29 +5,29 @@ import (
 )
 
 // SignMessageWithPrivateKey takes a message and a privateKey and returns a signature as hex string
-func SignMessageWithPrivateKey(message string, privKey []byte) []byte {
+func SignMessageWithPrivateKey(message string, privateKey []byte) []byte {
 	rawMessage := []byte(message)
 
-	signedMessage := ed25519.Sign(ed25519.PrivateKey(privKey), rawMessage)
+	signedMessage := ed25519.Sign(privateKey, rawMessage)
 
 	return signedMessage
 }
 
 // SignDataWithPrivateKey takes data and a privateKey and returns a signature
-func SignDataWithPrivateKey(data []byte, privKey []byte) []byte {
-	signedMessage := ed25519.Sign(ed25519.PrivateKey(privKey), data)
+func SignDataWithPrivateKey(data []byte, privateKey []byte) []byte {
+	signedMessage := ed25519.Sign(privateKey, data)
 
 	return signedMessage
 }
 
 // VerifyMessageWithPublicKey takes a message, signature and publicKey and verifies it
 func VerifyMessageWithPublicKey(message string, signature []byte, publicKey []byte) (bool, error) {
-	isValid := ed25519.Verify(ed25519.PublicKey(publicKey), []byte(message), signature)
+	isValid := ed25519.Verify(publicKey, []byte(message), signature)
 	return isValid, nil
 }
 
 // VerifyDataWithPublicKey takes data, a signature and a publicKey and verifies it
 func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) (bool, error) {
-	isValid := ed25519.Verify(ed25519.PublicKey(publicKey), data, signature)
+	isValid := ed25519.Verify(publicKey, data, signature)
 	return isValid, nil
 }
