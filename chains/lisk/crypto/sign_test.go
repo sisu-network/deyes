@@ -25,18 +25,16 @@ func TestSignDataWithPrivateKey(t *testing.T) {
 	require.Equal(t, val, defaultSignature)
 }
 
-func TestVerifyMessageWithPublicKey(t *testing.T) {
-	isVerified := VerifyMessageWithPublicKey(defaultMessage, defaultSignature, signPublicKey)
-	require.Equal(t, isVerified, true)
-
-	val := VerifyMessageWithPublicKey(defaultMessage, wrongSignature, signPublicKey)
-	require.Equal(t, val, false)
-}
-
 func TestVerifyDataWithPublicKey(t *testing.T) {
-	isVerified := VerifyDataWithPublicKey([]byte(defaultMessage), defaultSignature, signPublicKey)
-	require.Equal(t, isVerified, true)
+	isVerifiedMessage := VerifyMessageWithPublicKey(defaultMessage, defaultSignature, signPublicKey)
+	require.Equal(t, isVerifiedMessage, true)
 
-	val := VerifyDataWithPublicKey([]byte(defaultMessage), wrongSignature, signPublicKey)
-	require.Equal(t, val, false)
+	messageVal := VerifyMessageWithPublicKey(defaultMessage, wrongSignature, signPublicKey)
+	require.Equal(t, messageVal, false)
+
+	isVerifiedData := VerifyDataWithPublicKey([]byte(defaultMessage), defaultSignature, signPublicKey)
+	require.Equal(t, isVerifiedData, true)
+
+	dataVal := VerifyDataWithPublicKey([]byte(defaultMessage), wrongSignature, signPublicKey)
+	require.Equal(t, dataVal, false)
 }
