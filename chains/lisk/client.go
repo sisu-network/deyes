@@ -158,10 +158,11 @@ func (c *defaultLiskClient) GetAccount(address string) (*types.Account, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var responseObject types.ResponseAccount
 	err = json.Unmarshal(response, &responseObject)
 	if err != nil {
-		log.Info(err)
+		log.Errorf("GetAccount: Failed to marshal response, err = %s", err)
 		return nil, err
 	}
 

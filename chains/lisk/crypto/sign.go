@@ -21,13 +21,15 @@ func SignDataWithPrivateKey(data []byte, privateKey []byte) []byte {
 }
 
 // VerifyMessageWithPublicKey takes a message, signature and publicKey and verifies it
-func VerifyMessageWithPublicKey(message string, signature []byte, publicKey []byte) (bool, error) {
+func VerifyMessageWithPublicKey(message string, signature []byte, publicKey []byte) bool {
 	isValid := ed25519.Verify(publicKey, []byte(message), signature)
-	return isValid, nil
+
+	return isValid
 }
 
 // VerifyDataWithPublicKey takes data, a signature and a publicKey and verifies it
-func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) (bool, error) {
+func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) bool {
 	isValid := ed25519.Verify(publicKey, data, signature)
-	return isValid, nil
+
+	return isValid
 }

@@ -67,6 +67,7 @@ func TestLiskDispatcher_DeserializeTx(t *testing.T) {
 	txPb.Signatures = [][]byte{signature}
 	require.Nil(t, err)
 	txHash, err = proto.Marshal(txPb)
+	require.Nil(t, err)
 	tx := types.DispatchedTxRequest{Chain: "lisk-testnet", TxHash: hex.EncodeToString(txHash)}
 	dispatcher := lisk.NewDispatcher("lisk-testnet", client)
 	dpResult := dispatcher.Dispatch(&tx)

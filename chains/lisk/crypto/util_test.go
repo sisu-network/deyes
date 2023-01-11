@@ -1,9 +1,10 @@
 package crypto
 
 import (
-	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -18,24 +19,20 @@ var (
 )
 
 func TestGetSHA256Hash(t *testing.T) {
-	t.Skip()
-	if val := GetSHA256Hash(defaultPassphrase); hex.EncodeToString(val[:]) != defaultPassphraseHash {
-		t.Errorf("GetSHA256Hash(%v)=%v; want %v", defaultPassphrase, hex.EncodeToString(val[:]), defaultPassphraseHash)
-	}
+	val := GetSHA256Hash(passphrase)
+	require.Equal(t, hex.EncodeToString(val[:]), passphraseHash)
+
 }
 
 func TestGetFirstEightBytesReversed(t *testing.T) {
-	if val := GetFirstEightBytesReversed(defaultBytes); !bytes.Equal(val, default8BytesReversed) {
-		t.Errorf("GetFirstEightBytesReversed(%v)=%v; want %v", defaultBytes, val, default8BytesReversed)
-	}
+	successVal := GetFirstEightBytesReversed(defaultBytes)
+	require.Equal(t, successVal, default8BytesReversed)
 
-	if val := GetFirstEightBytesReversed(nil); val != nil {
-		t.Errorf("GetFirstEightBytesReversed(%v)=%v; want %v", nil, val, nil)
-	}
+	failedVal := GetFirstEightBytesReversed(nil)
+	require.Equal(t, failedVal, []uint8([]byte(nil)))
 }
 
 func TestGetBigNumberStringFromBytes(t *testing.T) {
-	if val := GetBigNumberStringFromBytes(defaultBytes); val != defaultBytesBigNumberString {
-		t.Errorf("GetBigNumberStringFromBytes(%v)=%v; want %v", defaultBytes, val, defaultBytesBigNumberString)
-	}
+	val := GetBigNumberStringFromBytes(defaultBytes)
+	require.Equal(t, val, defaultBytesBigNumberString)
 }

@@ -1,9 +1,10 @@
 package crypto
 
 import (
-	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -15,33 +16,27 @@ var (
 )
 
 func TestSignMessageWithPrivateKey(t *testing.T) {
-	if val := SignMessageWithPrivateKey(defaultMessage, signPrivateKey); !bytes.Equal(val, defaultSignature) {
-		t.Errorf("SignMessageWithPrivateKey(%v,%v)=%v; want %v", defaultMessage, signPrivateKey, val, defaultSignature)
-	}
+	val := SignMessageWithPrivateKey(defaultMessage, signPrivateKey)
+	require.Equal(t, val, defaultSignature)
 }
 
 func TestSignDataWithPrivateKey(t *testing.T) {
-	if val := SignDataWithPrivateKey([]byte(defaultMessage), signPrivateKey); !bytes.Equal(val, defaultSignature) {
-		t.Errorf("TestSignDataWithPrivateKey(%v,%v)=%v; want %v", []byte(defaultMessage), signPrivateKey, val, defaultSignature)
-	}
+	val := SignDataWithPrivateKey([]byte(defaultMessage), signPrivateKey)
+	require.Equal(t, val, defaultSignature)
 }
 
 func TestVerifyMessageWithPublicKey(t *testing.T) {
-	if val, err := VerifyMessageWithPublicKey(defaultMessage, defaultSignature, signPublicKey); !val || err != nil {
-		t.Errorf("SignMessageWithPrivateKey(%v,%v,%v)=%v,%v; want %v,%v", defaultMessage, defaultSignature, signPrivateKey, val, err, true, nil)
-	}
+	isVerified := VerifyMessageWithPublicKey(defaultMessage, defaultSignature, signPublicKey)
+	require.Equal(t, isVerified, true)
 
-	if val, err := VerifyMessageWithPublicKey(defaultMessage, wrongSignature, signPublicKey); val || err != nil {
-		t.Errorf("SignMessageWithPrivateKey(%v,%v,%v)=%v,%v; want %v,%v", defaultMessage, wrongSignature, signPrivateKey, val, err, false, nil)
-	}
+	val := VerifyMessageWithPublicKey(defaultMessage, wrongSignature, signPublicKey)
+	require.Equal(t, val, false)
 }
 
 func TestVerifyDataWithPublicKey(t *testing.T) {
-	if val, err := VerifyDataWithPublicKey([]byte(defaultMessage), defaultSignature, signPublicKey); !val || err != nil {
-		t.Errorf("SignMessageWithPrivateKey(%v,%v,%v)=%v,%v; want %v,%v", []byte(defaultMessage), defaultSignature, signPrivateKey, val, err, true, nil)
-	}
+	isVerified := VerifyDataWithPublicKey([]byte(defaultMessage), defaultSignature, signPublicKey)
+	require.Equal(t, isVerified, true)
 
-	if val, err := VerifyDataWithPublicKey([]byte(defaultMessage), wrongSignature, signPublicKey); val || err != nil {
-		t.Errorf("SignMessageWithPrivateKey(%v,%v,%v)=%v,%v; want %v,%v", []byte(defaultMessage), wrongSignature, signPrivateKey, val, err, false, nil)
-	}
+	val := VerifyDataWithPublicKey([]byte(defaultMessage), wrongSignature, signPublicKey)
+	require.Equal(t, val, false)
 }
