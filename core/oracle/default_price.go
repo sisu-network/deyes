@@ -1,26 +1,30 @@
 package oracle
 
 import (
+	"math/big"
+
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
 )
 
 var (
-	DEFAULT_PRICES = map[string]float64{
-		"ETH":  1000.0,
-		"DAI":  1.0,
-		"SISU": 0.02,
+	TestTokenPrices = map[string]*big.Int{
+		"TIGER":    big.NewInt(utils.OneEtherInWei * 2),
+		"KANGAROO": big.NewInt(utils.OneEtherInWei * 2),
+		"MOUSE":    big.NewInt(utils.OneEtherInWei * 2),
+		"MONKEY":   big.NewInt(utils.OneEtherInWei * 2),
+		"BUNNY":    big.NewInt(utils.OneEtherInWei * 2),
 	}
 )
 
 func getDefaultTokenPriceList() []*types.TokenPrice {
 	prices := make([]*types.TokenPrice, 0)
 
-	for token, price := range DEFAULT_PRICES {
+	for token, price := range TestTokenPrices {
 		tokenPrice := &types.TokenPrice{
 			Id:       token,
 			PublicId: token,
-			Price:    utils.FloatToWei(price),
+			Price:    price,
 		}
 
 		prices = append(prices, tokenPrice)

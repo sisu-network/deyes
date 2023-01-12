@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/echovl/cardano-go"
 	chainscardano "github.com/sisu-network/deyes/chains/cardano"
@@ -46,6 +47,12 @@ func (api *ApiHandler) SetVaultAddress(chain string, addr string, token string) 
 func (api *ApiHandler) DispatchTx(request *types.DispatchedTxRequest) {
 	api.processor.DispatchTx(request)
 }
+
+func (api *ApiHandler) GetTokenPrice(id string) (*big.Int, error) {
+	return api.processor.GetTokenPrice(id)
+}
+
+///// ETH
 
 func (api *ApiHandler) GetNonce(chain string, address string) (int64, error) {
 	return api.processor.GetNonce(chain, address)

@@ -9,7 +9,6 @@ import (
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -88,30 +87,6 @@ func TestProcessor(t *testing.T) {
 		}
 
 		processor.txsCh <- txs
-		done.Wait()
-	})
-
-	t.Run("listen_price_update_channel", func(t *testing.T) {
-		cfg, db, sisuClient, priceManager := mockForProcessor()
-		done := &sync.WaitGroup{}
-		done.Add(1)
-
-		sisuClient.UpdateTokenPricesFunc = func(prices []*types.TokenPrice) error {
-			require.Equal(t, 2, len(prices))
-			done.Done()
-			return nil
-		}
-
-		processor := NewProcessor(&cfg, db, sisuClient, priceManager)
-		processor.SetSisuReady(true)
-		processor.Start()
-
-		prices := []*types.TokenPrice{
-			{Id: "ETH", PublicId: "ETH", Price: utils.FloatToWei(2410.875945408672)},
-			{Id: "BTC", PublicId: "BTC", Price: utils.FloatToWei(36367.076791144566)},
-		}
-
-		processor.priceUpdateCh <- prices
 		done.Wait()
 	})
 }

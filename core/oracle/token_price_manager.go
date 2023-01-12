@@ -2,8 +2,11 @@ package oracle
 
 import (
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +17,16 @@ import (
 	"github.com/sisu-network/deyes/utils"
 	"github.com/sisu-network/lib/log"
 )
+
+const (
+	UpdateFrequency = 1000 * 60 * 3 // 3 minutes
+)
+
+type priceCache struct {
+	id         string
+	price      *big.Int
+	updateTime int64
+}
 
 type Response struct {
 	Data map[string]struct {
@@ -26,8 +39,10 @@ type Response struct {
 }
 
 type TokenPriceManager interface {
-	Start(outCh chan []*types.TokenPrice)
+	Start()
 	Stop()
+
+	GetTokenPrice(id string) (*big.Int, error)
 }
 
 type DefaultTokenPriceManager struct {
@@ -35,7 +50,7 @@ type DefaultTokenPriceManager struct {
 	stop        atomic.Value
 	db          database.Database
 	networkHttp network.Http
-	prices      atomic.Value // types.TokenPrices
+	cache       *sync.Map
 }
 
 func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http) TokenPriceManager {
@@ -43,13 +58,12 @@ func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp ne
 		cfg:         cfg,
 		db:          db,
 		networkHttp: networkHttp,
+		cache:       &sync.Map{},
 	}
 }
 
-func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
-	req := m.getRequest()
+func (m *DefaultTokenPriceManager) Start() {
 	m.stop.Store(false)
-
 	m.initTokenPrices()
 
 	for {
@@ -62,49 +76,10 @@ func (m *DefaultTokenPriceManager) Start(outCh chan []*types.TokenPrice) {
 			break
 		}
 
-		response, err := m.getResponse(req)
+		tokenPrices, err := m.getResponse(m.cfg.PriceTokenList)
 		if err == nil {
-			tokenPrices := make([]*types.TokenPrice, 0)
-			for _, token := range m.cfg.PriceTokenList {
-				var tokenPrice *types.TokenPrice
-				for key, value := range response.Data {
-					if key == token {
-						tokenPrice = &types.TokenPrice{
-							Id:       token,
-							PublicId: token,
-							Price:    utils.FloatToWei(value.Quote.Usd.Value),
-						}
-						break
-					}
-				}
-
-				if tokenPrice == nil {
-					// Get default price
-					if value, ok := DEFAULT_PRICES[token]; ok {
-						// Get the default price
-						tokenPrice = &types.TokenPrice{
-							Id:       token,
-							PublicId: token,
-							Price:    utils.FloatToWei(value),
-						}
-					}
-				}
-
-				if tokenPrice != nil {
-					tokenPrices = append(tokenPrices, tokenPrice)
-				} else {
-					log.Error("Cannot find price for token ", token)
-				}
-			}
-
-			// Update the in-memory prices
-			m.prices.Store(tokenPrices)
-
 			// Update the database.
 			m.db.SaveTokenPrices(tokenPrices)
-
-			// Broadcast the result we have.
-			outCh <- tokenPrices
 		} else {
 			log.Error("Cannot get response, err = ", err)
 		}
@@ -120,15 +95,17 @@ func (m *DefaultTokenPriceManager) initTokenPrices() {
 	if len(prices) == 0 {
 		prices = getDefaultTokenPriceList()
 	}
-	m.prices.Store(prices)
+
+	for _, price := range prices {
+		m.cache.Store(price.Id, &priceCache{
+			id:    price.Id,
+			price: price.Price,
+		})
+	}
 }
 
-func (m *DefaultTokenPriceManager) getRequest() *http.Request {
+func (m *DefaultTokenPriceManager) getRequest(tokenList []string) *http.Request {
 	baseUrl := m.cfg.PriceOracleUrl
-	tokenList := m.cfg.PriceTokenList
-
-	log.Info("tokenList = ", tokenList)
-
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
@@ -140,26 +117,87 @@ func (m *DefaultTokenPriceManager) getRequest() *http.Request {
 	q.Add("symbol", strings.Join(tokenList, ","))
 	req.URL.RawQuery = q.Encode()
 
-	log.Info("url = ", req.URL.String())
-
 	return req
 }
 
-func (m *DefaultTokenPriceManager) getResponse(req *http.Request) (*Response, error) {
+func (m *DefaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
+	req := m.getRequest(tokenList)
 	data, err := m.networkHttp.Get(req)
 	if err != nil {
 		return nil, err
 	}
 
-	target := &Response{}
-	err = json.Unmarshal(data, &target)
+	response := &Response{}
+	err = json.Unmarshal(data, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	return target, nil
+	tokenPrices := make([]*types.TokenPrice, 0)
+	for key, value := range response.Data {
+		for _, token := range tokenList {
+			if key == token {
+				tokenPrices = append(tokenPrices, &types.TokenPrice{
+					Id:    token,
+					Price: utils.FloatToWei(value.Quote.Usd.Value),
+				})
+
+				break
+			}
+		}
+	}
+
+	// Save all data to the cached & db
+	if len(tokenPrices) > 0 {
+		m.db.SaveTokenPrices(tokenPrices)
+	}
+
+	for key, value := range response.Data {
+		m.cache.Store(key, &types.TokenPrice{
+			Id:    key,
+			Price: utils.FloatToWei(value.Quote.Usd.Value),
+		})
+	}
+
+	return tokenPrices, nil
 }
 
 func (m *DefaultTokenPriceManager) Stop() {
 	m.stop.Store(true)
+}
+
+func (m *DefaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
+	if TestTokenPrices[id] != nil {
+		return TestTokenPrices[id], nil
+	}
+
+	value, ok := m.cache.Load(id)
+	if ok {
+		// check expiration time
+		now := time.Now()
+		cache, ok := value.(*priceCache)
+		if ok {
+			if cache.updateTime+UpdateFrequency > now.UnixMilli() {
+				return cache.price, nil
+			}
+		}
+	}
+
+	// Load from server.
+	tokenPrices, err := m.getResponse([]string{id})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tokenPrices) == 0 {
+		return nil, fmt.Errorf("Cannot get token prices for %s", id)
+	}
+
+	for _, tokenPrice := range tokenPrices {
+		if tokenPrice.Id == id {
+			return tokenPrice.Price, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Cannot get token prices for %s", id)
 }

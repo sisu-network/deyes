@@ -21,7 +21,6 @@ type Client interface {
 	Ping(source string) error
 	BroadcastTxs(txs *types.Txs) error
 	PostDeploymentResult(result *types.DispatchedTxResult) error
-	UpdateTokenPrices(prices []*types.TokenPrice) error
 	OnTxIncludedInBlock(txTrack *chainstypes.TrackUpdate) error
 }
 
