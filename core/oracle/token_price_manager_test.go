@@ -5,19 +5,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/stretchr/testify/require"
 )
 
-func TestStartManager(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	t.Cleanup(func() {
-		ctrl.Finish()
-	})
-
+func TestTokenManager(t *testing.T) {
 	t.Run("Get price success", func(t *testing.T) {
 		cfg := config.Deyes{
 			PricePollFrequency: 1,
@@ -53,9 +47,6 @@ func TestStartManager(t *testing.T) {
 
 	t.Run("Get price fail", func(t *testing.T) {
 		cfg := config.Deyes{
-			PricePollFrequency: 1,
-			PriceOracleUrl:     "http://example.com",
-
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
@@ -74,5 +65,45 @@ func TestStartManager(t *testing.T) {
 		priceManager := NewTokenPriceManager(cfg, dbInstance, net)
 		_, err = priceManager.GetTokenPrice("ETH")
 		require.NotNil(t, err)
+	})
+
+	t.Run("token price cache", func(t *testing.T) {
+		cfg := config.Deyes{
+			DbHost:   "127.0.0.1",
+			DbSchema: "deyes",
+			InMemory: true,
+		}
+
+		count := 0
+		net := &network.MockHttp{
+			GetFunc: func(req *http.Request) ([]byte, error) {
+				if count == 0 {
+					count++
+					return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":1000}}}}}`), nil
+				}
+
+				return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":2000}}}}}`), nil
+			},
+		}
+
+		dbInstance := database.NewDb(&cfg)
+		err := dbInstance.Init()
+		require.Nil(t, err)
+
+		priceManager := NewTokenPriceManager(cfg, dbInstance, net)
+		price, err := priceManager.GetTokenPrice("ETH")
+		require.Nil(t, err)
+		require.Equal(t, "1000000000000000000000", price.String())
+
+		price, err = priceManager.GetTokenPrice("ETH")
+		require.Nil(t, err)
+		require.Equal(t, "1000000000000000000000", price.String())
+
+		// Change the updateFrequency to invalidate cache.
+		priceManager.(*defaultTokenPriceManager).updateFrequency = 0
+
+		price, err = priceManager.GetTokenPrice("ETH")
+		require.Nil(t, err)
+		require.Equal(t, "2000000000000000000000", price.String())
 	})
 }

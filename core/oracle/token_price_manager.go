@@ -41,28 +41,29 @@ type Response struct {
 type TokenPriceManager interface {
 	Start()
 	Stop()
-
 	GetTokenPrice(id string) (*big.Int, error)
 }
 
-type DefaultTokenPriceManager struct {
-	cfg         config.Deyes
-	stop        atomic.Value
-	db          database.Database
-	networkHttp network.Http
-	cache       *sync.Map
+type defaultTokenPriceManager struct {
+	cfg             config.Deyes
+	stop            atomic.Value
+	db              database.Database
+	networkHttp     network.Http
+	cache           *sync.Map
+	updateFrequency int64
 }
 
 func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http) TokenPriceManager {
-	return &DefaultTokenPriceManager{
-		cfg:         cfg,
-		db:          db,
-		networkHttp: networkHttp,
-		cache:       &sync.Map{},
+	return &defaultTokenPriceManager{
+		cfg:             cfg,
+		db:              db,
+		networkHttp:     networkHttp,
+		cache:           &sync.Map{},
+		updateFrequency: UpdateFrequency,
 	}
 }
 
-func (m *DefaultTokenPriceManager) Start() {
+func (m *defaultTokenPriceManager) Start() {
 	m.stop.Store(false)
 	m.initTokenPrices()
 
@@ -76,11 +77,8 @@ func (m *DefaultTokenPriceManager) Start() {
 			break
 		}
 
-		tokenPrices, err := m.getResponse(m.cfg.PriceTokenList)
-		if err == nil {
-			// Update the database.
-			m.db.SaveTokenPrices(tokenPrices)
-		} else {
+		_, err := m.getResponse(m.cfg.PriceTokenList)
+		if err != nil {
 			log.Error("Cannot get response, err = ", err)
 		}
 
@@ -90,7 +88,7 @@ func (m *DefaultTokenPriceManager) Start() {
 
 // initTokenPrices loads prices from db and store in-memory. If the db is empty, take the default
 // prices.
-func (m *DefaultTokenPriceManager) initTokenPrices() {
+func (m *defaultTokenPriceManager) initTokenPrices() {
 	prices := m.db.LoadPrices()
 	if len(prices) == 0 {
 		prices = getDefaultTokenPriceList()
@@ -98,13 +96,14 @@ func (m *DefaultTokenPriceManager) initTokenPrices() {
 
 	for _, price := range prices {
 		m.cache.Store(price.Id, &priceCache{
-			id:    price.Id,
-			price: price.Price,
+			id:         price.Id,
+			price:      price.Price,
+			updateTime: 0,
 		})
 	}
 }
 
-func (m *DefaultTokenPriceManager) getRequest(tokenList []string) *http.Request {
+func (m *defaultTokenPriceManager) getRequest(tokenList []string) *http.Request {
 	baseUrl := m.cfg.PriceOracleUrl
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -120,7 +119,7 @@ func (m *DefaultTokenPriceManager) getRequest(tokenList []string) *http.Request 
 	return req
 }
 
-func (m *DefaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
+func (m *defaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
 	req := m.getRequest(tokenList)
 	data, err := m.networkHttp.Get(req)
 	if err != nil {
@@ -152,21 +151,23 @@ func (m *DefaultTokenPriceManager) getResponse(tokenList []string) ([]*types.Tok
 		m.db.SaveTokenPrices(tokenPrices)
 	}
 
+	now := time.Now()
 	for key, value := range response.Data {
-		m.cache.Store(key, &types.TokenPrice{
-			Id:    key,
-			Price: utils.FloatToWei(value.Quote.Usd.Value),
+		m.cache.Store(key, &priceCache{
+			id:         key,
+			price:      utils.FloatToWei(value.Quote.Usd.Value),
+			updateTime: now.UnixMilli(),
 		})
 	}
 
 	return tokenPrices, nil
 }
 
-func (m *DefaultTokenPriceManager) Stop() {
+func (m *defaultTokenPriceManager) Stop() {
 	m.stop.Store(true)
 }
 
-func (m *DefaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
+func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 	if TestTokenPrices[id] != nil {
 		return TestTokenPrices[id], nil
 	}
@@ -177,7 +178,7 @@ func (m *DefaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 		now := time.Now()
 		cache, ok := value.(*priceCache)
 		if ok {
-			if cache.updateTime+UpdateFrequency > now.UnixMilli() {
+			if cache.updateTime+m.updateFrequency > now.UnixMilli() {
 				return cache.price, nil
 			}
 		}
