@@ -175,3 +175,7 @@ func (bf *defaultBlockFetcher) tryGetBlock() (*types.Block, error) {
 func (bf *defaultBlockFetcher) getBlockNumber() (uint64, error) {
 	return bf.client.BlockNumber()
 }
+
+func (bf *defaultBlockFetcher) getAccount(address string) (*types.Account, error) {
+	return bf.client.GetAccount(address)
+}
