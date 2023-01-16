@@ -13,6 +13,10 @@ import (
 	"github.com/sisu-network/lib/log"
 )
 
+const (
+	MinWaitTime = 500 // 500ms
+)
+
 type defaultBlockFetcher struct {
 	blockHeight int64
 	blockTime   int
@@ -92,10 +96,12 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 			continue
 		}
 
-		bf.blockTime = bf.blockTime - bf.cfg.AdjustTime/4
 		bf.blockCh <- block
 		bf.blockHeight++
 
+		if bf.blockTime-bf.cfg.AdjustTime/4 > MinWaitTime {
+			bf.blockTime = bf.blockTime - bf.cfg.AdjustTime/4
+		}
 		time.Sleep(time.Duration(bf.blockTime) * time.Millisecond)
 	}
 }
@@ -130,6 +136,9 @@ func (bf *defaultBlockFetcher) tryGetBlock() (*etypes.Block, error) {
 	switch err {
 	case nil:
 		log.Verbose(bf.cfg.Chain, " Height = ", block.Number())
+		if bf.blockHeight > 0 && number-uint64(bf.blockHeight) > 5 {
+			bf.blockTime = MinWaitTime
+		}
 		return block, nil
 
 	case ethereum.NotFound:

@@ -72,28 +72,6 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 		}
 	}
 
-	// Check nonce
-	nonce, err := d.client.PendingNonceAt(context.Background(), from)
-	if err != nil {
-		log.Errorf("Failed to get pending nonce for %s", from.String())
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			TxHash:  request.TxHash,
-			Err:     types.ErrGeneric,
-		}
-	}
-
-	if nonce != tx.Nonce() {
-		log.Errorf("Nonce does not match. Tx nonce = %d, expected nonce = %d", tx.Nonce(), nonce)
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			TxHash:  request.TxHash,
-			Err:     types.ErrNonceNotMatched,
-		}
-	}
-
 	// Dispath tx.
 	err = d.tryDispatchTx(tx, request.Chain, from)
 	if err == nil {
