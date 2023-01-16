@@ -38,7 +38,7 @@ type Dpos struct {
 type DposDelegate struct {
 	username                string `json:"username"`
 	ConsecutiveMissedBlocks uint64 `json:"consecutiveMissedBlocks"`
-	LastForgedHeight        string `json:"lastForgedHeight"`
+	LastForgedHeight        int32 `json:"lastForgedHeight"`
 	IsBanned                bool   `json:"isBanned"`
 	VoteWeight              string `json:"voteWeight"`
 	TotalVotesReceived      string `json:"totalVotesReceived"`
