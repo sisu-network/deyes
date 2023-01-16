@@ -9,6 +9,7 @@ type MockLiskClient struct {
 	BlockNumberFunc        func() (uint64, error)
 	BlockByHeightFunc      func(height uint64) (*types.Block, error)
 	TransactionByBlockFunc func(block string) ([]*types.Transaction, error)
+	CreateTransactionFunc  func(txHash string) (string, error)
 }
 
 func (c *MockLiskClient) Start() {
@@ -31,6 +32,14 @@ func (c *MockLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	}
 
 	return nil, nil
+}
+
+func (c *MockLiskClient) CreateTransaction(txHash string) (string, error) {
+	if c.CreateTransactionFunc != nil {
+		return c.CreateTransactionFunc(txHash)
+	}
+
+	return "", nil
 }
 
 func (c *MockLiskClient) TransactionByBlock(block string) ([]*types.Transaction, error) {

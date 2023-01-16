@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math/big"
 	"sync/atomic"
 
 	"github.com/sisu-network/deyes/chains"
@@ -24,13 +25,12 @@ import (
 // This struct handles the logic in deyes.
 // TODO: Make this processor to support multiple chains at the same time.
 type Processor struct {
-	db            database.Database
-	txsCh         chan *types.Txs
-	priceUpdateCh chan []*types.TokenPrice
-	txTrackCh     chan *chainstypes.TrackUpdate
-	chain         string
-	blockTime     int
-	sisuClient    client.Client
+	db         database.Database
+	txsCh      chan *types.Txs
+	txTrackCh  chan *chainstypes.TrackUpdate
+	chain      string
+	blockTime  int
+	sisuClient client.Client
 
 	watchers    map[string]chains.Watcher
 	dispatchers map[string]chains.Dispatcher
@@ -62,10 +62,9 @@ func (p *Processor) Start() {
 
 	p.txsCh = make(chan *types.Txs, 1000)
 	p.txTrackCh = make(chan *chainstypes.TrackUpdate, 1000)
-	p.priceUpdateCh = make(chan []*types.TokenPrice)
 
 	go p.listen()
-	go p.tpm.Start(p.priceUpdateCh)
+	go p.tpm.Start()
 
 	for chain, cfg := range p.cfg.Chains {
 		log.Info("Supported chain and config: ", chain, cfg)
@@ -91,7 +90,7 @@ func (p *Processor) Start() {
 		} else if libchain.IsLiskChain(chain) {
 			client := chainlisk.NewLiskClient(cfg)
 			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
-			dispatcher = chainlisk.NewDispatcher(client)
+			dispatcher = chainlisk.NewDispatcher(chain, client)
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
@@ -143,14 +142,6 @@ func (p *Processor) listen() {
 				p.sisuClient.BroadcastTxs(txs)
 			} else {
 				log.Warnf("txs: Sisu is not ready")
-			}
-
-		case prices := <-p.priceUpdateCh:
-			log.Info("There is new token price update", prices)
-			if p.sisuReady.Load() == true {
-				p.sisuClient.UpdateTokenPrices(prices)
-			} else {
-				log.Warnf("prices: Sisu is not ready")
 			}
 
 		case txTrackUpdate := <-p.txTrackCh:
@@ -211,4 +202,8 @@ func (tp *Processor) GetWatcher(chain string) chains.Watcher {
 
 func (p *Processor) SetSisuReady(isReady bool) {
 	p.sisuReady.Store(isReady)
+}
+
+func (tp *Processor) GetTokenPrice(id string) (*big.Int, error) {
+	return tp.tpm.GetTokenPrice(id)
 }

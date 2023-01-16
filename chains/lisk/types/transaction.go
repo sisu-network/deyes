@@ -30,3 +30,8 @@ func (tx *Transaction) Validate() error {
 
 	return nil
 }
+
+type TransactionResponse struct {
+	Message       string `json:"message"`
+	TransactionId string `json:"transactionId"`
+}

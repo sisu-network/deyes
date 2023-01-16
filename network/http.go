@@ -5,7 +5,6 @@ import (
 	"net/http"
 )
 
-// go:generate mockgen -source network/http.go -destination=tests/mock/network/http.go -package=mock
 type Http interface {
 	Get(req *http.Request) ([]byte, error)
 }

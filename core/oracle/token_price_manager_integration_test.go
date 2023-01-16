@@ -6,13 +6,12 @@ import (
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
-	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGettingTokenPrice(t *testing.T) {
 	t.Skip()
-
 	cfg := config.Deyes{
 		PricePollFrequency: 1000,
 		PriceOracleUrl:     "",
@@ -30,16 +29,11 @@ func TestGettingTokenPrice(t *testing.T) {
 		panic(err)
 	}
 
-	outCh := make(chan []*types.TokenPrice)
 	tpm := NewTokenPriceManager(cfg, dbInstance, network.NewHttp())
-	go tpm.Start(outCh)
+	go tpm.Start()
+	defer tpm.Stop()
 
-	select {
-	case prices := <-outCh:
-		for _, price := range prices {
-			log.Verbose(price.Id, " ", price.Price)
-		}
-
-		tpm.Stop()
-	}
+	price, err := tpm.GetTokenPrice("ETH")
+	require.Nil(t, err)
+	log.Verbosef("price = ", price)
 }

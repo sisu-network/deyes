@@ -58,7 +58,7 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 	minimum := new(big.Int).Mul(tx.GasPrice(), big.NewInt(int64(tx.Gas())))
 	minimum = minimum.Add(minimum, tx.Value())
 	if minimum.Cmp(balance) > 0 {
-		err = fmt.Errorf("Balance smaller than minimum required for this transaction, from = %s, balance = %s, minimum = %s, chain = %s",
+		err = fmt.Errorf("balance smaller than minimum required for this transaction, from = %s, balance = %s, minimum = %s, chain = %s",
 			from.String(), balance.String(), minimum.String(), request.Chain)
 	}
 
@@ -69,28 +69,6 @@ func (d *EthDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Disp
 			Chain:   request.Chain,
 			TxHash:  request.TxHash,
 			Err:     types.ErrNotEnoughBalance,
-		}
-	}
-
-	// Check nonce
-	nonce, err := d.client.PendingNonceAt(context.Background(), from)
-	if err != nil {
-		log.Errorf("Failed to get pending nonce for %s", from.String())
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			TxHash:  request.TxHash,
-			Err:     types.ErrGeneric,
-		}
-	}
-
-	if nonce != tx.Nonce() {
-		log.Errorf("Nonce does not match. Tx nonce = %d, expected nonce = %d", tx.Nonce(), nonce)
-		return &types.DispatchedTxResult{
-			Success: false,
-			Chain:   request.Chain,
-			TxHash:  request.TxHash,
-			Err:     types.ErrNonceNotMatched,
 		}
 	}
 
