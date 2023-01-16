@@ -1,6 +1,10 @@
 package crypto
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -32,4 +36,19 @@ func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) bo
 	isValid := ed25519.Verify(publicKey, data, signature)
 
 	return isValid
+}
+
+func SignWithNetwork(network string, txBytes []byte, privateKey []byte) []byte {
+	dst := new(bytes.Buffer)
+	//First byte is the network info
+	networkBytes, err := hex.DecodeString(network)
+	if err != nil {
+		panic(err)
+	}
+	binary.Write(dst, binary.LittleEndian, networkBytes)
+
+	// Append the transaction ModuleID
+	binary.Write(dst, binary.LittleEndian, txBytes)
+
+	return SignMessageWithPrivateKey(string(dst.Bytes()), privateKey)
 }

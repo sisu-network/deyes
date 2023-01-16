@@ -10,10 +10,10 @@ import (
 
 type LiskDispatcher struct {
 	chain  string
-	client LiskClient
+	client Client
 }
 
-func NewDispatcher(chain string, client LiskClient) chains.Dispatcher {
+func NewDispatcher(chain string, client Client) chains.Dispatcher {
 	return &LiskDispatcher{
 		client: client,
 		chain:  chain,

@@ -20,7 +20,7 @@ const (
 
 type Watcher struct {
 	cfg          config.Chain
-	client       LiskClient
+	client       Client
 	blockTime    int
 	db           database.Database
 	vault        string
@@ -35,7 +35,7 @@ type Watcher struct {
 }
 
 func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
-	client LiskClient) chains.Watcher {
+	client Client) chains.Watcher {
 	blockCh := make(chan *types.Block)
 
 	w := &Watcher{

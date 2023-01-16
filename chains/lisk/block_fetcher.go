@@ -43,12 +43,12 @@ type defaultBlockFetcher struct {
 	blockHeight uint64
 	blockTime   int
 	cfg         config.Chain
-	client      LiskClient
+	client      Client
 	blockCh     chan *types.Block
 	done        atomic.Bool
 }
 
-func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) BlockFetcher {
+func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client Client) BlockFetcher {
 	return &defaultBlockFetcher{
 		blockCh:   blockCh,
 		cfg:       cfg,
