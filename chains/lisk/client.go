@@ -120,6 +120,8 @@ func (c *defaultClient) CreateTransaction(txHash string) (string, error) {
 		return "", err
 	}
 
+	fmt.Println("Lisk response = ", string(response))
+
 	var responseObject types.TransactionResponse
 	err = json.Unmarshal(response, &responseObject)
 	if err != nil {

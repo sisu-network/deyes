@@ -2,7 +2,7 @@ syntax = "proto2";
 
 package lisk;
 
-option go_package = "/lisk/proto";
+option go_package = "types";
 
 message AssetMessage {
   required uint64 amount = 1;
