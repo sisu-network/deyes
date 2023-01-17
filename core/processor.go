@@ -83,14 +83,17 @@ func (p *Processor) Start() {
 			client := p.getCardanoClient(cfg)
 			watcher = cardano.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
 			dispatcher = cardano.NewDispatcher(client)
+
 		} else if libchain.IsSolanaChain(chain) {
 			// Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
+
 		} else if libchain.IsLiskChain(chain) {
 			client := chainlisk.NewLiskClient(cfg)
 			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
 			dispatcher = chainlisk.NewDispatcher(chain, client)
+
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}

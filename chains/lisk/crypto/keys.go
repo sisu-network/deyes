@@ -36,6 +36,13 @@ func GetAddressFromPublicKey(publicKey []byte) string {
 	return hex.EncodeToString(publicKeyHash[:20])
 }
 
+// GetLisk32AddressFromPublickey returns a Lisk 32 bytes format from public key.
+func GetLisk32AddressFromPublickey(publicKey []byte) string {
+	publicKeyHash := sha256.Sum256(publicKey)
+	addrBytes := publicKeyHash[:20]
+	return AddressToLisk32(addrBytes)
+}
+
 func AddressToLisk32(address []byte) string {
 	var byteSequence []byte
 	for _, b := range address {

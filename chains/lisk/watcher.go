@@ -139,13 +139,15 @@ func (w *Watcher) waitForBlock() {
 				}
 			}
 
-			txs := ctypes.Txs{
-				Chain:     w.cfg.Chain,
-				Block:     int64(block.Height),
-				BlockHash: block.Id,
-				Arr:       txArr,
+			if len(txArr) > 0 {
+				txs := ctypes.Txs{
+					Chain:     w.cfg.Chain,
+					Block:     int64(block.Height),
+					BlockHash: block.Id,
+					Arr:       txArr,
+				}
+				w.txsCh <- &txs
 			}
-			w.txsCh <- &txs
 		}
 	}
 }
