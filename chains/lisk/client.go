@@ -82,8 +82,6 @@ func (c *defaultClient) post(endpoint string, body map[string]string) ([]byte, e
 		return nil, err
 	}
 
-	fmt.Println("jsonData = ", string(jsonData))
-
 	resp, err := http.Post(c.rpc+endpoint, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
@@ -115,9 +113,9 @@ func (c *defaultClient) BlockNumber() (uint64, error) {
 
 func (c *defaultClient) CreateTransaction(txHash string) (string, error) {
 	params := map[string]string{
-		"tx": txHash,
+		"transaction": txHash,
 	}
-	response, err := c.post("/transaction", params)
+	response, err := c.post("/transactions", params)
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +125,7 @@ func (c *defaultClient) CreateTransaction(txHash string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	message := responseObject.Message
+	message := responseObject.TransactionId
 
 	return message, nil
 }
