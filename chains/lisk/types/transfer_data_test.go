@@ -6,25 +6,26 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/near/borsh-go"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTransferData_Serialize(t *testing.T) {
-	chainId := int64(1234234233)
+	chainId := uint64(1234234233)
 	recipient, err := hex.DecodeString("bac265B9e5758F325703bcc6C43F98C84e2F5aD9")
 	require.Nil(t, err)
 
 	amount, err := strconv.ParseUint("123124238962348765", 10, 64)
 	require.Nil(t, err)
 
-	data := &TransferData{
+	data := TransferData{
 		ChainId:   chainId,
 		Recipient: recipient,
+		Token:     "LSK",
 		Amount:    amount,
 	}
 
-	bz, err := proto.Marshal(data)
+	bz, err := borsh.Serialize(data)
 	require.Nil(t, err)
 
 	// Encode
@@ -37,7 +38,7 @@ func TestTransferData_Serialize(t *testing.T) {
 	require.Equal(t, bz, decoded)
 
 	tx := &TransferData{}
-	err = proto.Unmarshal(decoded, tx)
+	err = borsh.Deserialize(tx, decoded)
 	require.Nil(t, err)
-	require.Equal(t, data, tx)
+	require.Equal(t, &data, tx)
 }
