@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"strings"
 
 	"golang.org/x/crypto/ed25519"
 )
 
 var (
-	GENERATOR = []int{0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3}
-	CHARSET   = "zxvcpmbn3465o978uyrtkqew2adsjhfg"
+	GENERATOR             = []int{0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3}
+	CHARSET               = "zxvcpmbn3465o978uyrtkqew2adsjhfg"
+	LISK32_ADDRESS_LENGTH = 41
 )
 
 // GetPrivateKeyFromSecret takes a Lisk secret and returns the associated private key
@@ -107,4 +109,55 @@ func ConvertUInt5ToBase32(uint5Array []byte) string {
 		result += charsets[value]
 	}
 	return result
+}
+
+// Lisk32AddressToPublicAddress converts lisk32 address to a public address (byte array) used in a
+// transaction. For example:
+// lskstdwsvgtn7dbek82hrjyefn63kfa6o69uz9pvf -> dc f5 7d 8b f3 3b b4 6b 51 f8 ec b9 1b 78 ea 45 3d 95 31 4d
+func Lisk32AddressToPublicAddress(lisk32 string) ([]byte, error) {
+	err := ValidateLisk32(lisk32)
+	if err != nil {
+		return nil, err
+	}
+
+	// Base32 with no prefix and checksum
+	base32 := lisk32[3 : len(lisk32)-6]
+	intSeq := make([]byte, 0)
+	for _, r := range base32 {
+		index := strings.IndexRune(CHARSET, r)
+		intSeq = append(intSeq, byte(index))
+	}
+
+	intSeq8 := ConvertUIntArray(intSeq, 5, 8)
+
+	return intSeq8, nil
+}
+
+func ValidateLisk32(lisk32 string) error {
+	if len(lisk32) != LISK32_ADDRESS_LENGTH {
+		return fmt.Errorf("invalid lisk address length, lisk32 = %s", lisk32)
+	}
+
+	if lisk32[:3] != "lsk" {
+		return fmt.Errorf("invalid lisk prefix, lisk32 = %s", lisk32)
+	}
+
+	subAddr := lisk32[3:]
+
+	integerSeq := make([]byte, 0)
+	for _, r := range subAddr {
+		index := strings.IndexRune(CHARSET, r)
+		if index < 0 {
+			return fmt.Errorf("invalid lisk character %v", r)
+		}
+
+		integerSeq = append(integerSeq, byte(index))
+	}
+
+	// Verify checksum
+	if Polymod(integerSeq) != 1 {
+		return fmt.Errorf("check sum failed")
+	}
+
+	return nil
 }
