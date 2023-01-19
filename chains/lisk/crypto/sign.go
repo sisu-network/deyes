@@ -9,9 +9,7 @@ import (
 )
 
 // SignMessageWithPrivateKey takes a message and a privateKey and returns a signature as hex string
-func SignMessageWithPrivateKey(message string, privateKey []byte) []byte {
-	rawMessage := []byte(message)
-
+func SignMessageWithPrivateKey(rawMessage []byte, privateKey []byte) []byte {
 	signedMessage := ed25519.Sign(privateKey, rawMessage)
 
 	return signedMessage
@@ -38,17 +36,27 @@ func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) bo
 	return isValid
 }
 
-func SignWithNetwork(network string, txBytes []byte, privateKey []byte) []byte {
+func SignWithNetwork(network string, txBytes []byte, privateKey []byte) ([]byte, error) {
+	bz, err := GetSigningBytes(network, txBytes, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return SignMessageWithPrivateKey(bz, privateKey), nil
+}
+
+func GetSigningBytes(network string, txBytes []byte, privateKey []byte) ([]byte, error) {
 	dst := new(bytes.Buffer)
 	//First byte is the network info
 	networkBytes, err := hex.DecodeString(network)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+
 	binary.Write(dst, binary.LittleEndian, networkBytes)
 
 	// Append the transaction ModuleID
 	binary.Write(dst, binary.LittleEndian, txBytes)
 
-	return SignMessageWithPrivateKey(string(dst.Bytes()), privateKey)
+	return dst.Bytes(), nil
 }

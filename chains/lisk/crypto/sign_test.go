@@ -16,7 +16,7 @@ var (
 )
 
 func TestSign_MessageWithPrivateKey(t *testing.T) {
-	val := SignMessageWithPrivateKey(defaultMessage, signPrivateKey)
+	val := SignMessageWithPrivateKey([]byte(defaultMessage), signPrivateKey)
 	require.Equal(t, val, defaultSignature)
 }
 
