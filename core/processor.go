@@ -187,20 +187,21 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 }
 
 func (tp *Processor) GetNonce(chain string, address string) (int64, error) {
-	if !libchain.IsETHBasedChain(chain) && !libchain.IsLiskChain(chain) {
-		return 0, fmt.Errorf("%s is not an ETH chain nor Lisk", chain)
-	}
-
 	watcher := tp.GetWatcher(chain)
 	if watcher == nil {
 		return 0, fmt.Errorf("Cannot find watcher for chain %s", chain)
 	}
 
-	if libchain.IsETHBasedChain(chain) {
-		return watcher.(*chainseth.Watcher).GetNonce(address), nil
-	}
+	switch {
+	case libchain.IsETHBasedChain(chain):
+		return watcher.(*chainseth.Watcher).GetNonce(address)
 
-	return watcher.(*chainseth.Watcher).GetNonce(address), nil
+	case libchain.IsLiskChain(chain):
+		return watcher.(*chainlisk.Watcher).GetNonce(address)
+
+	default:
+		return 0, fmt.Errorf("unsupported chain for getting nonce, chain = %s", chain)
+	}
 }
 
 func (tp *Processor) GetWatcher(chain string) chains.Watcher {

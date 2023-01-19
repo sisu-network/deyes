@@ -2,6 +2,8 @@ package lisk
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -150,6 +152,20 @@ func (w *Watcher) waitForBlock() {
 			}
 		}
 	}
+}
+
+func (w *Watcher) GetNonce(address string) (int64, error) {
+	acc, err := w.client.GetAccount(address)
+	if err != nil {
+		return 0, err
+	}
+
+	nonce, err := strconv.ParseInt(acc.Sequence.Nonce, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("cannot parse nonce, address string = %s", address)
+	}
+
+	return nonce, nil
 }
 
 func (w *Watcher) processBlock(block *types.Block) []*types.Transaction {
