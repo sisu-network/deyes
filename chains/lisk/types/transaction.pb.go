@@ -21,9 +21,9 @@ const (
 )
 
 type TransactionMessage struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
+	state         protoimpl.MessageState `borsh_skip:"true"`
+	sizeCache     protoimpl.SizeCache `borsh_skip:"true"`
+	unknownFields protoimpl.UnknownFields `borsh_skip:"true"`
 
 	ModuleID        *uint32  `protobuf:"varint,1,req,name=moduleID" json:"moduleID,omitempty"`
 	AssetID         *uint32  `protobuf:"varint,2,req,name=assetID" json:"assetID,omitempty"`
