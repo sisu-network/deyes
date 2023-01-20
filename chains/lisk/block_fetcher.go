@@ -43,12 +43,12 @@ type defaultBlockFetcher struct {
 	blockHeight uint64
 	blockTime   int
 	cfg         config.Chain
-	client      LiskClient
+	client      Client
 	blockCh     chan *types.Block
 	done        atomic.Bool
 }
 
-func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client LiskClient) BlockFetcher {
+func newBlockFetcher(cfg config.Chain, blockCh chan *types.Block, client Client) BlockFetcher {
 	return &defaultBlockFetcher{
 		blockCh:   blockCh,
 		cfg:       cfg,
@@ -128,10 +128,10 @@ func (bf *defaultBlockFetcher) getLatestBlock() (*types.Block, error) {
 
 func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 	block, err := bf.client.BlockByHeight(height)
-
 	if err != nil {
 		return nil, err
 	}
+
 	block.Transactions = []*types.Transaction{}
 	if block.NumberOfTransactions > 0 {
 		transactions, err := bf.client.TransactionByBlock(block.Id)

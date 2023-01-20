@@ -1,35 +1,53 @@
 package crypto
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+
 	"golang.org/x/crypto/ed25519"
 )
 
-// SignMessageWithPrivateKey takes a message and a privateKey and returns a signature as hex string
-func SignMessageWithPrivateKey(message string, privateKey []byte) []byte {
-	rawMessage := []byte(message)
-
-	signedMessage := ed25519.Sign(privateKey, rawMessage)
-
-	return signedMessage
-}
-
-// SignDataWithPrivateKey takes data and a privateKey and returns a signature
-func SignDataWithPrivateKey(data []byte, privateKey []byte) []byte {
+// SignMessage takes data and a privateKey and returns a signature
+func SignMessage(data []byte, privateKey []byte) []byte {
 	signedMessage := ed25519.Sign(privateKey, data)
 
 	return signedMessage
 }
 
-// VerifyMessageWithPublicKey takes a message, signature and publicKey and verifies it
-func VerifyMessageWithPublicKey(message string, signature []byte, publicKey []byte) bool {
-	isValid := ed25519.Verify(publicKey, []byte(message), signature)
+// VerifyMessage takes data, a signature and a publicKey and verifies it
+func VerifyMessage(data []byte, signature []byte, publicKey []byte) bool {
+	isValid := ed25519.Verify(publicKey, data, signature)
 
 	return isValid
 }
 
-// VerifyDataWithPublicKey takes data, a signature and a publicKey and verifies it
-func VerifyDataWithPublicKey(data []byte, signature []byte, publicKey []byte) bool {
-	isValid := ed25519.Verify(publicKey, data, signature)
+func SignWithNetwork(network string, txBytes []byte, privateKey []byte) ([]byte, error) {
+	bz, err := GetSigningBytes(network, txBytes)
+	if err != nil {
+		return nil, err
+	}
 
-	return isValid
+	return SignMessage(bz, privateKey), nil
+}
+
+func GetSigningBytes(network string, txBytes []byte) ([]byte, error) {
+	if len(network) == 0 {
+		return nil, fmt.Errorf("network id cannot be empty")
+	}
+
+	dst := new(bytes.Buffer)
+	//First byte is the network info
+	networkBytes, err := hex.DecodeString(network)
+	if err != nil {
+		return nil, err
+	}
+
+	binary.Write(dst, binary.LittleEndian, networkBytes)
+
+	// Append the transaction ModuleID
+	binary.Write(dst, binary.LittleEndian, txBytes)
+
+	return dst.Bytes(), nil
 }

@@ -1,8 +1,10 @@
 package lisk
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -26,8 +28,8 @@ func (e *APIErr) Error() string {
 	return fmt.Sprintf(e.message)
 }
 
-// LiskClient  A wrapper around lisk.client so that we can mock in watcher tests.
-type LiskClient interface {
+// Client  A wrapper around lisk.client so that we can mock in watcher tests.
+type Client interface {
 	BlockNumber() (uint64, error)
 	BlockByHeight(height uint64) (*types.Block, error)
 	TransactionByBlock(block string) ([]*types.Transaction, error)
@@ -35,29 +37,31 @@ type LiskClient interface {
 	CreateTransaction(txHash string) (string, error)
 }
 
-type defaultLiskClient struct {
+type defaultClient struct {
 	chain string
 	rpc   string
 }
 
-func NewLiskClient(cfg config.Chain) LiskClient {
-	c := &defaultLiskClient{
+func NewLiskClient(cfg config.Chain) Client {
+	c := &defaultClient{
 		chain: cfg.Chain,
 		rpc:   cfg.Rpcs[0],
 	}
 	return c
 }
 
-func (c *defaultLiskClient) execute(endpoint string, method string, params map[string]string) ([]byte, error) {
+func (c *defaultClient) get(endpoint string, params map[string]string) ([]byte, error) {
 	keys := reflect.ValueOf(params).MapKeys()
-	req, err := http.NewRequest(method, c.rpc+endpoint, nil)
+	req, err := http.NewRequest("GET", c.rpc+endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	q := req.URL.Query()
 	for _, key := range keys {
 		q.Add(key.Interface().(string), params[key.Interface().(string)])
 	}
+
 	req.URL.RawQuery = q.Encode()
 	response, err := http.Get(req.URL.String())
 	if response == nil {
@@ -72,12 +76,27 @@ func (c *defaultLiskClient) execute(endpoint string, method string, params map[s
 	return responseData, err
 }
 
-func (c *defaultLiskClient) BlockNumber() (uint64, error) {
+func (c *defaultClient) post(endpoint string, body map[string]string) ([]byte, error) {
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post(c.rpc+endpoint, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func (c *defaultClient) BlockNumber() (uint64, error) {
 	params := map[string]string{
 		"limit": "1",
 		"sort":  "height:desc",
 	}
-	response, err := c.execute("/blocks", "GET", params)
+	response, err := c.get("/blocks", params)
 	if err != nil {
 		return 0, err
 	}
@@ -92,11 +111,11 @@ func (c *defaultLiskClient) BlockNumber() (uint64, error) {
 	return latestBlock.Height, nil
 }
 
-func (c *defaultLiskClient) CreateTransaction(txHash string) (string, error) {
+func (c *defaultClient) CreateTransaction(txHash string) (string, error) {
 	params := map[string]string{
-		"tx": txHash,
+		"transaction": txHash,
 	}
-	response, err := c.execute("/transaction", "POST", params)
+	response, err := c.post("/transactions", params)
 	if err != nil {
 		return "", err
 	}
@@ -106,17 +125,17 @@ func (c *defaultLiskClient) CreateTransaction(txHash string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	message := responseObject.Message
+	message := responseObject.TransactionId
 
 	return message, nil
 }
 
-func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
+func (c *defaultClient) BlockByHeight(height uint64) (*types.Block, error) {
 	params := map[string]string{
 		"limit":  "1",
 		"height": strconv.FormatUint(uint64(height), 10),
 	}
-	response, err := c.execute("/blocks", "GET", params)
+	response, err := c.get("/blocks", params)
 	var responseObject types.ResponseBlock
 	err = json.Unmarshal(response, &responseObject)
 	if err != nil {
@@ -132,11 +151,11 @@ func (c *defaultLiskClient) BlockByHeight(height uint64) (*types.Block, error) {
 	return latestBlock, err
 }
 
-func (c *defaultLiskClient) TransactionByBlock(block string) ([]*types.Transaction, error) {
+func (c *defaultClient) TransactionByBlock(block string) ([]*types.Transaction, error) {
 	params := map[string]string{
 		"blockId": block,
 	}
-	response, err := c.execute("/transactions", "GET", params)
+	response, err := c.get("/transactions", params)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +169,11 @@ func (c *defaultLiskClient) TransactionByBlock(block string) ([]*types.Transacti
 	return responseObject.Data, nil
 }
 
-func (c *defaultLiskClient) GetAccount(address string) (*types.Account, error) {
+func (c *defaultClient) GetAccount(address string) (*types.Account, error) {
 	params := map[string]string{
 		"address": address,
 	}
-	response, err := c.execute("/accounts", "GET", params)
+	response, err := c.get("/accounts", params)
 	if err != nil {
 		return nil, err
 	}

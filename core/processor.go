@@ -83,14 +83,17 @@ func (p *Processor) Start() {
 			client := p.getCardanoClient(cfg)
 			watcher = cardano.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh, client)
 			dispatcher = cardano.NewDispatcher(client)
+
 		} else if libchain.IsSolanaChain(chain) {
 			// Solana
 			watcher = solana.NewWatcher(cfg, p.db, p.txsCh, p.txTrackCh)
 			dispatcher = solana.NewDispatcher(cfg.Rpcs, cfg.Wss)
+
 		} else if libchain.IsLiskChain(chain) {
 			client := chainlisk.NewLiskClient(cfg)
-			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
+			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, client)
 			dispatcher = chainlisk.NewDispatcher(chain, client)
+
 		} else {
 			panic(fmt.Errorf("Unknown chain %s", chain))
 		}
@@ -184,16 +187,21 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 }
 
 func (tp *Processor) GetNonce(chain string, address string) (int64, error) {
-	if !libchain.IsETHBasedChain(chain) {
-		return 0, fmt.Errorf("%s is not an ETH chain", chain)
-	}
-
 	watcher := tp.GetWatcher(chain)
 	if watcher == nil {
 		return 0, fmt.Errorf("Cannot find watcher for chain %s", chain)
 	}
 
-	return watcher.(*chainseth.Watcher).GetNonce(address), nil
+	switch {
+	case libchain.IsETHBasedChain(chain):
+		return watcher.(*chainseth.Watcher).GetNonce(address)
+
+	case libchain.IsLiskChain(chain):
+		return watcher.(*chainlisk.Watcher).GetNonce(address)
+
+	default:
+		return 0, fmt.Errorf("unsupported chain for getting nonce, chain = %s", chain)
+	}
 }
 
 func (tp *Processor) GetWatcher(chain string) chains.Watcher {

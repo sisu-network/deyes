@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package lisk;
+
+option go_package = "/types";
+
+message TransferData {
+  required uint64 chainId = 1;
+  required bytes recipient = 2;
+  optional string token = 3;
+  required uint64 amount = 4;
+}

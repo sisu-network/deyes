@@ -10,10 +10,10 @@ import (
 
 type LiskDispatcher struct {
 	chain  string
-	client LiskClient
+	client Client
 }
 
-func NewDispatcher(chain string, client LiskClient) chains.Dispatcher {
+func NewDispatcher(chain string, client Client) chains.Dispatcher {
 	return &LiskDispatcher{
 		client: client,
 		chain:  chain,
@@ -21,18 +21,25 @@ func NewDispatcher(chain string, client LiskClient) chains.Dispatcher {
 }
 
 func (d *LiskDispatcher) Start() {
-
 }
 
 func (d *LiskDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
-	tx, err := d.client.CreateTransaction(hex.EncodeToString(request.Tx))
+	txHash, err := d.client.CreateTransaction(hex.EncodeToString(request.Tx))
 	if err != nil {
 		log.Errorf("Failed to create transaction, err = %v", err)
-		return &types.DispatchedTxResult{Success: false}
+		return types.NewDispatchTxError(request, types.ErrSubmitTx)
 	}
+
+	log.Infof("Returned lisk tx hash from server = %s", txHash)
+
+	if len(txHash) == 0 {
+		log.Errorf("failed to dispatch lisk transaction, server rejects the tx")
+		return types.NewDispatchTxError(request, types.ErrGeneric)
+	}
+
 	return &types.DispatchedTxResult{
 		Success: true,
 		Chain:   request.Chain,
-		TxHash:  tx,
+		TxHash:  txHash,
 	}
 }
