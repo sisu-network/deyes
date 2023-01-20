@@ -21,6 +21,11 @@ func TestTokenManager(t *testing.T) {
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
+			EthRpc:   "https://rpc.ankr.com/eth/9f7d929b018cdffb338517efa06f58359e86ff1ffd350bc889738523659e7972",
+			Tokens: map[string]config.Token{
+				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
+				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			},
 		}
 
 		net := &network.MockHttp{
@@ -50,6 +55,11 @@ func TestTokenManager(t *testing.T) {
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
+			EthRpc:   "https://rpc.ankr.com/eth/9f7d929b018cdffb338517efa06f58359e86ff1ffd350bc889738523659e7972",
+			Tokens: map[string]config.Token{
+				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
+				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			},
 		}
 
 		net := &network.MockHttp{
@@ -72,6 +82,11 @@ func TestTokenManager(t *testing.T) {
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
+			EthRpc:   "https://rpc.ankr.com/eth/9f7d929b018cdffb338517efa06f58359e86ff1ffd350bc889738523659e7972",
+			Tokens: map[string]config.Token{
+				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
+				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			},
 		}
 
 		count := 0

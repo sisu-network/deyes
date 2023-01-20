@@ -40,6 +40,11 @@ type Chain struct {
 	SolanaBridgeProgramId string `toml:"solana_bridge_program_id" json:"solana_bridge_program_id"`
 }
 
+type Token struct {
+	Token   string `toml:"token" json:"token"`
+	Address string `toml:"address" json:"address"`
+}
+
 type Deyes struct {
 	DbHost     string `toml:"db_host"`
 	DbPort     int    `toml:"db_port"`
@@ -51,6 +56,8 @@ type Deyes struct {
 	PriceOracleSecret  string   `toml:"price_oracle_secret"`
 	PricePollFrequency int      `toml:"price_poll_frequency"`
 	PriceTokenList     []string `toml:"price_token_list"`
+	EthRpc             string   `toml:"eth_rpc"`
+	DaiTokenAddress    string   `toml:"dai_token_address"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
@@ -62,6 +69,8 @@ type Deyes struct {
 	UseExternalRpcsInfo bool `toml:"use_external_rpcs_info"`
 	// Chains config
 	Chains map[string]Chain `toml:"chains"`
+
+	Tokens map[string]Token `toml:"tokens"`
 
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 
