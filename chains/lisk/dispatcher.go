@@ -2,7 +2,6 @@ package lisk
 
 import (
 	"encoding/hex"
-	"fmt"
 
 	"github.com/sisu-network/deyes/chains"
 	"github.com/sisu-network/deyes/types"
@@ -31,7 +30,7 @@ func (d *LiskDispatcher) Dispatch(request *types.DispatchedTxRequest) *types.Dis
 		return types.NewDispatchTxError(request, types.ErrSubmitTx)
 	}
 
-	fmt.Println("Returned tx hash from server = ", txHash)
+	log.Infof("Returned lisk tx hash from server = %s", txHash)
 
 	if len(txHash) == 0 {
 		log.Errorf("failed to dispatch lisk transaction, server rejects the tx")

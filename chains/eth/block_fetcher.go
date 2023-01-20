@@ -78,7 +78,8 @@ func (bf *defaultBlockFetcher) scanBlocks() {
 		if err != nil || block == nil {
 			if _, ok := err.(*BlockHeightExceededError); !ok && err != ethereum.NotFound {
 				// This err is not ETH not found or our custom error.
-				log.Error("Cannot get block at height", bf.blockHeight, "for chain", bf.cfg.Chain, " err = ", err)
+				log.Error("Cannot get block at height %s for chain %s, err = %s",
+					bf.blockHeight, bf.cfg.Chain, err)
 
 				// Bug only on polygon network https://github.com/maticnetwork/bor/issues/387
 				// The block exists but its header hash is equivalent to empty root hash but the internal

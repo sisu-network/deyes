@@ -128,10 +128,10 @@ func (bf *defaultBlockFetcher) getLatestBlock() (*types.Block, error) {
 
 func (bf *defaultBlockFetcher) getBlock(height uint64) (*types.Block, error) {
 	block, err := bf.client.BlockByHeight(height)
-
 	if err != nil {
 		return nil, err
 	}
+
 	block.Transactions = []*types.Transaction{}
 	if block.NumberOfTransactions > 0 {
 		transactions, err := bf.client.TransactionByBlock(block.Id)

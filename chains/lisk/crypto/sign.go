@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -32,6 +33,10 @@ func SignWithNetwork(network string, txBytes []byte, privateKey []byte) ([]byte,
 }
 
 func GetSigningBytes(network string, txBytes []byte) ([]byte, error) {
+	if len(network) == 0 {
+		return nil, fmt.Errorf("network id cannot be empty")
+	}
+
 	dst := new(bytes.Buffer)
 	//First byte is the network info
 	networkBytes, err := hex.DecodeString(network)

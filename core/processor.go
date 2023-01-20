@@ -91,7 +91,7 @@ func (p *Processor) Start() {
 
 		} else if libchain.IsLiskChain(chain) {
 			client := chainlisk.NewLiskClient(cfg)
-			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, client)
+			watcher = chainlisk.NewWatcher(p.db, cfg, p.txsCh, p.txTrackCh, client)
 			dispatcher = chainlisk.NewDispatcher(chain, client)
 
 		} else {
