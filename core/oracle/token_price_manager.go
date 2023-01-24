@@ -67,22 +67,9 @@ func (m *defaultTokenPriceManager) Start() {
 	m.stop.Store(false)
 	m.initTokenPrices()
 
-	for {
-		if m.stop.Load().(bool) == true {
-			break
-		}
-
-		if len(m.cfg.PriceOracleUrl) == 0 {
-			log.Warn("Orable price url is not set")
-			break
-		}
-
-		_, err := m.getResponse(m.cfg.PriceTokenList)
-		if err != nil {
-			log.Error("Cannot get response, err = ", err)
-		}
-
-		time.Sleep(time.Second * time.Duration(m.cfg.PricePollFrequency))
+	_, err := m.getTokenPrices(m.cfg.PriceTokenList)
+	if err != nil {
+		log.Error("Cannot get response, err = ", err)
 	}
 }
 
@@ -119,7 +106,7 @@ func (m *defaultTokenPriceManager) getRequest(tokenList []string) *http.Request 
 	return req
 }
 
-func (m *defaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
+func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
 	req := m.getRequest(tokenList)
 	data, err := m.networkHttp.Get(req)
 	if err != nil {
@@ -185,7 +172,7 @@ func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 	}
 
 	// Load from server.
-	tokenPrices, err := m.getResponse([]string{id})
+	tokenPrices, err := m.getTokenPrices([]string{id})
 	if err != nil {
 		return nil, err
 	}

@@ -178,7 +178,7 @@ func (tp *Processor) DispatchTx(request *types.DispatchedTxRequest) {
 		log.Error(fmt.Errorf("Cannot find dispatcher for chain %s", chain))
 		result = types.NewDispatchTxError(request, types.ErrGeneric)
 	} else {
-		log.Verbosef("Dispatching tx for chain %s with hash", request.Chain, request.TxHash)
+		log.Verbosef("Dispatching tx for chain %s with hash %s", request.Chain, request.TxHash)
 		result = dispatcher.Dispatch(request)
 	}
 

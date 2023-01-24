@@ -100,6 +100,8 @@ func (w *Watcher) init() {
 	} else {
 		log.Infof("Vault for chain %s is not set yet", w.cfg.Chain)
 	}
+
+	w.gasCal.Start()
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
