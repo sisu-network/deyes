@@ -163,10 +163,10 @@ func (m *defaultTokenPriceManager) getPriceFromSushiswap(tokenAddress string) (*
 	ctx := context.Background()
 
 	ec, _ := ethclient.DialContext(ctx, rpcEth)
-
 	client := sushiswap.NewClient(ec)
 	price, err := client.GetExchangeAmount(big.NewInt(1), common.HexToAddress(tokenAddress),
 		common.HexToAddress(daiTokenAddress))
+
 	if err != nil {
 		return nil, err
 	}

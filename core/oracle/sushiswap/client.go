@@ -19,9 +19,10 @@ package sushiswap
 import (
 	"context"
 	"errors"
-	"github.com/sisu-network/deyes/core/oracle/sushiswap/utils"
 	"math/big"
 	"time"
+
+	"github.com/sisu-network/deyes/core/oracle/sushiswap/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,7 +44,6 @@ func NewClient(bc utils.Blockchain) *Client {
 // GetReserves returns the available reserves in a pair
 func (c *Client) GetReserves(token0, token1 common.Address) (*Reserve, error) {
 	addr := GeneratePairAddress(token0, token1)
-
 	caller, err := NewUniswapv2pairCaller(addr, c.bc)
 	if err != nil {
 		return nil, err
@@ -72,6 +72,7 @@ func (c *Client) GetReserves(token0, token1 common.Address) (*Reserve, error) {
 func (c *Client) GetExchangeAmount(amount *big.Int, token0, token1 common.Address) (*big.Int, error) {
 
 	reserves, err := c.GetReserves(token0, token1)
+
 	if err != nil {
 		return nil, err
 	}
