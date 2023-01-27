@@ -2,15 +2,18 @@ package lisk
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/golang/groupcache/lru"
 	"github.com/sisu-network/deyes/chains"
-	"github.com/sisu-network/deyes/chains/lisk/types"
+	lisktypes "github.com/sisu-network/deyes/chains/lisk/types"
+	chainstypes "github.com/sisu-network/deyes/chains/types"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
-	ctypes "github.com/sisu-network/deyes/types"
+	types "github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
 )
 
@@ -20,23 +23,24 @@ const (
 
 type Watcher struct {
 	cfg          config.Chain
-	client       LiskClient
+	client       Client
 	blockTime    int
 	db           database.Database
 	vault        string
 	txTrackCache *lru.Cache
 	lock         *sync.RWMutex
-	txsCh        chan *ctypes.Txs
+	txsCh        chan *types.Txs
+	txTrackCh    chan *chainstypes.TrackUpdate
 	doneCh       chan bool
 
 	// Block fetcher
-	blockCh      chan *types.Block
+	blockCh      chan *lisktypes.Block
 	blockFetcher BlockFetcher
 }
 
-func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
-	client LiskClient) chains.Watcher {
-	blockCh := make(chan *types.Block)
+func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *types.Txs,
+	txTrackCh chan *chainstypes.TrackUpdate, client Client) chains.Watcher {
+	blockCh := make(chan *lisktypes.Block)
 
 	w := &Watcher{
 		blockCh:      blockCh,
@@ -48,6 +52,7 @@ func NewWatcher(db database.Database, cfg config.Chain, txsCh chan *ctypes.Txs,
 		client:       client,
 		lock:         &sync.RWMutex{},
 		txTrackCache: lru.New(TxTrackCacheSize),
+		txTrackCh:    txTrackCh,
 		doneCh:       make(chan bool),
 	}
 
@@ -107,73 +112,84 @@ func (w *Watcher) waitForBlock() {
 		case block := <-w.blockCh:
 			// Pass this block to the receipt fetcher
 			log.Info(w.cfg.Chain, " Block length = ", block.NumberOfTransactions)
-			txArr := make([]*ctypes.Tx, 0)
 
-			for _, tx := range block.Transactions {
-				if tx.Sender != nil && strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
-					if err := tx.Validate(); err != nil {
-						log.Errorf("Failed to validate transaction, err = %v", err)
-						continue
-					}
-
-					log.Infof("Transfer %s from address %s to %s with message %s",
-						tx.Asset.Amount,
-						tx.Sender.Address,
-						tx.Asset.Recipient.Address,
-						tx.Asset.Data,
-					)
-					bz, err := json.Marshal(tx)
-					if err != nil {
-						log.Errorf("Failed to marshal transaction, err = %v", err)
-						continue
-					}
-
-					txFormatted := ctypes.Tx{
-						Hash:       tx.Id,
-						Serialized: bz,
-						From:       tx.Sender.Address,
-						To:         tx.Asset.Recipient.Address,
-						Success:    tx.IsPending == false,
-					}
-					txArr = append(txArr, &txFormatted)
-				}
-			}
-
-			txs := ctypes.Txs{
-				Chain:     w.cfg.Chain,
-				Block:     int64(block.Height),
-				BlockHash: block.Id,
-				Arr:       txArr,
-			}
-			w.txsCh <- &txs
+			w.processBlock(block)
 		}
 	}
 }
 
-func (w *Watcher) processBlock(block *types.Block) []*types.Transaction {
-	ret := make([]*types.Transaction, 0)
+func (w *Watcher) GetNonce(address string) (int64, error) {
+	acc, err := w.client.GetAccount(address)
+	if err != nil {
+		return 0, err
+	}
+
+	nonce, err := strconv.ParseInt(acc.Sequence.Nonce, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("cannot parse nonce, address string = %s", address)
+	}
+
+	return nonce, nil
+}
+
+func (w *Watcher) processBlock(block *lisktypes.Block) {
+	txArr := make([]*types.Tx, 0)
+
 	for _, tx := range block.Transactions {
 		if _, ok := w.txTrackCache.Get(tx.Id); ok {
-			ret = append(ret, tx)
+			log.Verbose("Confirming lisk tx with hash = ", tx.Id)
+
+			result := chainstypes.TrackResultConfirmed
+			// This is a transaction that we are tracking. Inform Sisu about this.
+			w.txTrackCh <- &chainstypes.TrackUpdate{
+				Chain:       w.cfg.Chain,
+				Hash:        tx.Id,
+				BlockHeight: int64(block.Height),
+				Result:      result,
+			}
+
 			continue
 		}
 
-		if w.acceptTx(tx) {
-			ret = append(ret, tx)
+		if tx.Sender != nil && tx.Asset != nil && tx.Asset.Recipient != nil &&
+			strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
+			if err := tx.Validate(); err != nil {
+				log.Errorf("Failed to validate transaction, err = %v", err)
+				continue
+			}
+
+			log.Infof("There is a transaction of amount %s from address %s to %s with message %s",
+				tx.Asset.Amount,
+				tx.Sender.Address,
+				tx.Asset.Recipient.Address,
+				tx.Asset.Data,
+			)
+			bz, err := json.Marshal(tx)
+			if err != nil {
+				log.Errorf("Failed to marshal transaction, err = %v", err)
+				continue
+			}
+
+			txFormatted := types.Tx{
+				Hash:       tx.Id,
+				Serialized: bz,
+				From:       tx.Sender.Address,
+				To:         tx.Asset.Recipient.Address,
+				Success:    tx.IsPending == false,
+			}
+			txArr = append(txArr, &txFormatted)
 		}
 	}
 
-	return ret
-}
-
-func (w *Watcher) acceptTx(tx *types.Transaction) bool {
-	if tx.Asset.Recipient.Address != "" {
-		if strings.EqualFold(tx.Asset.Recipient.Address, w.vault) {
-			return true
+	if len(txArr) > 0 {
+		txs := types.Txs{
+			Chain:     w.cfg.Chain,
+			Block:     int64(block.Height),
+			BlockHash: block.Id,
+			Arr:       txArr,
 		}
+		w.txsCh <- &txs
 	}
-
-	return false
 }
 
 func (w *Watcher) TrackTx(txHash string) {

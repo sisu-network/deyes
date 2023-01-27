@@ -100,6 +100,8 @@ func (w *Watcher) init() {
 	} else {
 		log.Infof("Vault for chain %s is not set yet", w.cfg.Chain)
 	}
+
+	w.gasCal.Start()
 }
 
 func (w *Watcher) SetVault(addr string, token string) {
@@ -277,16 +279,14 @@ func (w *Watcher) getFromAddress(chain string, tx *ethtypes.Transaction) (common
 	return msg.From(), nil
 }
 
-func (w *Watcher) GetNonce(address string) int64 {
+func (w *Watcher) GetNonce(address string) (int64, error) {
 	cAddr := common.HexToAddress(address)
 	nonce, err := w.client.PendingNonceAt(context.Background(), cAddr)
 	if err == nil {
-		return int64(nonce)
-	} else {
-		log.Error("cannot get nonce of chain", w.cfg.Chain, " at", address)
+		return int64(nonce), nil
 	}
 
-	return 0
+	return 0, fmt.Errorf("cannot get nonce of chain %s at %s", w.cfg.Chain, address)
 }
 
 func (w *Watcher) getGasPriceFromNode(ctx context.Context) (*big.Int, error) {

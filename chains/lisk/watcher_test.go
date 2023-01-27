@@ -68,7 +68,7 @@ func TestWatcher_TestScanBlocks(t *testing.T) {
 	}
 	txsCh := make(chan *types.Txs)
 
-	watcher := NewWatcher(db, cfg, txsCh, client).(*Watcher)
+	watcher := NewWatcher(db, cfg, txsCh, nil, client).(*Watcher)
 	watcher.SetVault(vaultAddress, "")
 	watcher.Start()
 

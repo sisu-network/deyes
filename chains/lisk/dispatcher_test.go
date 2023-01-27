@@ -93,5 +93,5 @@ func sign(txBytes []byte, privateKey []byte) ([]byte, error) {
 	// Append the transaction ModuleID
 	binary.Write(dst, binary.LittleEndian, txBytes)
 
-	return crypto.SignMessageWithPrivateKey(string(dst.Bytes()), privateKey), nil
+	return crypto.SignMessage(dst.Bytes(), privateKey), nil
 }

@@ -1,4 +1,4 @@
-package eth
+package types
 
 type GasInfo struct {
 	GasPrice int64
