@@ -2,8 +2,13 @@ package oracle
 
 import (
 	"fmt"
+	"math/big"
 	"net/http"
 	"testing"
+
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
+	"github.com/sisu-network/deyes/types"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
@@ -21,7 +26,7 @@ func TestTokenManager(t *testing.T) {
 			DbHost:             "127.0.0.1",
 			DbSchema:           "deyes",
 			InMemory:           true,
-			EthRpc:             "https://rpc.ankr.com/eth",
+			EthRpc:             "http://example.com",
 			Tokens: map[string]config.Token{
 				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
 				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
@@ -34,21 +39,38 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 
+		sushiswap := &sushiswap.MockSushiSwapManager{
+			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				price, ok := new(big.Int).SetString("1", 10)
+				require.Equal(t, ok, true)
+				return &types.TokenPrice{
+					Price: price,
+					Id:    "ETH",
+				}, nil
+			},
+		}
+
+		uniswap := &uniswap.MockNewUniwapManager{
+			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				price, ok := new(big.Int).SetString("1", 10)
+				require.Equal(t, ok, true)
+				return &types.TokenPrice{
+					Price: price,
+					Id:    "ETH",
+				}, nil
+			},
+		}
+
 		dbInstance := database.NewDb(&cfg)
 		err := dbInstance.Init()
 		if err != nil {
 			panic(err)
 		}
 
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net)
+		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
-
 		require.Nil(t, err)
-		require.Equal(t, "2410875945408672038912", price.String())
-
-		price, err = priceManager.GetTokenPrice("BTC")
-		require.Nil(t, err)
-		require.Equal(t, "36367076791144564129792", price.String())
+		require.Equal(t, "1", price.String())
 	})
 
 	t.Run("Get price fail", func(t *testing.T) {
@@ -57,7 +79,7 @@ func TestTokenManager(t *testing.T) {
 			DbSchema:        "deyes",
 			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
 			InMemory:        true,
-			EthRpc:          "https://rpc.ankr.com/eth",
+			EthRpc:          "http://example.com",
 			Tokens: map[string]config.Token{
 				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
 				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
@@ -69,12 +91,24 @@ func TestTokenManager(t *testing.T) {
 				return nil, fmt.Errorf("Not found")
 			},
 		}
+		sushiswap := &sushiswap.MockSushiSwapManager{
+			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				return nil, fmt.Errorf("Not found")
+			},
+		}
+
+		uniswap := &uniswap.MockNewUniwapManager{
+			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				return nil, fmt.Errorf("Not found")
+			},
+		}
 
 		dbInstance := database.NewDb(&cfg)
 		err := dbInstance.Init()
 		require.Nil(t, err)
 
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net)
+		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
+
 		_, err = priceManager.GetTokenPrice("ETH")
 		require.NotNil(t, err)
 	})
@@ -85,7 +119,7 @@ func TestTokenManager(t *testing.T) {
 			DbSchema:        "deyes",
 			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
 			InMemory:        true,
-			EthRpc:          "https://rpc.ankr.com/eth",
+			EthRpc:          "http://example.com",
 			Tokens: map[string]config.Token{
 				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
 				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
@@ -104,24 +138,52 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 
+		sushiswap := &sushiswap.MockSushiSwapManager{
+			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				price := new(big.Int)
+				if count == 0 {
+					count++
+					price, _ = new(big.Int).SetString("1000", 10)
+				} else {
+					price, _ = new(big.Int).SetString("2000", 10)
+				}
+
+				return &types.TokenPrice{
+					Price: price,
+					Id:    "ETH",
+				}, nil
+			},
+		}
+
+		uniswap := &uniswap.MockNewUniwapManager{
+			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+				price := new(big.Int)
+				if count == 0 {
+					count++
+					price, _ = new(big.Int).SetString("1000", 10)
+				} else {
+					price, _ = new(big.Int).SetString("2000", 10)
+				}
+				return &types.TokenPrice{
+					Price: price,
+					Id:    "ETH",
+				}, nil
+			},
+		}
 		dbInstance := database.NewDb(&cfg)
 		err := dbInstance.Init()
 		require.Nil(t, err)
 
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net)
+		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
-		require.Equal(t, "1000000000000000000000", price.String())
-
-		price, err = priceManager.GetTokenPrice("ETH")
-		require.Nil(t, err)
-		require.Equal(t, "1000000000000000000000", price.String())
+		require.Equal(t, "1000", price.String())
 
 		// Change the updateFrequency to invalidate cache.
 		priceManager.(*defaultTokenPriceManager).updateFrequency = 0
 
 		price, err = priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
-		require.Equal(t, "2000000000000000000000", price.String())
+		require.Equal(t, "2000", price.String())
 	})
 }

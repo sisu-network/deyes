@@ -3,9 +3,6 @@ package oracle
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
 	"math/big"
 	"net/http"
 	"strings"
@@ -13,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"context"
-	"github.com/daoleno/uniswapv3-sdk/examples/contract"
-	"github.com/daoleno/uniswapv3-sdk/examples/helper"
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
+
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
@@ -51,21 +48,26 @@ type TokenPriceManager interface {
 }
 
 type defaultTokenPriceManager struct {
-	cfg             config.Deyes
-	stop            atomic.Value
-	db              database.Database
-	networkHttp     network.Http
-	cache           *sync.Map
-	updateFrequency int64
+	cfg              config.Deyes
+	stop             atomic.Value
+	db               database.Database
+	networkHttp      network.Http
+	cache            *sync.Map
+	updateFrequency  int64
+	uniswapManager   uniswap.UniswapManager
+	sushiswapManager sushiswap.SushiSwapManager
 }
 
-func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http) TokenPriceManager {
+func NewTokenPriceManager(cfg config.Deyes, db database.Database, networkHttp network.Http, uniswapManager uniswap.UniswapManager,
+	sushiswapManager sushiswap.SushiSwapManager) TokenPriceManager {
 	return &defaultTokenPriceManager{
-		cfg:             cfg,
-		db:              db,
-		networkHttp:     networkHttp,
-		cache:           &sync.Map{},
-		updateFrequency: UpdateFrequency,
+		cfg:              cfg,
+		db:               db,
+		networkHttp:      networkHttp,
+		cache:            &sync.Map{},
+		updateFrequency:  UpdateFrequency,
+		uniswapManager:   uniswapManager,
+		sushiswapManager: sushiswapManager,
 	}
 }
 
@@ -125,57 +127,6 @@ func (m *defaultTokenPriceManager) getRequest(tokenList []string) *http.Request 
 	return req
 }
 
-func (m *defaultTokenPriceManager) getPriceFromUniswap(tokenAddress string) (*types.TokenPrice, error) {
-	rpcEth := m.cfg.EthRpc
-	daiTokenAddress := m.cfg.DaiTokenAddress
-	client, err := ethclient.Dial(rpcEth)
-	if err != nil {
-		return nil, err
-	}
-	quoterContract, err := contract.NewUniswapv3Quoter(common.HexToAddress(helper.ContractV3Quoter), client)
-	if err != nil {
-		return nil, err
-	}
-
-	token0 := common.HexToAddress(tokenAddress)
-	token1 := common.HexToAddress(daiTokenAddress) // DAI
-	fee := big.NewInt(3000)
-	amountIn := helper.FloatStringToBigInt("1.00", 18)
-	sqrtPriceLimitX96 := big.NewInt(0)
-
-	var out []interface{}
-	rawCaller := &contract.Uniswapv3QuoterRaw{Contract: quoterContract}
-	err = rawCaller.Call(nil, &out, "quoteExactInputSingle", token0, token1,
-		fee, amountIn, sqrtPriceLimitX96)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.TokenPrice{
-		Id:    tokenAddress,
-		Price: out[0].(*big.Int),
-	}, nil
-}
-
-func (m *defaultTokenPriceManager) getPriceFromSushiswap(tokenAddress string) (*types.TokenPrice, error) {
-	rpcEth := m.cfg.EthRpc
-	daiTokenAddress := m.cfg.DaiTokenAddress
-	ctx := context.Background()
-
-	ec, _ := ethclient.DialContext(ctx, rpcEth)
-	client := sushiswap.NewClient(ec)
-	price, err := client.GetExchangeAmount(big.NewInt(1), common.HexToAddress(tokenAddress),
-		common.HexToAddress(daiTokenAddress))
-
-	if err != nil {
-		return nil, err
-	}
-	return &types.TokenPrice{
-		Id:    tokenAddress,
-		Price: price,
-	}, nil
-}
-
 func (m *defaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
 	tokenPrices := make([]*types.TokenPrice, 0)
 	tokensNotAvailable := make([]string, 0)
@@ -183,57 +134,61 @@ func (m *defaultTokenPriceManager) getResponse(tokenList []string) ([]*types.Tok
 
 	for _, token := range tokenList {
 		address := tokens[strings.ToLower(token)].Address
-		tokenPrice, err := m.getPriceFromUniswap(address)
+		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address)
 
 		if err != nil {
-			tokenPrice, err = m.getPriceFromSushiswap(address)
+			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address)
 			if err != nil {
 				tokensNotAvailable = append(tokensNotAvailable, token)
 			}
 		}
 		tokenPrices = append(tokenPrices, tokenPrice)
+
 	}
+	if len(tokensNotAvailable) > 0 {
+		req := m.getRequest(tokensNotAvailable)
+		data, err := m.networkHttp.Get(req)
+		if err != nil {
+			return nil, err
+		}
 
-	req := m.getRequest(tokensNotAvailable)
-	data, err := m.networkHttp.Get(req)
-	if err != nil {
-		return nil, err
-	}
+		response := &Response{}
+		err = json.Unmarshal(data, &response)
+		if err != nil {
+			return nil, err
+		}
 
-	response := &Response{}
-	err = json.Unmarshal(data, &response)
-	if err != nil {
-		return nil, err
-	}
+		if len(response.Data) > 0 {
+			for key, value := range response.Data {
+				for _, token := range tokenList {
+					if key == token {
+						tokenPrices = append(tokenPrices, &types.TokenPrice{
+							Id:    token,
+							Price: utils.FloatToWei(value.Quote.Usd.Value),
+						})
 
-	if len(response.Data) > 0 {
-		for key, value := range response.Data {
-			for _, token := range tokenList {
-				if key == token {
-					tokenPrices = append(tokenPrices, &types.TokenPrice{
-						Id:    token,
-						Price: utils.FloatToWei(value.Quote.Usd.Value),
-					})
-
-					break
+						break
+					}
 				}
 			}
 		}
-
-		// Save all data to the cached & db
-		if len(tokenPrices) > 0 {
-			m.db.SaveTokenPrices(tokenPrices)
-		}
-
-		now := time.Now()
-		for key, value := range response.Data {
-			m.cache.Store(key, &priceCache{
-				id:         key,
-				price:      utils.FloatToWei(value.Quote.Usd.Value),
-				updateTime: now.UnixMilli(),
-			})
-		}
 	}
+
+	// Save all data to the cached & db
+	if len(tokenPrices) > 0 {
+		m.db.SaveTokenPrices(tokenPrices)
+	}
+
+	now := time.Now()
+	for key, value := range tokenPrices {
+		m.cache.Store(key, &priceCache{
+			id:         value.Id,
+			price:      value.Price,
+			updateTime: now.UnixMilli(),
+		})
+
+	}
+
 	return tokenPrices, nil
 }
 
@@ -245,7 +200,6 @@ func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 	if TestTokenPrices[id] != nil {
 		return TestTokenPrices[id], nil
 	}
-
 	value, ok := m.cache.Load(id)
 	if ok {
 		// check expiration time

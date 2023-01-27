@@ -1,6 +1,10 @@
 package core
 
 import (
+	"fmt"
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
+	"math/big"
 	"sync"
 	"testing"
 
@@ -44,8 +48,32 @@ func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.To
 
 	networkHttp := network.NewHttp()
 	sisuClient := &MockClient{}
+	sushiswap := &sushiswap.MockSushiSwapManager{
+		GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			price, ok := new(big.Int).SetString("1", 10)
+			if !ok {
+				fmt.Println("Cannot create big number")
+			}
+			return &types.TokenPrice{
+				Price: price,
+				Id:    "ETH",
+			}, nil
+		},
+	}
 
-	priceManager := oracle.NewTokenPriceManager(cfg, db, networkHttp)
+	uniswap := &uniswap.MockNewUniwapManager{
+		GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			price, ok := new(big.Int).SetString("1", 10)
+			if !ok {
+				fmt.Println("Cannot create big number")
+			}
+			return &types.TokenPrice{
+				Price: price,
+				Id:    "ETH",
+			}, nil
+		},
+	}
+	priceManager := oracle.NewTokenPriceManager(cfg, db, networkHttp, uniswap, sushiswap)
 
 	return cfg, db, sisuClient, priceManager
 

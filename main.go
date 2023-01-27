@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -45,7 +47,9 @@ func initialize(cfg *config.Deyes) {
 	go sisuClient.TryDial()
 
 	networkHttp := network.NewHttp()
-	priceManager := oracle.NewTokenPriceManager(*cfg, db, networkHttp)
+	uniswapManager := uniswap.NewUniwapManager(*cfg)
+	sushiSwapManager := sushiswap.NewSushiSwapManager(*cfg)
+	priceManager := oracle.NewTokenPriceManager(*cfg, db, networkHttp, uniswapManager, sushiSwapManager)
 
 	processor := core.NewProcessor(cfg, db, sisuClient, priceManager)
 	processor.Start()

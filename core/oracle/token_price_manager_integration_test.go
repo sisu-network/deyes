@@ -1,6 +1,10 @@
 package oracle
 
 import (
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
+	"github.com/sisu-network/deyes/types"
+	"math/big"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
@@ -29,7 +33,29 @@ func TestGettingTokenPrice(t *testing.T) {
 		panic(err)
 	}
 
-	tpm := NewTokenPriceManager(cfg, dbInstance, network.NewHttp())
+	sushiswap := &sushiswap.MockSushiSwapManager{
+		GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			price, err := new(big.Int).SetString("10", 10)
+			require.Nil(t, err)
+			return &types.TokenPrice{
+				Price: price,
+				Id:    "",
+			}, nil
+		},
+	}
+
+	uniswap := &uniswap.MockNewUniwapManager{
+		GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			price, err := new(big.Int).SetString("10", 10)
+			require.Nil(t, err)
+			return &types.TokenPrice{
+				Price: price,
+				Id:    "",
+			}, nil
+		},
+	}
+
+	tpm := NewTokenPriceManager(cfg, dbInstance, network.NewHttp(), uniswap, sushiswap)
 	go tpm.Start()
 	defer tpm.Stop()
 
