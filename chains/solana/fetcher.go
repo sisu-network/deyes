@@ -36,10 +36,11 @@ func (f *fetcher) start() {
 	slot := f.startingSlot
 
 	errCount := 0
+	minSleepTime := time.Millisecond * 1200
+	sleepTime := minSleepTime
 
 	for {
-		time.Sleep(time.Second)
-
+		time.Sleep(sleepTime)
 		block, err := f.getBlockNumber(slot)
 
 		if err != nil {
@@ -53,6 +54,9 @@ func (f *fetcher) start() {
 					errCount = 0
 					slot += f.n
 				}
+				if rpcErr.Code == -32004 { // Block not found yet
+					sleepTime = sleepTime + time.Millisecond*500
+				}
 			} else {
 				log.Warn("Solana fetcher error: err = ", err)
 				errCount++
@@ -65,6 +69,7 @@ func (f *fetcher) start() {
 				}
 			}
 		} else {
+			sleepTime = sleepTime - time.Millisecond*100
 			if block != nil {
 				if block.Transactions == nil {
 					log.Error("Err is not nil but transactions list is nil. block = ", block)
@@ -76,6 +81,10 @@ func (f *fetcher) start() {
 
 			slot += f.n
 			errCount = 0
+		}
+
+		if sleepTime < minSleepTime {
+			sleepTime = minSleepTime
 		}
 	}
 }
