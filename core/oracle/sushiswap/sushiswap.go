@@ -10,7 +10,7 @@ import (
 )
 
 type SushiSwapManager interface {
-	GetPriceFromSushiswap(tokenAddress string) (*types.TokenPrice, error)
+	GetPriceFromSushiswap(tokenAddress string, tokenName string) (*types.TokenPrice, error)
 }
 
 type defaultSushiSwapManager struct {
@@ -23,7 +23,7 @@ func NewSushiSwapManager(cfg config.Deyes) SushiSwapManager {
 	}
 }
 
-func (m *defaultSushiSwapManager) GetPriceFromSushiswap(tokenAddress string) (*types.TokenPrice, error) {
+func (m *defaultSushiSwapManager) GetPriceFromSushiswap(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 	rpcEth := m.cfg.EthRpc
 	daiTokenAddress := m.cfg.DaiTokenAddress
 	ctx := context.Background()
@@ -37,7 +37,7 @@ func (m *defaultSushiSwapManager) GetPriceFromSushiswap(tokenAddress string) (*t
 		return nil, err
 	}
 	return &types.TokenPrice{
-		Id:    tokenAddress,
+		Id:    tokenName,
 		Price: price,
 	}, nil
 }

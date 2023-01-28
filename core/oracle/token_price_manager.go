@@ -75,22 +75,9 @@ func (m *defaultTokenPriceManager) Start() {
 	m.stop.Store(false)
 	m.initTokenPrices()
 
-	for {
-		if m.stop.Load().(bool) == true {
-			break
-		}
-
-		if len(m.cfg.PriceOracleUrl) == 0 {
-			log.Warn("Orable price url is not set")
-			break
-		}
-
-		_, err := m.getResponse(m.cfg.PriceTokenList)
-		if err != nil {
-			log.Error("Cannot get response, err = ", err)
-		}
-
-		time.Sleep(time.Second * time.Duration(m.cfg.PricePollFrequency))
+	_, err := m.getTokenPrices(m.cfg.PriceTokenList)
+	if err != nil {
+		log.Error("Cannot get response, err = ", err)
 	}
 }
 
@@ -111,7 +98,7 @@ func (m *defaultTokenPriceManager) initTokenPrices() {
 	}
 }
 
-func (m *defaultTokenPriceManager) getRequest(tokenList []string) *http.Request {
+func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string) *http.Request {
 	baseUrl := m.cfg.PriceOracleUrl
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
@@ -127,26 +114,26 @@ func (m *defaultTokenPriceManager) getRequest(tokenList []string) *http.Request 
 	return req
 }
 
-func (m *defaultTokenPriceManager) getResponse(tokenList []string) ([]*types.TokenPrice, error) {
+func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
 	tokenPrices := make([]*types.TokenPrice, 0)
 	tokensNotAvailable := make([]string, 0)
 	tokens := m.cfg.Tokens
 
 	for _, token := range tokenList {
 		address := tokens[strings.ToLower(token)].Address
-		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address)
+		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address, token)
 
 		if err != nil {
-			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address)
+			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address, token)
 			if err != nil {
 				tokensNotAvailable = append(tokensNotAvailable, token)
 			}
 		}
 		tokenPrices = append(tokenPrices, tokenPrice)
-
 	}
+	// Get price from coin marketcap
 	if len(tokensNotAvailable) > 0 {
-		req := m.getRequest(tokensNotAvailable)
+		req := m.getPriceFromCoinmarketcap(tokensNotAvailable)
 		data, err := m.networkHttp.Get(req)
 		if err != nil {
 			return nil, err
@@ -213,7 +200,8 @@ func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 	}
 
 	// Load from server.
-	tokenPrices, err := m.getResponse([]string{id})
+	tokenPrices, err := m.getTokenPrices([]string{id})
+	log.Info("tokenPrices is ", tokenPrices)
 	if err != nil {
 		return nil, err
 	}

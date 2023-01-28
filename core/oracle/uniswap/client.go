@@ -11,7 +11,7 @@ import (
 )
 
 type UniswapManager interface {
-	GetPriceFromUniswap(tokenAddress string) (*types.TokenPrice, error)
+	GetPriceFromUniswap(tokenAddress string, tokenName string) (*types.TokenPrice, error)
 }
 
 type defaultUniswapManager struct {
@@ -24,7 +24,7 @@ func NewUniwapManager(cfg config.Deyes) UniswapManager {
 	}
 }
 
-func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string) (*types.TokenPrice, error) {
+func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 	rpcEth := m.cfg.EthRpc
 	daiTokenAddress := m.cfg.DaiTokenAddress
 	client, err := ethclient.Dial(rpcEth)
@@ -51,7 +51,7 @@ func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string) (*types
 	}
 
 	return &types.TokenPrice{
-		Id:    tokenAddress,
+		Id:    tokenName,
 		Price: out[0].(*big.Int),
 	}, nil
 }

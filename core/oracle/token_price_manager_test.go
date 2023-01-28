@@ -40,23 +40,23 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
-				price, ok := new(big.Int).SetString("1", 10)
+			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
 					Price: price,
-					Id:    "ETH",
+					Id:    tokenName,
 				}, nil
 			},
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
-				price, ok := new(big.Int).SetString("1", 10)
+			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
 					Price: price,
-					Id:    "ETH",
+					Id:    tokenName,
 				}, nil
 			},
 		}
@@ -70,7 +70,7 @@ func TestTokenManager(t *testing.T) {
 		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
-		require.Equal(t, "1", price.String())
+		require.Equal(t, "10000000", price.String())
 	})
 
 	t.Run("Get price fail", func(t *testing.T) {
@@ -92,13 +92,13 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 				return nil, fmt.Errorf("Not found")
 			},
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 				return nil, fmt.Errorf("Not found")
 			},
 		}
@@ -131,42 +131,42 @@ func TestTokenManager(t *testing.T) {
 			GetFunc: func(req *http.Request) ([]byte, error) {
 				if count == 0 {
 					count++
-					return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":1000}}}}}`), nil
+					return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":10000000000}}}}}`), nil
 				}
 
-				return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":2000}}}}}`), nil
+				return []byte(`{"data":{"ETH":{"quote":{"USD":{"price":20000000000}}}}}`), nil
 			},
 		}
 
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 				price := new(big.Int)
 				if count == 0 {
 					count++
-					price, _ = new(big.Int).SetString("1000", 10)
+					price, _ = new(big.Int).SetString("10000000000", 10)
 				} else {
-					price, _ = new(big.Int).SetString("2000", 10)
+					price, _ = new(big.Int).SetString("20000000000", 10)
 				}
 
 				return &types.TokenPrice{
 					Price: price,
-					Id:    "ETH",
+					Id:    tokenName,
 				}, nil
 			},
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
 				price := new(big.Int)
 				if count == 0 {
 					count++
-					price, _ = new(big.Int).SetString("1000", 10)
+					price, _ = new(big.Int).SetString("10000000000", 10)
 				} else {
-					price, _ = new(big.Int).SetString("2000", 10)
+					price, _ = new(big.Int).SetString("20000000000", 10)
 				}
 				return &types.TokenPrice{
 					Price: price,
-					Id:    "ETH",
+					Id:    tokenName,
 				}, nil
 			},
 		}
@@ -177,13 +177,13 @@ func TestTokenManager(t *testing.T) {
 		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
-		require.Equal(t, "1000", price.String())
+		require.Equal(t, "10000000000", price.String())
 
 		// Change the updateFrequency to invalidate cache.
 		priceManager.(*defaultTokenPriceManager).updateFrequency = 0
 
 		price, err = priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
-		require.Equal(t, "2000", price.String())
+		require.Equal(t, "20000000000", price.String())
 	})
 }
