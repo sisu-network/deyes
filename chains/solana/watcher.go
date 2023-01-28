@@ -187,47 +187,6 @@ func (w *Watcher) acceptTx(outerTx *solanatypes.Transaction) bool {
 	return false
 }
 
-func (w *Watcher) getNextBlock() (*solanatypes.Block, error) {
-	var slot uint64
-	slot = w.lastSlot.Load()
-	if slot == 0 {
-		var err error
-		slot, err = w.getSlot()
-		if err != nil {
-			return nil, err
-		}
-
-		w.lastSlot.Store(slot - 1)
-	}
-
-	nextSlot := slot
-
-	for {
-		nextSlot = nextSlot + 1
-		result, err := w.getBlockNumber(nextSlot)
-
-		if err != nil {
-			rpcErr, ok := err.(*jsonrpc.RPCError)
-			if ok {
-				// -32007: Slot 171913340 was skipped, or missing due to ledger jump to recent snapshot
-				// -32015: Transaction version (0) is not supported by the requesting client. Please try the request again with the following configuration parameter: \"maxSupportedTransactionVersion\": 0"
-				if rpcErr.Code == -32007 || rpcErr.Code == -32015 {
-					// Slot is skipped, try the next one.
-					w.lastSlot.Store(nextSlot)
-					continue
-				}
-			}
-
-			return nil, err
-		}
-
-		// Update last scanned block
-		w.lastSlot.Store(nextSlot)
-
-		return result, err
-	}
-}
-
 func (w *Watcher) getSlot() (uint64, error) {
 	return executeWithClients(w.clients, func(client jsonrpc.RPCClient) (uint64, bool, error) {
 		res, err := client.Call(context.Background(), "getSlot")

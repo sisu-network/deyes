@@ -9,40 +9,26 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/text"
+	"github.com/ybbus/jsonrpc/v3"
 
-	"github.com/gagliardetto/solana-go/rpc/ws"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/lib/log"
 )
 
 type Dispatcher struct {
 	clientUrls []string
-	wsUrls     []string
-
-	clients  []*rpc.Client
-	wsClient []*ws.Client
+	clientRpcs []jsonrpc.RPCClient
 }
 
 func NewDispatcher(clientUrls, wsUrls []string) *Dispatcher {
-	clients := make([]*rpc.Client, 0)
-	wsClients := make([]*ws.Client, 0)
+	clientRpcs := make([]jsonrpc.RPCClient, 0)
 
-	for i := range clientUrls {
-		client := rpc.New(clientUrls[i])
-		wsClient, err := ws.Connect(context.Background(), wsUrls[i])
-		if err != nil {
-			log.Errorf("Failed to connect ws client", wsUrls[i])
-			continue
-		}
-
-		clients = append(clients, client)
-		wsClients = append(wsClients, wsClient)
+	for _, url := range clientUrls {
+		clientRpcs = append(clientRpcs, jsonrpc.NewClient(url))
 	}
 	return &Dispatcher{
 		clientUrls: clientUrls,
-		wsUrls:     wsUrls,
-		clients:    clients,
-		wsClient:   wsClients,
+		clientRpcs: clientRpcs,
 	}
 }
 
@@ -50,16 +36,9 @@ func (d *Dispatcher) Start() {
 }
 
 func (d *Dispatcher) Dispatch(request *types.DispatchedTxRequest) *types.DispatchedTxResult {
-	for i := range d.clients {
+	for i, client := range d.clientRpcs {
 		log.Verbosef("Dispatching solana tx using url %s", d.clientUrls[i])
-		signature, err := d.clients[i].SendEncodedTransactionWithOpts(
-			context.Background(),
-			base64.StdEncoding.EncodeToString(request.Tx),
-			rpc.TransactionOpts{
-				SkipPreflight:       false,
-				PreflightCommitment: "",
-			},
-		)
+		signature, err := d.sendTransaction(request.Tx, client)
 		if err != nil {
 			log.Warnf("Failed to dispatch transaction with url ", d.clientUrls[i], " err = ", err)
 			continue
@@ -87,4 +66,32 @@ func (d *Dispatcher) analyzeTx(bxBytes []byte) {
 	}
 
 	decodedTx.EncodeTree(text.NewTreeEncoder(os.Stdout, text.Bold("TEST TRANSACTION")))
+}
+
+func (d *Dispatcher) sendTransaction(tx []byte, client jsonrpc.RPCClient) (solanago.Signature, error) {
+	encodedTx := base64.StdEncoding.EncodeToString(tx)
+	opts := rpc.TransactionOpts{
+		SkipPreflight:       false,
+		PreflightCommitment: "",
+	}
+
+	obj := opts.ToMap()
+	params := []interface{}{
+		encodedTx,
+		obj,
+	}
+
+	response, err := client.Call(context.Background(), "sendTransaction", params...)
+	if err != nil {
+		return solanago.Signature{}, err
+	}
+
+	if response.Error != nil {
+		return solanago.Signature{}, response.Error
+	}
+
+	var signature solanago.Signature
+	err = response.GetObject(&signature)
+
+	return signature, err
 }
