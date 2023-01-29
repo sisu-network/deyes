@@ -96,7 +96,7 @@ func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string)
 func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
 	tokenPrices := make([]*types.TokenPrice, 0)
 	tokensNotAvailable := make([]string, 0)
-	tokens := m.cfg.Tokens
+	tokens := m.cfg.EthTokens
 
 	for _, token := range tokenList {
 		address := tokens[strings.ToLower(token)].Address

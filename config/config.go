@@ -58,8 +58,9 @@ type Deyes struct {
 	PriceTokenList     []string `toml:"price_token_list"`
 
 	// Used for Sushiswap & Uniswap to get token price.
-	EthRpc          string `toml:"eth_rpc"`
-	DaiTokenAddress string `toml:"dai_token_address"`
+	EthRpc          string           `toml:"eth_rpc"`
+	DaiTokenAddress string           `toml:"dai_token_address"` // Dai address on ETH
+	EthTokens       map[string]Token `toml:"eth_tokens"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
@@ -71,9 +72,6 @@ type Deyes struct {
 	UseExternalRpcsInfo bool `toml:"use_external_rpcs_info"`
 	// Chains config
 	Chains map[string]Chain `toml:"chains"`
-
-	// Tokens
-	Tokens map[string]Token `toml:"tokens"`
 
 	// LogDNA
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
