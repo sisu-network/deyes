@@ -56,8 +56,10 @@ type Deyes struct {
 	PriceOracleSecret  string   `toml:"price_oracle_secret"`
 	PricePollFrequency int      `toml:"price_poll_frequency"`
 	PriceTokenList     []string `toml:"price_token_list"`
-	EthRpc             string   `toml:"eth_rpc"`
-	DaiTokenAddress    string   `toml:"dai_token_address"`
+
+	// Used for Sushiswap & Uniswap to get token price.
+	EthRpc          string `toml:"eth_rpc"`
+	DaiTokenAddress string `toml:"dai_token_address"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
@@ -70,8 +72,10 @@ type Deyes struct {
 	// Chains config
 	Chains map[string]Chain `toml:"chains"`
 
+	// Tokens
 	Tokens map[string]Token `toml:"tokens"`
 
+	// LogDNA
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 
 	InMemory bool // Used in test only

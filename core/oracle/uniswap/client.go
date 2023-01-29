@@ -1,13 +1,14 @@
 package uniswap
 
 import (
+	"math/big"
+
 	"github.com/daoleno/uniswapv3-sdk/examples/contract"
 	"github.com/daoleno/uniswapv3-sdk/examples/helper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/types"
-	"math/big"
 )
 
 type UniswapManager interface {
@@ -24,14 +25,16 @@ func NewUniwapManager(cfg config.Deyes) UniswapManager {
 	}
 }
 
-func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string,
+	tokenName string) (*types.TokenPrice, error) {
 	rpcEth := m.cfg.EthRpc
 	daiTokenAddress := m.cfg.DaiTokenAddress
 	client, err := ethclient.Dial(rpcEth)
 	if err != nil {
 		return nil, err
 	}
-	quoterContract, err := contract.NewUniswapv3Quoter(common.HexToAddress(helper.ContractV3Quoter), client)
+	quoterContract, err := contract.NewUniswapv3Quoter(common.HexToAddress(helper.ContractV3Quoter),
+		client)
 	if err != nil {
 		return nil, err
 	}

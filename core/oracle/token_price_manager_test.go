@@ -11,7 +11,6 @@ import (
 	"github.com/sisu-network/deyes/types"
 
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/database"
 	"github.com/sisu-network/deyes/network"
 	"github.com/stretchr/testify/require"
 )
@@ -61,13 +60,7 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 
-		dbInstance := database.NewDb(&cfg)
-		err := dbInstance.Init()
-		if err != nil {
-			panic(err)
-		}
-
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
+		priceManager := NewTokenPriceManager(cfg, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
 		require.Equal(t, "10000000", price.String())
@@ -103,13 +96,8 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 
-		dbInstance := database.NewDb(&cfg)
-		err := dbInstance.Init()
-		require.Nil(t, err)
-
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
-
-		_, err = priceManager.GetTokenPrice("ETH")
+		priceManager := NewTokenPriceManager(cfg, net, uniswap, sushiswap)
+		_, err := priceManager.GetTokenPrice("ETH")
 		require.NotNil(t, err)
 	})
 
@@ -170,11 +158,8 @@ func TestTokenManager(t *testing.T) {
 				}, nil
 			},
 		}
-		dbInstance := database.NewDb(&cfg)
-		err := dbInstance.Init()
-		require.Nil(t, err)
 
-		priceManager := NewTokenPriceManager(cfg, dbInstance, net, uniswap, sushiswap)
+		priceManager := NewTokenPriceManager(cfg, net, uniswap, sushiswap)
 		price, err := priceManager.GetTokenPrice("ETH")
 		require.Nil(t, err)
 		require.Equal(t, "10000000000", price.String())

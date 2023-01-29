@@ -24,11 +24,6 @@ func (suite *IntegrationDbSuite) TestSetVaults() {
 	testSetVaults(suite.T(), false)
 }
 
-func (suite *IntegrationDbSuite) TestTokenPrices() {
-	resetDb()
-	testTokenPrice(suite.T(), false)
-}
-
 func TestIntegrationSuite(t *testing.T) {
 	// Uncomment this line to run the entire suite.
 	// suite.Run(t, new(IntegrationDbSuite))
