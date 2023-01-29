@@ -19,9 +19,7 @@ import (
 
 func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.TokenPriceManager) {
 	cfg := config.Deyes{
-		PricePollFrequency: 1,
-		PriceOracleUrl:     "http://example.com",
-		PriceTokenList:     []string{"ETH", "BTC"},
+		PriceOracleUrl: "http://example.com",
 
 		DbHost:   "127.0.0.1",
 		DbSchema: "deyes",

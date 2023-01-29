@@ -70,11 +70,6 @@ func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http,
 
 func (m *defaultTokenPriceManager) Start() {
 	m.stop.Store(false)
-
-	_, err := m.getTokenPrices(m.cfg.PriceTokenList)
-	if err != nil {
-		log.Error("Cannot get response, err = ", err)
-	}
 }
 
 func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string) *http.Request {

@@ -18,28 +18,30 @@ import (
 func TestTokenManager(t *testing.T) {
 	t.Run("Get price success", func(t *testing.T) {
 		cfg := config.Deyes{
-			PricePollFrequency: 1,
-			PriceOracleUrl:     "http://example.com",
-			PriceTokenList:     []string{"ETH", "BTC"},
-			DaiTokenAddress:    "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-			DbHost:             "127.0.0.1",
-			DbSchema:           "deyes",
-			InMemory:           true,
-			EthRpc:             "http://example.com",
+			PriceOracleUrl:  "http://example.com",
+			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+			DbHost:          "127.0.0.1",
+			DbSchema:        "deyes",
+			InMemory:        true,
+			EthRpc:          "http://example.com",
 			EthTokens: map[string]config.TokenPair{
-				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 
 		net := &network.MockHttp{
 			GetFunc: func(req *http.Request) ([]byte, error) {
-				return []byte(`{"data":{"BTC":{"quote":{"USD":{"price":36367.076791144566}}},"ETH":{"quote":{"USD":{"price":2410.875945408672}}}}}`), nil
+				return []byte(
+					`{"data":{"BTC":{"quote":{"USD":{"price":36367.076791144566}}},"ETH":{"quote":{"USD":{"price":2410.875945408672}}}}}`), nil
 			},
 		}
 
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string,
+				tokenName string) (*types.TokenPrice, error) {
 				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
@@ -50,7 +52,8 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (
+				*types.TokenPrice, error) {
 				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
@@ -74,8 +77,10 @@ func TestTokenManager(t *testing.T) {
 			InMemory:        true,
 			EthRpc:          "http://example.com",
 			EthTokens: map[string]config.TokenPair{
-				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 
@@ -109,8 +114,10 @@ func TestTokenManager(t *testing.T) {
 			InMemory:        true,
 			EthRpc:          "http://example.com",
 			EthTokens: map[string]config.TokenPair{
-				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 

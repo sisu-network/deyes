@@ -57,10 +57,8 @@ type Deyes struct {
 	DbPassword string `toml:"db_password"`
 	DbSchema   string `toml:"db_schema"`
 
-	PriceOracleUrl     string   `toml:"price_oracle_url"`
-	PriceOracleSecret  string   `toml:"price_oracle_secret"`
-	PricePollFrequency int      `toml:"price_poll_frequency"`
-	PriceTokenList     []string `toml:"price_token_list"`
+	PriceOracleUrl    string `toml:"price_oracle_url"`
+	PriceOracleSecret string `toml:"price_oracle_secret"`
 
 	// Used for Sushiswap & Uniswap to get token price.
 	EthRpc          string               `toml:"eth_rpc"`
