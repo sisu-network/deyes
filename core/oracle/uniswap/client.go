@@ -12,7 +12,7 @@ import (
 )
 
 type UniswapManager interface {
-	GetPriceFromUniswap(tokenAddress string, tokenName string) (*types.TokenPrice, error)
+	GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error)
 }
 
 type defaultUniswapManager struct {
@@ -25,10 +25,9 @@ func NewUniwapManager(cfg config.Deyes) UniswapManager {
 	}
 }
 
-func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string,
+func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string,
 	tokenName string) (*types.TokenPrice, error) {
 	rpcEth := m.cfg.EthRpc
-	daiTokenAddress := m.cfg.DaiTokenAddress
 	client, err := ethclient.Dial(rpcEth)
 	if err != nil {
 		return nil, err
@@ -39,8 +38,8 @@ func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress string,
 		return nil, err
 	}
 
-	token0 := common.HexToAddress(tokenAddress)
-	token1 := common.HexToAddress(daiTokenAddress) // DAI
+	token0 := common.HexToAddress(tokenAddress1)
+	token1 := common.HexToAddress(tokenAddress2) // DAI
 	fee := big.NewInt(3000)
 	amountIn := helper.FloatStringToBigInt("1.00", 18)
 	sqrtPriceLimitX96 := big.NewInt(0)

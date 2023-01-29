@@ -43,9 +43,11 @@ type Chain struct {
 	SolanaBridgeProgramId string `toml:"solana_bridge_program_id" json:"solana_bridge_program_id"`
 }
 
-type Token struct {
-	Token   string `toml:"token" json:"token"`
-	Address string `toml:"address" json:"address"`
+type TokenPair struct {
+	Token1   string `toml:"token1" json:"token1"`
+	Token2   string `toml:"token2" json:"token2"`
+	Address1 string `toml:"address1" json:"address1"`
+	Address2 string `toml:"address2" json:"address2"`
 }
 
 type Deyes struct {
@@ -61,9 +63,9 @@ type Deyes struct {
 	PriceTokenList     []string `toml:"price_token_list"`
 
 	// Used for Sushiswap & Uniswap to get token price.
-	EthRpc          string           `toml:"eth_rpc"`
-	DaiTokenAddress string           `toml:"dai_token_address"` // Dai address on ETH
-	EthTokens       map[string]Token `toml:"eth_tokens"`
+	EthRpc          string               `toml:"eth_rpc"`
+	DaiTokenAddress string               `toml:"dai_token_address"` // Dai address on ETH
+	EthTokens       map[string]TokenPair `toml:"eth_tokens"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`

@@ -99,11 +99,12 @@ func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.
 	tokens := m.cfg.EthTokens
 
 	for _, token := range tokenList {
-		address := tokens[strings.ToLower(token)].Address
-		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address, token)
+		address1 := tokens[strings.ToLower(token)].Address1
+		address2 := tokens[strings.ToLower(token)].Address2
+		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
 
 		if err != nil {
-			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address, token)
+			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
 			if err != nil {
 				tokensNotAvailable = append(tokensNotAvailable, token)
 			}

@@ -26,9 +26,9 @@ func TestTokenManager(t *testing.T) {
 			DbSchema:           "deyes",
 			InMemory:           true,
 			EthRpc:             "http://example.com",
-			EthTokens: map[string]config.Token{
-				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
-				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			EthTokens: map[string]config.TokenPair{
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 
@@ -39,7 +39,7 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
@@ -50,7 +50,7 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				price, ok := new(big.Int).SetString("10000000", 10)
 				require.Equal(t, ok, true)
 				return &types.TokenPrice{
@@ -73,9 +73,9 @@ func TestTokenManager(t *testing.T) {
 			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
 			InMemory:        true,
 			EthRpc:          "http://example.com",
-			EthTokens: map[string]config.Token{
-				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
-				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			EthTokens: map[string]config.TokenPair{
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 
@@ -85,13 +85,13 @@ func TestTokenManager(t *testing.T) {
 			},
 		}
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				return nil, fmt.Errorf("Not found")
 			},
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				return nil, fmt.Errorf("Not found")
 			},
 		}
@@ -108,9 +108,9 @@ func TestTokenManager(t *testing.T) {
 			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
 			InMemory:        true,
 			EthRpc:          "http://example.com",
-			EthTokens: map[string]config.Token{
-				"btc": {Token: "BTC", Address: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F"},
-				"eth": {Token: "ETH", Address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"},
+			EthTokens: map[string]config.TokenPair{
+				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+				"eth": {Token1: "ETH", Token2: "DAI", Address1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
 			},
 		}
 
@@ -127,7 +127,7 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		sushiswap := &sushiswap.MockSushiSwapManager{
-			GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				price := new(big.Int)
 				if count == 0 {
 					count++
@@ -144,7 +144,7 @@ func TestTokenManager(t *testing.T) {
 		}
 
 		uniswap := &uniswap.MockNewUniwapManager{
-			GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+			GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 				price := new(big.Int)
 				if count == 0 {
 					count++

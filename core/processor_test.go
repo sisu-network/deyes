@@ -50,7 +50,7 @@ func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.To
 	networkHttp := network.NewHttp()
 	sisuClient := &MockClient{}
 	sushiswap := &sushiswap.MockSushiSwapManager{
-		GetPriceFromSushiswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+		GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 			price, ok := new(big.Int).SetString("10000000", 10)
 			if !ok {
 				fmt.Println("Cannot create big number")
@@ -63,7 +63,7 @@ func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.To
 	}
 
 	uniswap := &uniswap.MockNewUniwapManager{
-		GetPriceFromUniswapFunc: func(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+		GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 			price, ok := new(big.Int).SetString("10000000", 10)
 			if !ok {
 				fmt.Println("Cannot create big number")

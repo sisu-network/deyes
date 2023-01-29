@@ -10,7 +10,7 @@ import (
 )
 
 type SushiSwapManager interface {
-	GetPriceFromSushiswap(tokenAddress string, tokenName string) (*types.TokenPrice, error)
+	GetPriceFromSushiswap(tokenAddress1 string, tokenAddress2, tokenName string) (*types.TokenPrice, error)
 }
 
 type defaultSushiSwapManager struct {
@@ -23,15 +23,14 @@ func NewSushiSwapManager(cfg config.Deyes) SushiSwapManager {
 	}
 }
 
-func (m *defaultSushiSwapManager) GetPriceFromSushiswap(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+func (m *defaultSushiSwapManager) GetPriceFromSushiswap(tokenAddress1 string, tokenAddress2, tokenName string) (*types.TokenPrice, error) {
 	rpcEth := m.cfg.EthRpc
-	daiTokenAddress := m.cfg.DaiTokenAddress
 	ctx := context.Background()
 
 	ec, _ := ethclient.DialContext(ctx, rpcEth)
 	client := NewClient(ec)
-	price, err := client.GetExchangeAmount(big.NewInt(1), common.HexToAddress(tokenAddress),
-		common.HexToAddress(daiTokenAddress))
+	price, err := client.GetExchangeAmount(big.NewInt(1), common.HexToAddress(tokenAddress1),
+		common.HexToAddress(tokenAddress2))
 
 	if err != nil {
 		return nil, err

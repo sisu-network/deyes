@@ -5,12 +5,12 @@ import (
 )
 
 type MockNewUniwapManager struct {
-	GetPriceFromUniswapFunc func(tokenAddress string, tokenName string) (*types.TokenPrice, error)
+	GetPriceFromUniswapFunc func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error)
 }
 
-func (m *MockNewUniwapManager) GetPriceFromUniswap(tokenAddress string, tokenName string) (*types.TokenPrice, error) {
+func (m *MockNewUniwapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
 	if m.GetPriceFromUniswapFunc != nil {
-		return m.GetPriceFromUniswapFunc(tokenAddress, tokenName)
+		return m.GetPriceFromUniswapFunc(tokenAddress1, tokenAddress2, tokenName)
 	}
 
 	return nil, nil
