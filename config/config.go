@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+
+	"github.com/BurntSushi/toml"
 	"github.com/sisu-network/lib/log"
 )
 
@@ -77,4 +80,18 @@ type Deyes struct {
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 
 	InMemory bool // Used in test only
+}
+
+func Load(path string) Deyes {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		panic(err)
+	}
+
+	cfg := Deyes{}
+	_, err := toml.DecodeFile(path, &cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	return cfg
 }
