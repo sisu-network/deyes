@@ -18,12 +18,11 @@ import (
 func TestTokenManager(t *testing.T) {
 	t.Run("Get price success", func(t *testing.T) {
 		cfg := config.Deyes{
-			PriceOracleUrl:  "http://example.com",
-			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-			DbHost:          "127.0.0.1",
-			DbSchema:        "deyes",
-			InMemory:        true,
-			EthRpc:          "http://example.com",
+			PriceOracleUrl: "http://example.com",
+			DbHost:         "127.0.0.1",
+			DbSchema:       "deyes",
+			InMemory:       true,
+			EthRpc:         "http://example.com",
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
@@ -71,11 +70,10 @@ func TestTokenManager(t *testing.T) {
 
 	t.Run("Get price fail", func(t *testing.T) {
 		cfg := config.Deyes{
-			DbHost:          "127.0.0.1",
-			DbSchema:        "deyes",
-			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-			InMemory:        true,
-			EthRpc:          "http://example.com",
+			DbHost:   "127.0.0.1",
+			DbSchema: "deyes",
+			InMemory: true,
+			EthRpc:   "http://example.com",
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
@@ -108,11 +106,10 @@ func TestTokenManager(t *testing.T) {
 
 	t.Run("token price cache", func(t *testing.T) {
 		cfg := config.Deyes{
-			DbHost:          "127.0.0.1",
-			DbSchema:        "deyes",
-			DaiTokenAddress: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-			InMemory:        true,
-			EthRpc:          "http://example.com",
+			DbHost:   "127.0.0.1",
+			DbSchema: "deyes",
+			InMemory: true,
+			EthRpc:   "http://example.com",
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},

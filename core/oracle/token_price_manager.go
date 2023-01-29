@@ -17,7 +17,6 @@ import (
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
 	"github.com/sisu-network/deyes/utils"
-	"github.com/sisu-network/lib/log"
 )
 
 const (
@@ -96,15 +95,19 @@ func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.
 	for _, token := range tokenList {
 		address1 := tokens[strings.ToLower(token)].Address1
 		address2 := tokens[strings.ToLower(token)].Address2
-		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
 
+		tokenPrice, err := m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
 		if err != nil {
+			// Get from SushiSwap.
 			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
 			if err != nil {
 				tokensNotAvailable = append(tokensNotAvailable, token)
+			} else {
+				tokenPrices = append(tokenPrices, tokenPrice)
 			}
+		} else {
+			tokenPrices = append(tokenPrices, tokenPrice)
 		}
-		tokenPrices = append(tokenPrices, tokenPrice)
 	}
 
 	// Get price from coin marketcap
@@ -173,7 +176,6 @@ func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 
 	// Load from server.
 	tokenPrices, err := m.getTokenPrices([]string{id})
-	log.Info("tokenPrices is ", tokenPrices)
 	if err != nil {
 		return nil, err
 	}
