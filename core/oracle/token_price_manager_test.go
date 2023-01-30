@@ -22,7 +22,7 @@ func TestTokenManager(t *testing.T) {
 			DbHost:         "127.0.0.1",
 			DbSchema:       "deyes",
 			InMemory:       true,
-			EthRpc:         "http://example.com",
+			EthRpcs:        []string{"http://example.com"},
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
@@ -73,7 +73,7 @@ func TestTokenManager(t *testing.T) {
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
-			EthRpc:   "http://example.com",
+			EthRpcs:  []string{"http://example.com"},
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
@@ -109,7 +109,7 @@ func TestTokenManager(t *testing.T) {
 			DbHost:   "127.0.0.1",
 			DbSchema: "deyes",
 			InMemory: true,
-			EthRpc:   "http://example.com",
+			EthRpcs:  []string{"http://example.com"},
 			EthTokens: map[string]config.TokenPair{
 				"btc": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
 					Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},

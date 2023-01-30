@@ -61,7 +61,7 @@ type Deyes struct {
 	PriceOracleSecret string `toml:"price_oracle_secret"`
 
 	// Used for Sushiswap & Uniswap to get token price.
-	EthRpc    string               `toml:"eth_rpc"`
+	EthRpcs   []string             `toml:"eth_rpcs"`
 	EthTokens map[string]TokenPair `toml:"eth_tokens"`
 
 	ServerPort    int    `toml:"server_port"`
