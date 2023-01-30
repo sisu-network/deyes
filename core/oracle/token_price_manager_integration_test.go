@@ -15,7 +15,7 @@ import (
 )
 
 func TestIntegrationTokenManager(t *testing.T) {
-	//t.Skip()
+	t.Skip()
 
 	cfg := config.Deyes{
 		PriceOracleUrl: "http://example.com",

@@ -1,9 +1,9 @@
 package uniswap
 
 import (
-	"github.com/sisu-network/deyes/core/oracle/utils"
-	"github.com/sisu-network/lib/log"
 	"math/big"
+
+	"github.com/sisu-network/deyes/core/oracle/utils"
 
 	"github.com/daoleno/uniswapv3-sdk/examples/contract"
 	"github.com/daoleno/uniswapv3-sdk/examples/helper"
@@ -47,7 +47,6 @@ func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenA
 		}
 		token0 := common.HexToAddress(tokenAddress1)
 		token1 := common.HexToAddress(tokenAddress2) // DAI
-		log.Info(token0, " token0token0token0token0")
 
 		fee := big.NewInt(3000)
 		amountIn := helper.FloatStringToBigInt("1.00", 18)

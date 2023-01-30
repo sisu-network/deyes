@@ -19,7 +19,6 @@ package sushiswap
 import (
 	"context"
 	"errors"
-	"github.com/sisu-network/lib/log"
 	"math/big"
 	"time"
 
@@ -43,7 +42,6 @@ func NewClient(bc bind.ContractCaller) *Client {
 // GetReserves returns the available reserves in a pair
 func (c *Client) GetReserves(token0, token1 common.Address) (*Reserve, error) {
 	addr := GeneratePairAddress(token0, token1)
-	log.Info(addr)
 	caller, err := NewUniswapv2pairCaller(addr, c.bc)
 	if err != nil {
 		return nil, err
