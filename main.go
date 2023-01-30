@@ -6,7 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/BurntSushi/toml"
+	"github.com/sisu-network/deyes/core/oracle/sushiswap"
+	"github.com/sisu-network/deyes/core/oracle/uniswap"
+
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/logdna/logdna-go/logger"
 	"github.com/sisu-network/deyes/client"
@@ -45,7 +47,9 @@ func initialize(cfg *config.Deyes) {
 	go sisuClient.TryDial()
 
 	networkHttp := network.NewHttp()
-	priceManager := oracle.NewTokenPriceManager(*cfg, db, networkHttp)
+	uniswapManager := uniswap.NewUniwapManager(*cfg)
+	sushiSwapManager := sushiswap.NewSushiSwapManager(*cfg)
+	priceManager := oracle.NewTokenPriceManager(*cfg, networkHttp, uniswapManager, sushiSwapManager)
 
 	processor := core.NewProcessor(cfg, db, sisuClient, priceManager)
 	processor.Start()
@@ -62,23 +66,8 @@ func writeDefaultConfig(filePath string) error {
 	return nil
 }
 
-func loadConfig() *config.Deyes {
-	tomlFile := "./deyes.toml"
-	if _, err := os.Stat(tomlFile); os.IsNotExist(err) {
-		panic(err)
-	}
-
-	cfg := new(config.Deyes)
-	_, err := toml.DecodeFile(tomlFile, &cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	return cfg
-}
-
 func main() {
-	cfg := loadConfig()
+	cfg := config.Load("./deyes.toml")
 	if len(cfg.LogDNA.Secret) > 0 {
 		opts := logger.Options{
 			App:           cfg.LogDNA.AppName,
@@ -90,7 +79,7 @@ func main() {
 		log.SetLogger(logDNA)
 	}
 
-	initialize(cfg)
+	initialize(&cfg)
 
 	c := make(chan os.Signal)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)

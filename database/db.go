@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,10 +30,6 @@ type Database interface {
 	// Vault address
 	SetVault(chain, address string, token string) error
 	GetVaults(chain string) ([]string, error)
-
-	// Token price
-	SaveTokenPrices(tokenPrices []*types.TokenPrice)
-	LoadPrices() []*types.TokenPrice
 }
 
 // A struct for saving txs into database.
@@ -302,61 +297,4 @@ func (d *DefaultDatabase) getWatchAddress(chain, typ string) ([]string, error) {
 	}
 
 	return ret, nil
-}
-
-func (d *DefaultDatabase) SaveTokenPrices(tokenPrices []*types.TokenPrice) {
-	for _, tokenPrice := range tokenPrices {
-		var err error
-		if d.cfg.InMemory {
-			_, err = d.db.Exec(
-				"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET price = ?",
-				tokenPrice.Id,
-				tokenPrice.PublicId,
-				tokenPrice.Price.String(),
-				tokenPrice.Price.String(),
-			)
-		} else {
-			_, err = d.db.Exec(
-				"INSERT INTO token_price (id, public_id, price) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE price = ?",
-				tokenPrice.Id,
-				tokenPrice.PublicId,
-				tokenPrice.Price.String(),
-				tokenPrice.Price.String(),
-			)
-		}
-
-		if err != nil {
-			log.Error("Cannot insert into db, token = ", tokenPrice, " err = ", err)
-		}
-	}
-}
-
-func (d *DefaultDatabase) LoadPrices() []*types.TokenPrice {
-	prices := make([]*types.TokenPrice, 0)
-
-	rows, err := d.db.Query("SELECT id, public_id, price FROM token_price")
-	if err != nil {
-		log.Error("Cannot load prices")
-		return prices
-	}
-
-	for rows.Next() {
-		var nullablePrice, nullableId, nullablePublicId sql.NullString
-		rows.Scan(&nullableId, &nullablePublicId, &nullablePrice)
-
-		price, ok := new(big.Int).SetString(nullablePrice.String, 10)
-		if !ok {
-			return make([]*types.TokenPrice, 0)
-		}
-
-		prices = append(prices, &types.TokenPrice{
-			Id:       nullableId.String,
-			PublicId: nullablePublicId.String,
-			Price:    price,
-		})
-	}
-
-	defer rows.Close()
-
-	return prices
 }

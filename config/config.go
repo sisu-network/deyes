@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+
+	"github.com/BurntSushi/toml"
 	"github.com/sisu-network/lib/log"
 )
 
@@ -40,6 +43,13 @@ type Chain struct {
 	SolanaBridgeProgramId string `toml:"solana_bridge_program_id" json:"solana_bridge_program_id"`
 }
 
+type TokenPair struct {
+	Token1   string `toml:"token1" json:"token1"`
+	Token2   string `toml:"token2" json:"token2"`
+	Address1 string `toml:"address1" json:"address1"`
+	Address2 string `toml:"address2" json:"address2"`
+}
+
 type Deyes struct {
 	DbHost     string `toml:"db_host"`
 	DbPort     int    `toml:"db_port"`
@@ -47,10 +57,12 @@ type Deyes struct {
 	DbPassword string `toml:"db_password"`
 	DbSchema   string `toml:"db_schema"`
 
-	PriceOracleUrl     string   `toml:"price_oracle_url"`
-	PriceOracleSecret  string   `toml:"price_oracle_secret"`
-	PricePollFrequency int      `toml:"price_poll_frequency"`
-	PriceTokenList     []string `toml:"price_token_list"`
+	PriceOracleUrl    string `toml:"price_oracle_url"`
+	PriceOracleSecret string `toml:"price_oracle_secret"`
+
+	// Used for Sushiswap & Uniswap to get token price.
+	EthRpcs   []string             `toml:"eth_rpcs"`
+	EthTokens map[string]TokenPair `toml:"eth_tokens"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`
@@ -63,7 +75,22 @@ type Deyes struct {
 	// Chains config
 	Chains map[string]Chain `toml:"chains"`
 
+	// LogDNA
 	LogDNA log.LogDNAConfig `toml:"log_dna"`
 
 	InMemory bool // Used in test only
+}
+
+func Load(path string) Deyes {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		panic(err)
+	}
+
+	cfg := Deyes{}
+	_, err := toml.DecodeFile(path, &cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	return cfg
 }
