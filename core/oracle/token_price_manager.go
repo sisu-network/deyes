@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	UpdateFrequency = 1000 * 60 * 3 // 3 minutes
+	UpdateFrequency = 1000 * 60 * 60 // 1 hour
 )
 
 type priceCache struct {
@@ -90,29 +90,30 @@ func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string)
 func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
 	tokenPrices := make([]*types.TokenPrice, 0)
 	tokensNotAvailable := make([]string, 0)
-	tokens := m.cfg.EthTokens
+	// tokens := m.cfg.EthTokens
 
-	var err error
-	var tokenPrice *types.TokenPrice
-	for _, token := range tokenList {
-		t := tokens[strings.ToUpper(token)]
-		address1 := t.Address1
-		address2 := t.Address2
+	// var err error
+	// var tokenPrice *types.TokenPrice
+	// for _, token := range tokenList {
+	// 	t := tokens[strings.ToUpper(token)]
+	// 	address1 := t.Address1
+	// 	address2 := t.Address2
 
-		tokenPrice, err = m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
-		if err != nil {
-			// Get from SushiSwap.
-			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
-			if err != nil {
-				tokensNotAvailable = append(tokensNotAvailable, token)
-			} else {
-				tokenPrices = append(tokenPrices, tokenPrice)
-			}
-		} else {
-			tokenPrices = append(tokenPrices, tokenPrice)
-		}
-	}
+	// 	tokenPrice, err = m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
+	// 	if err != nil {
+	// 		// Get from SushiSwap.
+	// 		tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
+	// 		if err != nil {
+	// 			tokensNotAvailable = append(tokensNotAvailable, token)
+	// 		} else {
+	// 			tokenPrices = append(tokenPrices, tokenPrice)
+	// 		}
+	// 	} else {
+	// 		tokenPrices = append(tokenPrices, tokenPrice)
+	// 	}
+	// }
 
+	tokensNotAvailable = tokenList
 	// Get price from coin marketcap
 	if len(tokensNotAvailable) > 0 {
 		req := m.getPriceFromCoinmarketcap(tokensNotAvailable)
