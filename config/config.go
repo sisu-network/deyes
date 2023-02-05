@@ -49,8 +49,8 @@ type Token struct {
 }
 
 type PriceProvider struct {
-	Url    string `toml:"url"`
-	Secret string `toml:"secret"`
+	Url     string `toml:"url"`
+	Secrets string `toml:"secrets"`
 }
 
 type Deyes struct {

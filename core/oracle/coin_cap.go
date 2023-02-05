@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"net/http"
+	"strings"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
@@ -34,7 +36,11 @@ func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
 		panic(err)
 	}
 
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", p.providerCfg.Secret))
+	secret := p.randomSecret()
+	if len(secret) == 0 {
+		return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()
@@ -57,4 +63,13 @@ func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
 	}
 
 	return utils.UsdToSisuPrice(response.Data.RateUsd)
+}
+
+func (p *CoinCapProvider) randomSecret() string {
+	secrets := strings.Split(p.providerCfg.Secrets, ",")
+	if len(secrets) == 0 {
+		return ""
+	}
+
+	return secrets[rand.Intn(len(secrets))]
 }

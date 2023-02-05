@@ -18,8 +18,8 @@ func TestTokenPriceManager(t *testing.T) {
 			Url: "https://api.coincap.io/v2/rates",
 		},
 		"coin_market_cap": {
-			Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
-			Secret: "", // Add your secret here.
+			Url:     "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+			Secrets: "", // Add your secret here.
 		},
 	}
 	tokens := map[string]config.Token{
@@ -40,8 +40,8 @@ func TestCoinCapProvider(t *testing.T) {
 	t.Skip()
 
 	p := NewCoinCapProvider(network.NewHttp(), config.PriceProvider{
-		Url:    "https://api.coincap.io/v2/rates",
-		Secret: os.Getenv("SECRET"),
+		Url:     "https://api.coincap.io/v2/rates",
+		Secrets: os.Getenv("SECRET"),
 	})
 	price, err := p.GetPrice(config.Token{NameLowerCase: "binance-coin"})
 	require.Nil(t, err)
@@ -53,8 +53,8 @@ func TestCoinMarketCap(t *testing.T) {
 	t.Skip()
 
 	p := NewCoinMarketCap(network.NewHttp(), config.PriceProvider{
-		Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
-		Secret: os.Getenv("SECRET"),
+		Url:     "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+		Secrets: os.Getenv("SECRET"),
 	})
 
 	price, err := p.GetPrice(config.Token{Symbol: "ETH"})
