@@ -1,45 +1,64 @@
 package oracle
 
 import (
+	"os"
 	"testing"
 
-	"github.com/sisu-network/lib/log"
-
 	"github.com/sisu-network/deyes/config"
-	"github.com/stretchr/testify/require"
-
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
-	"github.com/sisu-network/deyes/core/oracle/uniswap"
-
 	"github.com/sisu-network/deyes/network"
+	"github.com/sisu-network/lib/log"
+	"github.com/stretchr/testify/require"
 )
 
-func TestIntegrationTokenManager(t *testing.T) {
+func TestTokenPriceManager(t *testing.T) {
 	t.Skip()
 
-	cfg := config.Deyes{
-		PriceOracleUrl: "http://example.com",
-		DbHost:         "127.0.0.1",
-		DbSchema:       "deyes",
-		InMemory:       true,
-		EthRpcs:        []string{"https://rpc.ankr.com/eth"},
-		EthTokens: map[string]config.TokenPair{
-			"BTC": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-			"ETH": {Token1: "ETH", Token2: "DAI", Address1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-			"MATIC": {Token1: "MATIC", Token2: "DAI", Address1: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+	providerCfgs := map[string]config.PriceProvider{
+		"coin_cap": {
+			Url: "https://api.coincap.io/v2/rates",
+		},
+		"coin_market_cap": {
+			Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+			Secret: "", // Add your secret here.
+		},
+	}
+	tokens := map[string]config.Token{
+		"ETH": {
+			Symbol:        "ETH",
+			NameLowerCase: "ethereum",
 		},
 	}
 
-	networkHttp := network.NewHttp()
-	uniswapManager := uniswap.NewUniwapManager(cfg)
-	sushiSwapManager := sushiswap.NewSushiSwapManager(cfg)
-	m := NewTokenPriceManager(cfg, networkHttp, uniswapManager, sushiSwapManager)
-
-	price, err := m.GetTokenPrice("ETH")
+	tpm := NewTokenPriceManager(providerCfgs, tokens, network.NewHttp())
+	price, err := tpm.GetPrice("ETH")
 	require.Nil(t, err)
 
-	log.Info("price = ", price)
+	log.Infof("Price = %s", price)
+}
+
+func TestCoinCapProvider(t *testing.T) {
+	t.Skip()
+
+	p := NewCoinCapProvider(network.NewHttp(), config.PriceProvider{
+		Url:    "https://api.coincap.io/v2/rates",
+		Secret: os.Getenv("SECRET"),
+	})
+	price, err := p.GetPrice(config.Token{NameLowerCase: "binance-coin"})
+	require.Nil(t, err)
+
+	log.Infof("Price = %s", price)
+}
+
+func TestCoinMarketCap(t *testing.T) {
+	t.Skip()
+
+	p := NewCoinMarketCap(network.NewHttp(), config.PriceProvider{
+		Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+		Secret: os.Getenv("SECRET"),
+	})
+
+	price, err := p.GetPrice(config.Token{Symbol: "ETH"})
+	require.Nil(t, err)
+
+	log.Infof("Price = %s", price)
 }

@@ -1,22 +1,15 @@
 package oracle
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"net/http"
-	"strings"
+	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
-	"github.com/sisu-network/deyes/core/oracle/uniswap"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
-	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
+	"github.com/sisu-network/lib/log"
 )
 
 const (
@@ -29,139 +22,95 @@ type priceCache struct {
 	updateTime int64
 }
 
-type Response struct {
-	Data map[string]struct {
-		Quote struct {
-			Usd struct {
-				Value float64 `json:"price"`
-			} `json:"USD"`
-		} `json:"quote"`
-	} `json:"data"`
-}
-
 type TokenPriceManager interface {
-	Start()
-	Stop()
-	GetTokenPrice(id string) (*big.Int, error)
+	GetPrice(id string) (*big.Int, error)
 }
 
 type defaultTokenPriceManager struct {
-	cfg              config.Deyes
-	stop             atomic.Value
-	networkHttp      network.Http
-	cache            *sync.Map
-	updateFrequency  int64
-	uniswapManager   uniswap.UniswapManager
-	sushiswapManager sushiswap.SushiSwapManager
+	priceProviderCfgs map[string]config.PriceProvider
+	networkHttp       network.Http
+	cache             *sync.Map
+	updateFrequency   int64
+	providers         map[string]Provider
+	tokens            map[string]config.Token
 }
 
-func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http,
-	uniswapManager uniswap.UniswapManager, sushiswapManager sushiswap.SushiSwapManager) TokenPriceManager {
+func NewTokenPriceManager(providerCfgs map[string]config.PriceProvider,
+	tokens map[string]config.Token, networkHttp network.Http) TokenPriceManager {
+
+	providers := make(map[string]Provider)
+	for name, providerCfg := range providerCfgs {
+		switch name {
+		case "coin_cap":
+			provider := NewCoinCapProvider(networkHttp, providerCfg)
+			providers[name] = provider
+
+		case "coin_market_cap":
+			provider := NewCoinMarketCap(networkHttp, providerCfg)
+			providers[name] = provider
+
+		default:
+			log.Errorf("Unknown price provider %s", name)
+		}
+	}
+
 	return &defaultTokenPriceManager{
-		cfg:              cfg,
-		networkHttp:      networkHttp,
-		cache:            &sync.Map{},
-		updateFrequency:  UpdateFrequency,
-		uniswapManager:   uniswapManager,
-		sushiswapManager: sushiswapManager,
+		priceProviderCfgs: providerCfgs,
+		networkHttp:       networkHttp,
+		cache:             &sync.Map{},
+		updateFrequency:   UpdateFrequency,
+		tokens:            tokens,
+		providers:         providers,
 	}
 }
 
-func (m *defaultTokenPriceManager) Start() {
-	m.stop.Store(false)
-}
-
-func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string) *http.Request {
-	baseUrl := m.cfg.PriceOracleUrl
-	req, err := http.NewRequest("GET", baseUrl, nil)
-	if err != nil {
-		panic(err)
+func (m *defaultTokenPriceManager) getTokenPrices(id string) (*big.Int, error) {
+	token, ok := m.tokens[id]
+	if !ok {
+		return nil, fmt.Errorf("Token %s not supported", id)
 	}
 
-	req.Header.Add("X-CMC_PRO_API_KEY", m.cfg.PriceOracleSecret)
+	priceMap := &sync.Map{}
+	wg := &sync.WaitGroup{}
+	// TODO: Run each provider with a timeout.
+	for name, provider := range m.providers {
+		wg.Add(1)
+		go func(name string, provider Provider) {
+			defer wg.Done()
 
-	q := req.URL.Query()
-	q.Add("symbol", strings.Join(tokenList, ","))
-	req.URL.RawQuery = q.Encode()
-
-	return req
-}
-
-func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
-	tokenPrices := make([]*types.TokenPrice, 0)
-	tokensNotAvailable := make([]string, 0)
-	// tokens := m.cfg.EthTokens
-
-	// var err error
-	// var tokenPrice *types.TokenPrice
-	// for _, token := range tokenList {
-	// 	t := tokens[strings.ToUpper(token)]
-	// 	address1 := t.Address1
-	// 	address2 := t.Address2
-
-	// 	tokenPrice, err = m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
-	// 	if err != nil {
-	// 		// Get from SushiSwap.
-	// 		tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
-	// 		if err != nil {
-	// 			tokensNotAvailable = append(tokensNotAvailable, token)
-	// 		} else {
-	// 			tokenPrices = append(tokenPrices, tokenPrice)
-	// 		}
-	// 	} else {
-	// 		tokenPrices = append(tokenPrices, tokenPrice)
-	// 	}
-	// }
-
-	tokensNotAvailable = tokenList
-	// Get price from coin marketcap
-	if len(tokensNotAvailable) > 0 {
-		req := m.getPriceFromCoinmarketcap(tokensNotAvailable)
-		data, err := m.networkHttp.Get(req)
-		if err != nil {
-			return nil, err
-		}
-
-		response := &Response{}
-		err = json.Unmarshal(data, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(response.Data) > 0 {
-			for key, value := range response.Data {
-				for _, token := range tokenList {
-					if key == token {
-						tokenPrices = append(tokenPrices, &types.TokenPrice{
-							Id:    token,
-							Price: utils.FloatToWei(value.Quote.Usd.Value),
-						})
-
-						break
-					}
-				}
+			price, err := provider.GetPrice(token)
+			if err != nil {
+				log.Errorf("Failed to get token price for provider %s, err = %s", name, err)
+				return
 			}
-		}
+
+			priceMap.Store(name, price)
+		}(name, provider)
+	}
+	wg.Wait()
+
+	// Accumulate prices
+	prices := make([]*big.Int, 0)
+	priceMap.Range(func(key, value interface{}) bool { // name, price
+		prices = append(prices, value.(*big.Int))
+
+		return true
+	})
+
+	if len(prices) == 0 {
+		return nil, fmt.Errorf("Cannot find price from any provider for token %s", id)
 	}
 
-	now := time.Now()
-	for key, value := range tokenPrices {
-		m.cache.Store(key, &priceCache{
-			id:         value.Id,
-			price:      value.Price,
-			updateTime: now.UnixMilli(),
-		})
+	// Sort all prices
+	sort.Slice(prices, func(i, j int) bool {
+		return prices[i].Cmp(prices[j]) < 0
+	})
 
-	}
-
-	return tokenPrices, nil
+	// Get the median
+	return prices[len(prices)/2], nil
 }
 
-func (m *defaultTokenPriceManager) Stop() {
-	m.stop.Store(true)
-}
-
-func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
+func (m *defaultTokenPriceManager) GetPrice(id string) (*big.Int, error) {
 	if TestTokenPrices[id] != nil {
 		return TestTokenPrices[id], nil
 	}
@@ -179,20 +128,16 @@ func (m *defaultTokenPriceManager) GetTokenPrice(id string) (*big.Int, error) {
 	}
 
 	// Load from server.
-	tokenPrices, err := m.getTokenPrices([]string{id})
-	if err != nil {
-		return nil, err
+	price, err := m.getTokenPrices(id)
+
+	if err == nil {
+		// Save into the cache
+		m.cache.Store(id, &priceCache{
+			id:         id,
+			price:      price,
+			updateTime: time.Now().UnixMilli(),
+		})
 	}
 
-	if len(tokenPrices) == 0 {
-		return nil, fmt.Errorf("Cannot get token prices for %s", id)
-	}
-
-	for _, tokenPrice := range tokenPrices {
-		if tokenPrice.Id == id {
-			return tokenPrice.Price, nil
-		}
-	}
-
-	return nil, fmt.Errorf("Cannot get token prices for %s", id)
+	return price, err
 }

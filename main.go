@@ -6,9 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
-	"github.com/sisu-network/deyes/core/oracle/uniswap"
-
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/logdna/logdna-go/logger"
 	"github.com/sisu-network/deyes/client"
@@ -47,9 +44,7 @@ func initialize(cfg *config.Deyes) {
 	go sisuClient.TryDial()
 
 	networkHttp := network.NewHttp()
-	uniswapManager := uniswap.NewUniwapManager(*cfg)
-	sushiSwapManager := sushiswap.NewSushiSwapManager(*cfg)
-	priceManager := oracle.NewTokenPriceManager(*cfg, networkHttp, uniswapManager, sushiSwapManager)
+	priceManager := oracle.NewTokenPriceManager(cfg.PriceProviders, cfg.Tokens, networkHttp)
 
 	processor := core.NewProcessor(cfg, db, sisuClient, priceManager)
 	processor.Start()
