@@ -24,8 +24,6 @@ func NewCoinCapProvider(networkHttp network.Http, providerCfg config.PriceProvid
 }
 
 func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
-	fmt.Println("token = ", token)
-
 	if token.NameLowerCase == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
@@ -35,6 +33,8 @@ func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
 	if err != nil {
 		panic(err)
 	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", p.providerCfg.Secret))
 
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()

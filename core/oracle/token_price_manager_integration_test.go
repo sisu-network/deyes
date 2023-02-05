@@ -1,6 +1,7 @@
 package oracle
 
 import (
+	"os"
 	"testing"
 
 	"github.com/sisu-network/deyes/config"
@@ -39,7 +40,8 @@ func TestCoinCapProvider(t *testing.T) {
 	t.Skip()
 
 	p := NewCoinCapProvider(network.NewHttp(), config.PriceProvider{
-		Url: "https://api.coincap.io/v2/rates",
+		Url:    "https://api.coincap.io/v2/rates",
+		Secret: os.Getenv("SECRET"),
 	})
 	price, err := p.GetPrice(config.Token{NameLowerCase: "ethereum"})
 	require.Nil(t, err)
@@ -52,7 +54,7 @@ func TestCoinMarketCap(t *testing.T) {
 
 	p := NewCoinMarketCap(network.NewHttp(), config.PriceProvider{
 		Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
-		Secret: "", // Add your secret here.
+		Secret: os.Getenv("SECRET"),
 	})
 
 	price, err := p.GetPrice(config.Token{Symbol: "ETH"})
