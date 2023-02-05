@@ -48,6 +48,8 @@ type TokenPair struct {
 	Token2   string `toml:"token2" json:"token2"`
 	Address1 string `toml:"address1" json:"address1"`
 	Address2 string `toml:"address2" json:"address2"`
+	Decimal1 int    `toml:"decimal1" json:"decimal1"`
+	Decimal2 int    `toml:"decimal2" json:"decimal2"`
 }
 
 type Deyes struct {
