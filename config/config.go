@@ -61,7 +61,7 @@ type Deyes struct {
 	DbSchema   string `toml:"db_schema"`
 
 	PriceProviders map[string]PriceProvider `toml:"price_providers"`
-	EthTokens      map[string]Token         `toml:"eth_tokens"`
+	Tokens         map[string]Token         `toml:"tokens"`
 
 	// Used for Sushiswap & Uniswap to get token price.
 	EthRpcs []string `toml:"eth_rpcs"`

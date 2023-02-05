@@ -44,7 +44,7 @@ func initialize(cfg *config.Deyes) {
 	go sisuClient.TryDial()
 
 	networkHttp := network.NewHttp()
-	priceManager := oracle.NewTokenPriceManager(cfg.PriceProviders, cfg.EthTokens, networkHttp)
+	priceManager := oracle.NewTokenPriceManager(cfg.PriceProviders, cfg.Tokens, networkHttp)
 
 	processor := core.NewProcessor(cfg, db, sisuClient, priceManager)
 	processor.Start()

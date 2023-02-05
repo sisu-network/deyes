@@ -43,7 +43,7 @@ func TestCoinCapProvider(t *testing.T) {
 		Url:    "https://api.coincap.io/v2/rates",
 		Secret: os.Getenv("SECRET"),
 	})
-	price, err := p.GetPrice(config.Token{NameLowerCase: "ethereum"})
+	price, err := p.GetPrice(config.Token{NameLowerCase: "binance-coin"})
 	require.Nil(t, err)
 
 	log.Infof("Price = %s", price)
