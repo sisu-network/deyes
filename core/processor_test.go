@@ -14,8 +14,6 @@ import (
 
 func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.TokenPriceManager) {
 	cfg := config.Deyes{
-		PriceOracleUrl: "http://example.com",
-
 		DbHost:   "127.0.0.1",
 		DbSchema: "deyes",
 		InMemory: true,

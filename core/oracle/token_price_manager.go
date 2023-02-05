@@ -3,8 +3,6 @@ package oracle
 import (
 	"fmt"
 	"math/big"
-	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,16 +22,6 @@ type priceCache struct {
 	updateTime int64
 }
 
-type Response struct {
-	Data map[string]struct {
-		Quote struct {
-			Usd struct {
-				Value float64 `json:"price"`
-			} `json:"USD"`
-		} `json:"quote"`
-	} `json:"data"`
-}
-
 type TokenPriceManager interface {
 	Start()
 	Stop()
@@ -46,6 +34,7 @@ type defaultTokenPriceManager struct {
 	networkHttp     network.Http
 	cache           *sync.Map
 	updateFrequency int64
+	providers       map[string]Provider
 }
 
 func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http) TokenPriceManager {
@@ -59,22 +48,14 @@ func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http) TokenPrice
 
 func (m *defaultTokenPriceManager) Start() {
 	m.stop.Store(false)
-}
 
-func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string) *http.Request {
-	baseUrl := m.cfg.PriceOracleUrl
-	req, err := http.NewRequest("GET", baseUrl, nil)
-	if err != nil {
-		panic(err)
+	for name, providerCfg := range m.cfg.PriceProviders {
+		switch name {
+		case "coin_cap":
+			coinCap := NewCoinCapProvider(m.networkHttp, providerCfg)
+			m.providers[name] = coinCap
+		}
 	}
-
-	req.Header.Add("X-CMC_PRO_API_KEY", m.cfg.PriceOracleSecret)
-
-	q := req.URL.Query()
-	q.Add("symbol", strings.Join(tokenList, ","))
-	req.URL.RawQuery = q.Encode()
-
-	return req
 }
 
 func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {

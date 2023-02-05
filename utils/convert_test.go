@@ -20,3 +20,9 @@ func TestToSisuPrice(t *testing.T) {
 	converted := ToSisuPrice(price, 8)
 	require.Equal(t, big.NewInt(SisuUnit*6), converted)
 }
+
+func TestUsdToSisuPrice(t *testing.T) {
+	price, err := UsdToSisuPrice("3463456.23423429387")
+	require.Nil(t, err)
+	require.Equal(t, "3463456234234293870133248", price.String())
+}

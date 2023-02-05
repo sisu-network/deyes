@@ -2,9 +2,35 @@ package oracle
 
 import (
 	"testing"
+
+	"github.com/sisu-network/deyes/config"
+	"github.com/sisu-network/deyes/network"
+	"github.com/sisu-network/lib/log"
+	"github.com/stretchr/testify/require"
 )
 
-func TestIntegrationTokenManager(t *testing.T) {
-	// t.Skip()
+func TestCoinCapProvider(t *testing.T) {
+	t.Skip()
 
+	p := NewCoinCapProvider(network.NewHttp(), config.PriceProvider{
+		Url: "https://api.coincap.io/v2/rates",
+	})
+	price, err := p.GetPrice(config.Token{NameLowerCase: "ethereum"})
+	require.Nil(t, err)
+
+	log.Infof("Price = %s", price)
+}
+
+func TestCoinMarketCap(t *testing.T) {
+	t.Skip()
+
+	p := NewCoinMarketCap(network.NewHttp(), config.PriceProvider{
+		Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+		Secret: "", // Add your secret here.
+	})
+
+	price, err := p.GetPrice(config.Token{Symbol: "ETH"})
+	require.Nil(t, err)
+
+	log.Infof("Price = %s", price)
 }
