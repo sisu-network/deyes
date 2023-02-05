@@ -9,6 +9,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestTokenPriceManager(t *testing.T) {
+	t.Skip()
+
+	providerCfgs := map[string]config.PriceProvider{
+		"coin_cap": {
+			Url: "https://api.coincap.io/v2/rates",
+		},
+		"coin_market_cap": {
+			Url:    "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest",
+			Secret: "", // Add your secret here.
+		},
+	}
+	tokens := map[string]config.Token{
+		"ETH": {
+			Symbol:        "ETH",
+			NameLowerCase: "ethereum",
+		},
+	}
+
+	tpm := NewTokenPriceManager(providerCfgs, tokens, network.NewHttp())
+	price, err := tpm.GetPrice("ETH")
+	require.Nil(t, err)
+
+	log.Infof("Price = %s", price)
+}
+
 func TestCoinCapProvider(t *testing.T) {
 	t.Skip()
 

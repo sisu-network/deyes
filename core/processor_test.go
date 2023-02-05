@@ -41,7 +41,8 @@ func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.To
 	networkHttp := network.NewHttp()
 	sisuClient := &MockClient{}
 
-	priceManager := oracle.NewTokenPriceManager(cfg, networkHttp)
+	priceManager := oracle.NewTokenPriceManager(cfg.PriceProviders, make(map[string]config.Token),
+		networkHttp)
 
 	return cfg, db, sisuClient, priceManager
 

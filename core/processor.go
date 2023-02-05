@@ -64,7 +64,6 @@ func (p *Processor) Start() {
 	p.txTrackCh = make(chan *chainstypes.TrackUpdate, 1000)
 
 	go p.listen()
-	go p.tpm.Start()
 
 	for chain, cfg := range p.cfg.Chains {
 		log.Info("Supported chain and config: ", chain, cfg)
@@ -213,5 +212,5 @@ func (p *Processor) SetSisuReady(isReady bool) {
 }
 
 func (tp *Processor) GetTokenPrice(id string) (*big.Int, error) {
-	return tp.tpm.GetTokenPrice(id)
+	return tp.tpm.GetPrice(id)
 }
