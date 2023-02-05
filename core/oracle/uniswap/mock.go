@@ -1,16 +1,16 @@
 package uniswap
 
 import (
-	"github.com/sisu-network/deyes/types"
+	"math/big"
 )
 
 type MockNewUniwapManager struct {
-	GetPriceFromUniswapFunc func(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error)
+	GetPriceFromUniswapFunc func(tokenAddress1 string, tokenAddress2 string) (*big.Int, error)
 }
 
-func (m *MockNewUniwapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error) {
+func (m *MockNewUniwapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string) (*big.Int, error) {
 	if m.GetPriceFromUniswapFunc != nil {
-		return m.GetPriceFromUniswapFunc(tokenAddress1, tokenAddress2, tokenName)
+		return m.GetPriceFromUniswapFunc(tokenAddress1, tokenAddress2)
 	}
 
 	return nil, nil

@@ -92,24 +92,29 @@ func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.
 	tokensNotAvailable := make([]string, 0)
 	tokens := m.cfg.EthTokens
 
-	var err error
-	var tokenPrice *types.TokenPrice
 	for _, token := range tokenList {
 		t := tokens[strings.ToUpper(token)]
 		address1 := t.Address1
 		address2 := t.Address2
+		amount := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(t.Decimal1)), nil)
 
-		tokenPrice, err = m.uniswapManager.GetPriceFromUniswap(address1, address2, token)
+		price, err := m.uniswapManager.GetPriceFromUniswap(address1, address2)
 		if err != nil {
 			// Get from SushiSwap.
-			tokenPrice, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, token)
+			price, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, amount)
 			if err != nil {
 				tokensNotAvailable = append(tokensNotAvailable, token)
 			} else {
-				tokenPrices = append(tokenPrices, tokenPrice)
+				tokenPrices = append(tokenPrices, &types.TokenPrice{
+					Id:    token,
+					Price: utils.ToSisuPrice(price, t.Decimal2),
+				})
 			}
 		} else {
-			tokenPrices = append(tokenPrices, tokenPrice)
+			tokenPrices = append(tokenPrices, &types.TokenPrice{
+				Id:    token,
+				Price: utils.ToSisuPrice(price, t.Decimal2),
+			})
 		}
 	}
 

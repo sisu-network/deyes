@@ -24,12 +24,30 @@ func TestIntegrationTokenManager(t *testing.T) {
 		InMemory:       true,
 		EthRpcs:        []string{"https://rpc.ankr.com/eth"},
 		EthTokens: map[string]config.TokenPair{
-			"BTC": {Token1: "BTC", Token2: "DAI", Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-			"ETH": {Token1: "ETH", Token2: "DAI", Address1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
-			"MATIC": {Token1: "MATIC", Token2: "DAI", Address1: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
-				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F"},
+			"BTC": {
+				Token1:   "BTC",
+				Token2:   "DAI",
+				Address1: "0xB83c27805aAcA5C7082eB45C868d955Cf04C337F",
+				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+				Decimal1: 18,
+				Decimal2: 18,
+			},
+			"ETH": {
+				Token1:   "ETH",
+				Token2:   "DAI",
+				Address1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+				Decimal1: 18,
+				Decimal2: 18,
+			},
+			"MATIC": {
+				Token1:   "MATIC",
+				Token2:   "DAI",
+				Address1: "0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0",
+				Address2: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+				Decimal1: 18,
+				Decimal2: 18,
+			},
 		},
 	}
 
@@ -38,7 +56,7 @@ func TestIntegrationTokenManager(t *testing.T) {
 	sushiSwapManager := sushiswap.NewSushiSwapManager(cfg)
 	m := NewTokenPriceManager(cfg, networkHttp, uniswapManager, sushiSwapManager)
 
-	price, err := m.GetTokenPrice("ETH")
+	price, err := m.GetTokenPrice("MATIC")
 	require.Nil(t, err)
 
 	log.Info("price = ", price)

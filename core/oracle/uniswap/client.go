@@ -1,6 +1,7 @@
 package uniswap
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/sisu-network/deyes/core/oracle/utils"
@@ -10,11 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sisu-network/deyes/config"
-	"github.com/sisu-network/deyes/types"
 )
 
 type UniswapManager interface {
-	GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string, tokenName string) (*types.TokenPrice, error)
+	GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string) (*big.Int, error)
 }
 
 type defaultUniswapManager struct {
@@ -27,8 +27,8 @@ func NewUniwapManager(cfg config.Deyes) UniswapManager {
 	}
 }
 
-func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string,
-	tokenName string) (*types.TokenPrice, error) {
+func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenAddress2 string) (
+	*big.Int, error) {
 	ethRpcs := m.cfg.EthRpcs
 
 	clients := make([]*ethclient.Client, 0)
@@ -39,7 +39,7 @@ func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenA
 		}
 		clients = append(clients, ec)
 	}
-	return utils.ExecuteWithClients(clients, func(client *ethclient.Client) (*types.TokenPrice, bool, error) {
+	return utils.ExecuteWithClients(clients, func(client *ethclient.Client) (*big.Int, bool, error) {
 		quoterContract, err := contract.NewUniswapv3Quoter(common.HexToAddress(helper.ContractV3Quoter),
 			client)
 		if err != nil {
@@ -60,9 +60,15 @@ func (m *defaultUniswapManager) GetPriceFromUniswap(tokenAddress1 string, tokenA
 			return nil, false, err
 		}
 
-		return &types.TokenPrice{
-			Id:    tokenName,
-			Price: out[0].(*big.Int),
-		}, true, nil
+		if len(out) != 1 {
+			return nil, false, fmt.Errorf("Output length is not 1")
+		}
+
+		price, ok := out[0].(*big.Int)
+		if !ok {
+			return nil, false, fmt.Errorf("Failed to cast output to price integer. Out = %v", out)
+		}
+
+		return price, true, nil
 	})
 }
