@@ -1,7 +1,6 @@
 package oracle
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -10,13 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
-	"github.com/sisu-network/deyes/core/oracle/uniswap"
-
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/types"
-	"github.com/sisu-network/deyes/utils"
 )
 
 const (
@@ -46,24 +41,19 @@ type TokenPriceManager interface {
 }
 
 type defaultTokenPriceManager struct {
-	cfg              config.Deyes
-	stop             atomic.Value
-	networkHttp      network.Http
-	cache            *sync.Map
-	updateFrequency  int64
-	uniswapManager   uniswap.UniswapManager
-	sushiswapManager sushiswap.SushiSwapManager
+	cfg             config.Deyes
+	stop            atomic.Value
+	networkHttp     network.Http
+	cache           *sync.Map
+	updateFrequency int64
 }
 
-func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http,
-	uniswapManager uniswap.UniswapManager, sushiswapManager sushiswap.SushiSwapManager) TokenPriceManager {
+func NewTokenPriceManager(cfg config.Deyes, networkHttp network.Http) TokenPriceManager {
 	return &defaultTokenPriceManager{
-		cfg:              cfg,
-		networkHttp:      networkHttp,
-		cache:            &sync.Map{},
-		updateFrequency:  UpdateFrequency,
-		uniswapManager:   uniswapManager,
-		sushiswapManager: sushiswapManager,
+		cfg:             cfg,
+		networkHttp:     networkHttp,
+		cache:           &sync.Map{},
+		updateFrequency: UpdateFrequency,
 	}
 }
 
@@ -88,77 +78,7 @@ func (m *defaultTokenPriceManager) getPriceFromCoinmarketcap(tokenList []string)
 }
 
 func (m *defaultTokenPriceManager) getTokenPrices(tokenList []string) ([]*types.TokenPrice, error) {
-	tokenPrices := make([]*types.TokenPrice, 0)
-	tokensNotAvailable := make([]string, 0)
-	tokens := m.cfg.EthTokens
-
-	for _, token := range tokenList {
-		t := tokens[strings.ToUpper(token)]
-		address1 := t.Address1
-		address2 := t.Address2
-		amount := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(t.Decimal1)), nil)
-
-		price, err := m.uniswapManager.GetPriceFromUniswap(address1, address2)
-		if err != nil {
-			// Get from SushiSwap.
-			price, err = m.sushiswapManager.GetPriceFromSushiswap(address1, address2, amount)
-			if err != nil {
-				tokensNotAvailable = append(tokensNotAvailable, token)
-			} else {
-				tokenPrices = append(tokenPrices, &types.TokenPrice{
-					Id:    token,
-					Price: utils.ToSisuPrice(price, t.Decimal2),
-				})
-			}
-		} else {
-			tokenPrices = append(tokenPrices, &types.TokenPrice{
-				Id:    token,
-				Price: utils.ToSisuPrice(price, t.Decimal2),
-			})
-		}
-	}
-
-	// Get price from coin marketcap
-	if len(tokensNotAvailable) > 0 {
-		req := m.getPriceFromCoinmarketcap(tokensNotAvailable)
-		data, err := m.networkHttp.Get(req)
-		if err != nil {
-			return nil, err
-		}
-
-		response := &Response{}
-		err = json.Unmarshal(data, &response)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(response.Data) > 0 {
-			for key, value := range response.Data {
-				for _, token := range tokenList {
-					if key == token {
-						tokenPrices = append(tokenPrices, &types.TokenPrice{
-							Id:    token,
-							Price: utils.FloatToWei(value.Quote.Usd.Value),
-						})
-
-						break
-					}
-				}
-			}
-		}
-	}
-
-	now := time.Now()
-	for key, value := range tokenPrices {
-		m.cache.Store(key, &priceCache{
-			id:         value.Id,
-			price:      value.Price,
-			updateTime: now.UnixMilli(),
-		})
-
-	}
-
-	return tokenPrices, nil
+	return nil, nil
 }
 
 func (m *defaultTokenPriceManager) Stop() {

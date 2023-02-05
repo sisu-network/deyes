@@ -1,12 +1,8 @@
 package core
 
 import (
-	"math/big"
 	"sync"
 	"testing"
-
-	"github.com/sisu-network/deyes/core/oracle/sushiswap"
-	"github.com/sisu-network/deyes/core/oracle/uniswap"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/core/oracle"
@@ -46,21 +42,8 @@ func mockForProcessor() (config.Deyes, database.Database, *MockClient, oracle.To
 
 	networkHttp := network.NewHttp()
 	sisuClient := &MockClient{}
-	sushiswap := &sushiswap.MockSushiSwapManager{
-		GetPriceFromSushiswapFunc: func(tokenAddress1 string, tokenAddress2 string, amount *big.Int) (
-			*big.Int, error) {
-			price, _ := new(big.Int).SetString("10000000", 10)
-			return price, nil
-		},
-	}
 
-	uniswap := &uniswap.MockNewUniwapManager{
-		GetPriceFromUniswapFunc: func(tokenAddress1 string, tokenAddress2 string) (*big.Int, error) {
-			price, _ := new(big.Int).SetString("10000000", 10)
-			return price, nil
-		},
-	}
-	priceManager := oracle.NewTokenPriceManager(cfg, networkHttp, uniswap, sushiswap)
+	priceManager := oracle.NewTokenPriceManager(cfg, networkHttp)
 
 	return cfg, db, sisuClient, priceManager
 
