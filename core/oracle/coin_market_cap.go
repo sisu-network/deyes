@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"net/http"
+	"strings"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
@@ -30,7 +32,11 @@ func (p *CoinMarketCap) GetPrice(token config.Token) (*big.Int, error) {
 		panic(err)
 	}
 
-	req.Header.Add("X-CMC_PRO_API_KEY", p.providerCfg.Secret)
+	secret := p.randomSecret()
+	if len(secret) == 0 {
+		return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
+	}
+	req.Header.Add("X-CMC_PRO_API_KEY", secret)
 
 	q := req.URL.Query()
 	q.Add("symbol", token.Symbol)
@@ -65,4 +71,13 @@ func (p *CoinMarketCap) GetPrice(token config.Token) (*big.Int, error) {
 	price := utils.FloatToWei(tokenPrice.Quote.Usd.Value)
 
 	return price, nil
+}
+
+func (p *CoinMarketCap) randomSecret() string {
+	secrets := strings.Split(p.providerCfg.Secrets, ",")
+	if len(secrets) == 0 {
+		return ""
+	}
+
+	return secrets[rand.Intn(len(secrets))]
 }
