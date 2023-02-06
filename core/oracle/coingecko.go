@@ -36,11 +36,11 @@ func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
 		panic(err)
 	}
 
-	secret := p.randomSecret()
-	if len(secret) == 0 {
-		return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
+	// secret := p.randomSecret()
+	// if len(secret) == 0 {
+	// 	return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
+	// }
+	// req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()

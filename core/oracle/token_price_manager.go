@@ -48,11 +48,17 @@ func NewTokenPriceManager(providerCfgs map[string]config.PriceProvider,
 		case "coin_market_cap":
 			provider := NewCoinMarketCap(networkHttp, providerCfg)
 			providers[name] = provider
+
 		case "coin_brain":
 			provider := NewCoinBrainProvider(networkHttp, providerCfg)
 			providers[name] = provider
+
 		case "coingecko":
-			provider := NewCoinBrainProvider(networkHttp, providerCfg)
+			provider := NewCoingeckoProvider(networkHttp, providerCfg)
+			providers[name] = provider
+
+		case "portal_fi":
+			provider := NewPortalFiProvider(networkHttp, providerCfg)
 			providers[name] = provider
 
 		default:

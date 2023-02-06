@@ -14,43 +14,36 @@ import (
 	"github.com/sisu-network/deyes/utils"
 )
 
-type CoinCapProvider struct {
+type PortalFiProvider struct {
 	providerCfg config.PriceProvider
 	networkHttp network.Http
 }
 
-func NewCoinCapProvider(networkHttp network.Http, providerCfg config.PriceProvider) Provider {
-	return &CoinCapProvider{
+func NewPortalFiProvider(networkHttp network.Http, providerCfg config.PriceProvider) Provider {
+	return &PortalFiProvider{
 		networkHttp: networkHttp,
 		providerCfg: providerCfg,
 	}
 }
 
-func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
+func (p *PortalFiProvider) GetPrice(token config.Token) (*big.Int, error) {
 	if token.NameLowerCase == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
 
-	baseUrl := fmt.Sprintf("%s/%s", p.providerCfg.Url, token.NameLowerCase)
-
+	baseUrl := fmt.Sprintf("%s?addresses=%s:%s", p.providerCfg.Url, token.ChainName, token.Address)
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	secret := p.randomSecret()
-	if len(secret) == 0 {
-		return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
-
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()
 
 	type Response struct {
-		Data struct {
-			PriceUsd string `json:"priceUsd"`
-		} `json:"data"`
+		Tokens []struct {
+			Price float32 `json:"price"`
+		} `json:"tokens"`
 	}
 
 	data, err := p.networkHttp.Get(req)
@@ -64,10 +57,10 @@ func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
 		return nil, err
 	}
 
-	return utils.UsdToSisuPrice(response.Data.PriceUsd)
+	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response.Tokens[0].Price))
 }
 
-func (p *CoinCapProvider) randomSecret() string {
+func (p *PortalFiProvider) randomSecret() string {
 	secrets := strings.Split(p.providerCfg.Secrets, ",")
 	if len(secrets) == 0 {
 		return ""
