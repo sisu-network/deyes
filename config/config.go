@@ -46,6 +46,8 @@ type Chain struct {
 type Token struct {
 	Symbol        string `toml:"symbol"`
 	NameLowerCase string `toml:"name_lower_case"`
+	Address       string `toml:"address"`
+	ChainId       string `toml:"chainId"`
 }
 
 type PriceProvider struct {
