@@ -26,11 +26,12 @@ func NewCoingeckoProvider(networkHttp network.Http, providerCfg config.PriceProv
 }
 
 func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
-	if token.CoincapName == "" {
+	coinId := token.CoinGeckoName
+	if coinId == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
 
-	baseUrl := fmt.Sprintf("%s?ids=%s&vs_currencies=usd", p.providerCfg.Url, token.CoincapName)
+	baseUrl := fmt.Sprintf("%s?ids=%s&vs_currencies=usd", p.providerCfg.Url, coinId)
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
@@ -54,7 +55,7 @@ func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
 		return nil, err
 	}
 
-	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response[token.CoincapName].USD))
+	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response[coinId].USD))
 }
 
 func (p *CoingeckoProvider) randomSecret() string {
