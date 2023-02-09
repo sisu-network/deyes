@@ -27,11 +27,11 @@ func NewCoinCapProvider(networkHttp network.Http, providerCfg config.PriceProvid
 }
 
 func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
-	if token.NameLowerCase == "" {
+	if token.CoincapName == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
 
-	baseUrl := fmt.Sprintf("%s/%s", p.providerCfg.Url, token.NameLowerCase)
+	baseUrl := fmt.Sprintf("%s/%s", p.providerCfg.Url, token.CoincapName)
 
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {

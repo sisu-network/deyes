@@ -26,21 +26,15 @@ func NewCoingeckoProvider(networkHttp network.Http, providerCfg config.PriceProv
 }
 
 func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
-	if token.NameLowerCase == "" {
+	if token.CoincapName == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
 
-	baseUrl := fmt.Sprintf("%s?ids=%s&vs_currencies=usd", p.providerCfg.Url, token.NameLowerCase)
+	baseUrl := fmt.Sprintf("%s?ids=%s&vs_currencies=usd", p.providerCfg.Url, token.CoincapName)
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
 	}
-
-	// secret := p.randomSecret()
-	// if len(secret) == 0 {
-	// 	return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
-	// }
-	// req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
 
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()
@@ -60,7 +54,7 @@ func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
 		return nil, err
 	}
 
-	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response[token.NameLowerCase].USD))
+	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response[token.CoincapName].USD))
 }
 
 func (p *CoingeckoProvider) randomSecret() string {
