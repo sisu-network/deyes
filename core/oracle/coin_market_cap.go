@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
@@ -78,6 +79,7 @@ func (p *CoinMarketCap) randomSecret() string {
 	if len(secrets) == 0 {
 		return ""
 	}
-
-	return secrets[rand.Intn(len(secrets))]
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 := rand.New(s1)
+	return secrets[r1.Intn(len(secrets))]
 }

@@ -7,50 +7,41 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/sisu-network/deyes/config"
 	"github.com/sisu-network/deyes/network"
 	"github.com/sisu-network/deyes/utils"
 )
 
-type CoinCapProvider struct {
+type CoingeckoProvider struct {
 	providerCfg config.PriceProvider
 	networkHttp network.Http
 }
 
-func NewCoinCapProvider(networkHttp network.Http, providerCfg config.PriceProvider) Provider {
-	return &CoinCapProvider{
+func NewCoingeckoProvider(networkHttp network.Http, providerCfg config.PriceProvider) Provider {
+	return &CoingeckoProvider{
 		networkHttp: networkHttp,
 		providerCfg: providerCfg,
 	}
 }
 
-func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
-	if token.CoincapName == "" {
+func (p *CoingeckoProvider) GetPrice(token config.Token) (*big.Int, error) {
+	coinId := token.CoinGeckoName
+	if coinId == "" {
 		return nil, fmt.Errorf("Empty token lowercase name in coin cap, symbol = %s", token.Symbol)
 	}
 
-	baseUrl := fmt.Sprintf("%s/%s", p.providerCfg.Url, token.CoincapName)
-
+	baseUrl := fmt.Sprintf("%s?ids=%s&vs_currencies=usd", p.providerCfg.Url, coinId)
 	req, err := http.NewRequest("GET", baseUrl, nil)
 	if err != nil {
 		panic(err)
 	}
 
-	secret := p.randomSecret()
-	if len(secret) == 0 {
-		return nil, fmt.Errorf("Invalid secret %s", p.providerCfg.Secrets)
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", secret))
-
 	q := req.URL.Query()
 	req.URL.RawQuery = q.Encode()
 
 	type Response struct {
-		Data struct {
-			PriceUsd string `json:"priceUsd"`
-		} `json:"data"`
+		USD float32 `json:"usd"`
 	}
 
 	data, err := p.networkHttp.Get(req)
@@ -58,21 +49,20 @@ func (p *CoinCapProvider) GetPrice(token config.Token) (*big.Int, error) {
 		return nil, err
 	}
 
-	response := &Response{}
+	response := map[string]Response{}
 	err = json.Unmarshal(data, &response)
 	if err != nil {
 		return nil, err
 	}
 
-	return utils.UsdToSisuPrice(response.Data.PriceUsd)
+	return utils.UsdToSisuPrice(fmt.Sprintf("%f", response[coinId].USD))
 }
 
-func (p *CoinCapProvider) randomSecret() string {
+func (p *CoingeckoProvider) randomSecret() string {
 	secrets := strings.Split(p.providerCfg.Secrets, ",")
 	if len(secrets) == 0 {
 		return ""
 	}
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	return secrets[r1.Intn(len(secrets))]
+
+	return secrets[rand.Intn(len(secrets))]
 }

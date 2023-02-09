@@ -45,7 +45,8 @@ type Chain struct {
 
 type Token struct {
 	Symbol        string `toml:"symbol"`
-	NameLowerCase string `toml:"name_lower_case"`
+	CoincapName   string `toml:"coin_cap_name"`
+	CoinGeckoName string `toml:"coin_gecko_name"`
 }
 
 type PriceProvider struct {
@@ -62,9 +63,6 @@ type Deyes struct {
 
 	PriceProviders map[string]PriceProvider `toml:"price_providers"`
 	Tokens         map[string]Token         `toml:"tokens"`
-
-	// Used for Sushiswap & Uniswap to get token price.
-	EthRpcs []string `toml:"eth_rpcs"`
 
 	ServerPort    int    `toml:"server_port"`
 	SisuServerUrl string `toml:"sisu_server_url"`

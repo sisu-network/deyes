@@ -49,6 +49,10 @@ func NewTokenPriceManager(providerCfgs map[string]config.PriceProvider,
 			provider := NewCoinMarketCap(networkHttp, providerCfg)
 			providers[name] = provider
 
+		case "coingecko":
+			provider := NewCoingeckoProvider(networkHttp, providerCfg)
+			providers[name] = provider
+
 		default:
 			log.Errorf("Unknown price provider %s", name)
 		}
