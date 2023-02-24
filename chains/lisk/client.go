@@ -107,6 +107,10 @@ func (c *defaultClient) BlockNumber() (uint64, error) {
 		return 0, err
 	}
 	blocks := responseObject.Data
+	if len(blocks) == 0 {
+		return 0, fmt.Errorf("Blocks length is 0")
+	}
+
 	latestBlock := blocks[0]
 	return latestBlock.Height, nil
 }
