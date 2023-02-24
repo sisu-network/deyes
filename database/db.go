@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate"
@@ -103,6 +104,11 @@ func (d *DefaultDatabase) Connect() error {
 			return err
 		}
 	}
+
+	database.SetMaxIdleConns(5)
+	database.SetMaxOpenConns(10)
+	database.SetConnMaxIdleTime(5 * time.Second)
+	database.SetConnMaxLifetime(30 * time.Second)
 
 	d.db = database
 	log.Info("Db is connected successfully")
